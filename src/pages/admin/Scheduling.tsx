@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { mockInterviewers } from "@/lib/mock-data";
 import { Interviewer, Schedule } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,12 +24,13 @@ import { DateRange } from "react-day-picker";
 import { CalendarWithTime } from "@/components/ui/calendar-with-time";
 import { format, parseISO, addDays, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
 import { PlusCircle, ArrowLeft, ArrowRight, Pencil, Trash2, Calendar } from "lucide-react";
+import { useSchedules } from "@/hooks/useSchedules";
+import { useInterviewers } from "@/hooks/useInterviewers";
 
 const Scheduling = () => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const [selectedInterviewerCode, setSelectedInterviewerCode] = useState<string>("");
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
@@ -42,6 +43,19 @@ const Scheduling = () => {
   const [endTime, setEndTime] = useState("17:00");
   const [status, setStatus] = useState<"scheduled" | "completed" | "cancelled">("scheduled");
   
+  // Use the custom hooks to fetch data
+  const { interviewers, loading: interviewersLoading } = useInterviewers();
+  const selectedInterviewer = interviewers.find(i => i.code === selectedInterviewerCode);
+  const { 
+    schedules, 
+    loading: schedulesLoading, 
+    addSchedule, 
+    updateSchedule, 
+    deleteSchedule 
+  } = useSchedules(selectedInterviewer?.id);
+  
+  const loading = interviewersLoading || schedulesLoading;
+  
   useEffect(() => {
     const interviewerFromUrl = searchParams.get("interviewer");
     if (interviewerFromUrl) {
@@ -49,48 +63,8 @@ const Scheduling = () => {
     }
   }, [searchParams]);
   
-  useEffect(() => {
-    if (selectedInterviewerCode) {
-      const mockSchedules: Schedule[] = [];
-      
-      const daysInWeek = eachDayOfInterval({
-        start: currentWeekStart,
-        end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }),
-      });
-      
-      for (let i = 0; i < 3; i++) {
-        const randomDayIndex = Math.floor(Math.random() * daysInWeek.length);
-        const day = daysInWeek[randomDayIndex];
-        
-        mockSchedules.push({
-          id: `schedule-${i}`,
-          interviewer_id: selectedInterviewerCode,
-          start_time: new Date(
-            day.getFullYear(),
-            day.getMonth(),
-            day.getDate(),
-            9 + Math.floor(Math.random() * 3),
-            0
-          ).toISOString(),
-          end_time: new Date(
-            day.getFullYear(),
-            day.getMonth(),
-            day.getDate(),
-            14 + Math.floor(Math.random() * 3),
-            0
-          ).toISOString(),
-          status: Math.random() > 0.7 ? "completed" : "scheduled",
-        });
-      }
-      
-      setSchedules(mockSchedules);
-    } else {
-      setSchedules([]);
-    }
-  }, [selectedInterviewerCode, currentWeekStart]);
-  
   const handleAddNew = () => {
-    if (!selectedInterviewerCode) {
+    if (!selectedInterviewerCode || !selectedInterviewer) {
       toast({
         title: "Error",
         description: "Please select an interviewer first",
@@ -135,11 +109,11 @@ const Scheduling = () => {
     setShowDeleteDialog(true);
   };
   
-  const handleSubmit = () => {
-    if (!dateRange?.from || !startTime || !endTime) {
+  const handleSubmit = async () => {
+    if (!dateRange?.from || !startTime || !endTime || !selectedInterviewer) {
       toast({
         title: "Error",
-        description: "Please select dates and times",
+        description: "Please select dates, times and an interviewer",
         variant: "destructive",
       });
       return;
@@ -154,57 +128,35 @@ const Scheduling = () => {
     const endDateTime = new Date(dateRange.to || dateRange.from);
     endDateTime.setHours(endHours, endMinutes);
     
-    if (isEditing && selectedSchedule) {
-      const updatedSchedules = schedules.map((schedule) => {
-        if (schedule.id === selectedSchedule.id) {
-          return {
-            ...schedule,
-            start_time: startDateTime.toISOString(),
-            end_time: endDateTime.toISOString(),
-            status,
-          };
-        }
-        return schedule;
-      });
-      
-      setSchedules(updatedSchedules);
-      toast({
-        title: "Success",
-        description: "Schedule updated successfully",
-      });
-    } else {
-      const newSchedule: Schedule = {
-        id: Date.now().toString(),
-        interviewer_id: selectedInterviewerCode,
+    try {
+      const scheduleData = {
+        interviewer_id: selectedInterviewer.id,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
         status,
       };
       
-      setSchedules([...schedules, newSchedule]);
-      toast({
-        title: "Success",
-        description: "New schedule added successfully",
-      });
+      if (isEditing && selectedSchedule) {
+        await updateSchedule(selectedSchedule.id, scheduleData);
+      } else {
+        await addSchedule(scheduleData);
+      }
+      
+      setShowAddEditDialog(false);
+    } catch (error) {
+      console.error("Error saving schedule:", error);
     }
-    
-    setShowAddEditDialog(false);
   };
   
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedSchedule) return;
     
-    const updatedSchedules = schedules.filter(
-      (schedule) => schedule.id !== selectedSchedule.id
-    );
-    
-    setSchedules(updatedSchedules);
-    setShowDeleteDialog(false);
-    
-    toast({
-      title: "Success",
-      description: "Schedule deleted successfully",
-    });
+    try {
+      await deleteSchedule(selectedSchedule.id);
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+    }
   };
   
   const prevWeek = () => {
@@ -263,7 +215,7 @@ const Scheduling = () => {
                 <SelectValue placeholder="Select an interviewer" />
               </SelectTrigger>
               <SelectContent>
-                {mockInterviewers.map((interviewer) => (
+                {interviewers.map((interviewer) => (
                   <SelectItem key={interviewer.id} value={interviewer.code}>
                     {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
                   </SelectItem>
@@ -297,13 +249,20 @@ const Scheduling = () => {
           </div>
         </div>
         
-        {selectedInterviewerCode ? (
+        {loading ? (
+          <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+            <h3 className="text-lg font-medium mb-2">Loading...</h3>
+            <p className="text-muted-foreground">
+              Please wait while we load the schedules.
+            </p>
+          </div>
+        ) : selectedInterviewerCode ? (
           <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
             <div className="p-4 border-b">
               <h2 className="font-semibold">
                 Weekly Schedule for{" "}
-                {mockInterviewers.find(i => i.code === selectedInterviewerCode)?.first_name || ""}{" "}
-                {mockInterviewers.find(i => i.code === selectedInterviewerCode)?.last_name || ""}
+                {interviewers.find(i => i.code === selectedInterviewerCode)?.first_name || ""}{" "}
+                {interviewers.find(i => i.code === selectedInterviewerCode)?.last_name || ""}
               </h2>
             </div>
             
@@ -429,7 +388,7 @@ const Scheduling = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockInterviewers.map((interviewer) => (
+                  {interviewers.map((interviewer) => (
                     <SelectItem key={interviewer.id} value={interviewer.code}>
                       {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
                     </SelectItem>
@@ -485,8 +444,8 @@ const Scheduling = () => {
           <div className="py-4">
             <p>
               Are you sure you want to delete this schedule for{" "}
-              {selectedSchedule && mockInterviewers.find(i => i.code === selectedSchedule.interviewer_id)?.first_name}{" "}
-              {selectedSchedule && mockInterviewers.find(i => i.code === selectedSchedule.interviewer_id)?.last_name}?
+              {selectedSchedule && interviewers.find(i => i.id === selectedSchedule.interviewer_id)?.first_name}{" "}
+              {selectedSchedule && interviewers.find(i => i.id === selectedSchedule.interviewer_id)?.last_name}?
             </p>
             <p className="text-sm text-muted-foreground mt-2">
               This action cannot be undone.
