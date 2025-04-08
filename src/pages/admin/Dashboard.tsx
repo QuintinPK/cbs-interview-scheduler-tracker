@@ -12,11 +12,11 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    const loadData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Load interviewers
+        // Fetch interviewers
         const { data: interviewersData, error: interviewersError } = await supabase
           .from('interviewers')
           .select('*');
@@ -24,68 +24,62 @@ const Dashboard = () => {
         if (interviewersError) throw interviewersError;
         setInterviewers(interviewersData || []);
         
-        // Load sessions from today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
+        // Fetch sessions
         const { data: sessionsData, error: sessionsError } = await supabase
           .from('sessions')
           .select('*')
-          .gte('start_time', today.toISOString());
+          .order('start_time', { ascending: false });
           
         if (sessionsError) throw sessionsError;
-        setSessions(sessionsData || []);
+        
+        const transformedSessions = sessionsData.map(session => ({
+          ...session,
+          start_latitude: session.start_latitude !== null ? Number(session.start_latitude) : null,
+          start_longitude: session.start_longitude !== null ? Number(session.start_longitude) : null,
+          end_latitude: session.end_latitude !== null ? Number(session.end_latitude) : null,
+          end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
+        }));
+        
+        setSessions(transformedSessions || []);
       } catch (error) {
-        console.error("Error loading dashboard data:", error);
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
     
-    loadData();
+    fetchData();
+    
+    // Setup real-time listener for active sessions
+    const channel = supabase
+      .channel('public:sessions')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'sessions' 
+      }, () => {
+        fetchData();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
-  
-  // Calculate stats
-  const activeSessionsCount = sessions.filter(s => s.is_active).length;
-  const totalSessionsToday = sessions.length;
-  const hoursToday = sessions.reduce((total, session) => {
-    if (!session.end_time) return total;
-    const start = new Date(session.start_time);
-    const end = new Date(session.end_time);
-    const durationHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    return total + durationHours;
-  }, 0);
   
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ActiveInterviewersCard />
-          <RecentlyActiveCard sessions={sessions} interviewers={interviewers} />
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="md:col-span-8">
+          <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+          <div className="grid gap-6">
+            <ActiveInterviewersCard sessions={sessions} interviewers={interviewers} loading={loading} />
+          </div>
         </div>
         
-        <div className="p-6 bg-white rounded-xl shadow-sm border">
-          <h2 className="text-xl font-semibold mb-4">Quick Stats</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-500">Total Interviewers</p>
-              <p className="text-2xl font-bold text-cbs">{interviewers.length}</p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-500">Active Sessions</p>
-              <p className="text-2xl font-bold text-cbs">{activeSessionsCount}</p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-500">Sessions Today</p>
-              <p className="text-2xl font-bold text-cbs">{totalSessionsToday}</p>
-            </div>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-500">Total Hours Today</p>
-              <p className="text-2xl font-bold text-cbs">{Math.round(hoursToday)}</p>
-            </div>
-          </div>
+        <div className="md:col-span-4">
+          <h2 className="text-xl font-semibold mb-4">Today's Activity</h2>
+          <RecentlyActiveCard sessions={sessions} interviewers={interviewers} />
         </div>
       </div>
     </AdminLayout>

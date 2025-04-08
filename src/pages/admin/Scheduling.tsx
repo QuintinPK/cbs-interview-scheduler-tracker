@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -36,16 +35,13 @@ const Scheduling = () => {
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   
-  // Current week
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   
-  // Form state
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [status, setStatus] = useState<"scheduled" | "completed" | "cancelled">("scheduled");
   
-  // Get interviewerCode from URL if available
   useEffect(() => {
     const interviewerFromUrl = searchParams.get("interviewer");
     if (interviewerFromUrl) {
@@ -53,34 +49,30 @@ const Scheduling = () => {
     }
   }, [searchParams]);
   
-  // Generate mock schedules for the selected interviewer
   useEffect(() => {
     if (selectedInterviewerCode) {
-      // For demo purposes, generate some random schedules
       const mockSchedules: Schedule[] = [];
       
-      // Generate schedules for the current week
       const daysInWeek = eachDayOfInterval({
         start: currentWeekStart,
         end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }),
       });
       
-      // Add 2-3 schedules for the selected interviewer
       for (let i = 0; i < 3; i++) {
         const randomDayIndex = Math.floor(Math.random() * daysInWeek.length);
         const day = daysInWeek[randomDayIndex];
         
         mockSchedules.push({
           id: `schedule-${i}`,
-          interviewerCode: selectedInterviewerCode,
-          startTime: new Date(
+          interviewer_id: selectedInterviewerCode,
+          start_time: new Date(
             day.getFullYear(),
             day.getMonth(),
             day.getDate(),
             9 + Math.floor(Math.random() * 3),
             0
           ).toISOString(),
-          endTime: new Date(
+          end_time: new Date(
             day.getFullYear(),
             day.getMonth(),
             day.getDate(),
@@ -123,8 +115,8 @@ const Scheduling = () => {
     setIsEditing(true);
     setSelectedSchedule(schedule);
     
-    const startDate = parseISO(schedule.startTime);
-    const endDate = parseISO(schedule.endTime);
+    const startDate = parseISO(schedule.start_time);
+    const endDate = parseISO(schedule.end_time);
     
     setDateRange({
       from: startDate,
@@ -163,13 +155,12 @@ const Scheduling = () => {
     endDateTime.setHours(endHours, endMinutes);
     
     if (isEditing && selectedSchedule) {
-      // Update existing schedule
       const updatedSchedules = schedules.map((schedule) => {
         if (schedule.id === selectedSchedule.id) {
           return {
             ...schedule,
-            startTime: startDateTime.toISOString(),
-            endTime: endDateTime.toISOString(),
+            start_time: startDateTime.toISOString(),
+            end_time: endDateTime.toISOString(),
             status,
           };
         }
@@ -182,12 +173,11 @@ const Scheduling = () => {
         description: "Schedule updated successfully",
       });
     } else {
-      // Add new schedule
       const newSchedule: Schedule = {
         id: Date.now().toString(),
-        interviewerCode: selectedInterviewerCode,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
+        interviewer_id: selectedInterviewerCode,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
         status,
       };
       
@@ -229,19 +219,16 @@ const Scheduling = () => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
   
-  // Generate days for the week view
   const weekDays = eachDayOfInterval({
     start: currentWeekStart,
     end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }),
   });
   
-  // Hours for the calendar
-  const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 8 AM to 7 PM
+  const hours = Array.from({ length: 12 }, (_, i) => i + 8);
   
-  // Get schedules for a specific day
   const getSchedulesForDay = (day: Date) => {
     return schedules.filter(schedule => {
-      const scheduleDate = parseISO(schedule.startTime);
+      const scheduleDate = parseISO(schedule.start_time);
       return (
         scheduleDate.getDate() === day.getDate() &&
         scheduleDate.getMonth() === day.getMonth() &&
@@ -265,7 +252,6 @@ const Scheduling = () => {
           </Button>
         </div>
         
-        {/* Interviewer Selection */}
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="max-w-md">
             <Label htmlFor="interviewer-select">Select Interviewer</Label>
@@ -279,7 +265,7 @@ const Scheduling = () => {
               <SelectContent>
                 {mockInterviewers.map((interviewer) => (
                   <SelectItem key={interviewer.id} value={interviewer.code}>
-                    {interviewer.code} - {interviewer.firstName} {interviewer.lastName}
+                    {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -287,7 +273,6 @@ const Scheduling = () => {
           </div>
         </div>
         
-        {/* Week Navigation */}
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="flex justify-between items-center">
             <Button variant="outline" onClick={prevWeek}>
@@ -317,15 +302,13 @@ const Scheduling = () => {
             <div className="p-4 border-b">
               <h2 className="font-semibold">
                 Weekly Schedule for{" "}
-                {mockInterviewers.find(i => i.code === selectedInterviewerCode)?.firstName || ""}{" "}
-                {mockInterviewers.find(i => i.code === selectedInterviewerCode)?.lastName || ""}
+                {mockInterviewers.find(i => i.code === selectedInterviewerCode)?.first_name || ""}{" "}
+                {mockInterviewers.find(i => i.code === selectedInterviewerCode)?.last_name || ""}
               </h2>
             </div>
             
-            {/* Calendar Grid */}
             <div className="overflow-x-auto">
               <div className="min-w-[768px]">
-                {/* Day Headers */}
                 <div className="grid grid-cols-8 border-b">
                   <div className="p-2 text-center font-medium border-r">Hour</div>
                   {weekDays.map((day, index) => (
@@ -343,7 +326,6 @@ const Scheduling = () => {
                   ))}
                 </div>
                 
-                {/* Hour Rows */}
                 <div className="relative">
                   {hours.map((hour) => (
                     <div key={hour} className="grid grid-cols-8 border-b">
@@ -364,12 +346,11 @@ const Scheduling = () => {
                             }`}
                           >
                             {daySchedules.map((schedule) => {
-                              const start = parseISO(schedule.startTime);
-                              const end = parseISO(schedule.endTime);
+                              const start = parseISO(schedule.start_time);
+                              const end = parseISO(schedule.end_time);
                               const startHour = start.getHours();
                               const endHour = end.getHours();
                               
-                              // Only show if this schedule starts or includes this hour
                               if (hour >= startHour && hour < endHour) {
                                 return (
                                   <div 
@@ -431,7 +412,6 @@ const Scheduling = () => {
         )}
       </div>
       
-      {/* Add/Edit Dialog */}
       <Dialog open={showAddEditDialog} onOpenChange={setShowAddEditDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -451,7 +431,7 @@ const Scheduling = () => {
                 <SelectContent>
                   {mockInterviewers.map((interviewer) => (
                     <SelectItem key={interviewer.id} value={interviewer.code}>
-                      {interviewer.code} - {interviewer.firstName} {interviewer.lastName}
+                      {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -496,7 +476,6 @@ const Scheduling = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
@@ -506,8 +485,8 @@ const Scheduling = () => {
           <div className="py-4">
             <p>
               Are you sure you want to delete this schedule for{" "}
-              {selectedSchedule && mockInterviewers.find(i => i.code === selectedSchedule.interviewerCode)?.firstName}{" "}
-              {selectedSchedule && mockInterviewers.find(i => i.code === selectedSchedule.interviewerCode)?.lastName}?
+              {selectedSchedule && mockInterviewers.find(i => i.code === selectedSchedule.interviewer_id)?.first_name}{" "}
+              {selectedSchedule && mockInterviewers.find(i => i.code === selectedSchedule.interviewer_id)?.last_name}?
             </p>
             <p className="text-sm text-muted-foreground mt-2">
               This action cannot be undone.
