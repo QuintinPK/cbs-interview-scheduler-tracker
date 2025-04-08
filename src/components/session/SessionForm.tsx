@@ -7,6 +7,7 @@ import { Session, Location } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
+import CurrentSessionTime from "./CurrentSessionTime";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -164,6 +165,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
           <p className="text-xl font-bold text-gray-800">{totalActiveTime}</p>
         </div>
       )}
+      
+      <CurrentSessionTime startTime={startTime} isRunning={isRunning} />
       
       {isRunning && (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">

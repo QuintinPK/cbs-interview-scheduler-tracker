@@ -24,6 +24,7 @@ import { format } from "date-fns";
 import { cn, formatDateTime } from "@/lib/utils";
 import SessionFilters from "@/components/session/SessionFilters";
 import SessionList from "@/components/session/SessionList";
+import SessionTotals from "@/components/session/SessionTotals";
 import { useSessions } from "@/hooks/useSessions";
 import { useToast } from "@/hooks/use-toast";
 
@@ -167,6 +168,13 @@ const Sessions = () => {
             Export to CSV
           </Button>
         </div>
+        
+        {/* Session Totals */}
+        <SessionTotals 
+          sessions={filteredSessions} 
+          loading={loading} 
+          getInterviewerCode={getInterviewerCode} 
+        />
         
         {/* Filters */}
         <SessionFilters
