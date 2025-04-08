@@ -22,7 +22,17 @@ import {
 } from "@/components/ui/dialog";
 import { DateRange } from "react-day-picker";
 import { CalendarWithTime } from "@/components/ui/calendar-with-time";
-import { format, parseISO, addDays, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import { 
+  format, 
+  parseISO, 
+  addDays, 
+  startOfWeek, 
+  endOfWeek, 
+  eachDayOfInterval,
+  differenceInDays,
+  isEqual,
+  isSameDay
+} from "date-fns";
 import { PlusCircle, ArrowLeft, ArrowRight, Pencil, Trash2, Calendar } from "lucide-react";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useInterviewers } from "@/hooks/useInterviewers";
@@ -122,13 +132,14 @@ const Scheduling = () => {
     const [startHours, startMinutes] = startTime.split(":").map(Number);
     const [endHours, endMinutes] = endTime.split(":").map(Number);
     
-    const startDateTime = new Date(dateRange.from);
-    startDateTime.setHours(startHours, startMinutes);
-    
-    const endDateTime = new Date(dateRange.to || dateRange.from);
-    endDateTime.setHours(endHours, endMinutes);
-    
-    try {
+    // If we're editing, just update the existing schedule
+    if (isEditing && selectedSchedule) {
+      const startDateTime = new Date(dateRange.from);
+      startDateTime.setHours(startHours, startMinutes);
+      
+      const endDateTime = new Date(dateRange.from);
+      endDateTime.setHours(endHours, endMinutes);
+      
       const scheduleData = {
         interviewer_id: selectedInterviewer.id,
         start_time: startDateTime.toISOString(),
@@ -136,15 +147,72 @@ const Scheduling = () => {
         status,
       };
       
-      if (isEditing && selectedSchedule) {
+      try {
         await updateSchedule(selectedSchedule.id, scheduleData);
-      } else {
+        setShowAddEditDialog(false);
+      } catch (error) {
+        console.error("Error updating schedule:", error);
+      }
+      return;
+    }
+    
+    // If we're adding a new schedule, handle date range
+    try {
+      // If no end date or if start and end dates are the same, just create one schedule
+      if (!dateRange.to || isSameDay(dateRange.from, dateRange.to)) {
+        const startDateTime = new Date(dateRange.from);
+        startDateTime.setHours(startHours, startMinutes);
+        
+        const endDateTime = new Date(dateRange.from);
+        endDateTime.setHours(endHours, endMinutes);
+        
+        const scheduleData = {
+          interviewer_id: selectedInterviewer.id,
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime.toISOString(),
+          status,
+        };
+        
         await addSchedule(scheduleData);
+      } else {
+        // Create schedules for each day in the range
+        const days = eachDayOfInterval({
+          start: dateRange.from,
+          end: dateRange.to
+        });
+        
+        // Use Promise.all to create all schedules in parallel
+        await Promise.all(days.map(async (day) => {
+          const startDateTime = new Date(day);
+          startDateTime.setHours(startHours, startMinutes);
+          
+          const endDateTime = new Date(day);
+          endDateTime.setHours(endHours, endMinutes);
+          
+          const scheduleData = {
+            interviewer_id: selectedInterviewer.id,
+            start_time: startDateTime.toISOString(),
+            end_time: endDateTime.toISOString(),
+            status,
+          };
+          
+          await addSchedule(scheduleData);
+        }));
+        
+        toast({
+          title: "Success",
+          description: `Created ${days.length} schedules for the selected date range`,
+        });
       }
       
       setShowAddEditDialog(false);
     } catch (error) {
-      console.error("Error saving schedule:", error);
+      console.error("Error saving schedules:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem creating the schedules",
+        variant: "destructive",
+      });
     }
   };
   

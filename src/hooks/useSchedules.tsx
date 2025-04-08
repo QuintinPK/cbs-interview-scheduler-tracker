@@ -50,24 +50,17 @@ export const useSchedules = (interviewerId?: string) => {
 
   useEffect(() => {
     loadSchedules();
-  }, [interviewerId, toast]);
+  }, [interviewerId]);
 
   const addSchedule = async (schedule: Omit<Schedule, 'id'>) => {
     try {
-      setLoading(true);
-      
       const { error } = await supabase
         .from('schedules')
         .insert([schedule]);
         
       if (error) throw error;
       
-      toast({
-        title: "Success",
-        description: "New schedule added successfully",
-      });
-      
-      await loadSchedules();
+      return await loadSchedules();
     } catch (error) {
       console.error("Error adding schedule:", error);
       toast({
@@ -76,8 +69,6 @@ export const useSchedules = (interviewerId?: string) => {
         variant: "destructive",
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
