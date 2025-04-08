@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
-import RecentlyActiveCard from "@/components/admin/RecentlyActiveCard";
+import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
 import QuickStatsCard from "@/components/admin/QuickStatsCard";
 import InactiveInterviewersCard from "@/components/admin/InactiveInterviewersCard";
 import { Session, Interviewer } from "@/types";
@@ -73,7 +73,7 @@ const Dashboard = () => {
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         
-        {/* Quick Stats now at the top */}
+        {/* Quick Stats at the top */}
         <div>
           <QuickStatsCard 
             sessions={sessions} 
@@ -83,7 +83,7 @@ const Dashboard = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <RecentlyActiveCard 
+          <ActiveInterviewersCard 
             sessions={sessions} 
             interviewers={interviewers} 
             loading={loading} 

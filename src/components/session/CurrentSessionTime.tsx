@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
-import { differenceInSeconds, intervalToDuration } from "date-fns";
+import { format, differenceInSeconds } from "date-fns";
 
 interface CurrentSessionTimeProps {
   startTime: string | null;
@@ -33,14 +33,22 @@ const CurrentSessionTime: React.FC<CurrentSessionTimeProps> = ({ startTime, isRu
         const now = new Date();
         const totalSeconds = differenceInSeconds(now, start);
         
-        // Format the duration
-        const duration = intervalToDuration({ start: 0, end: totalSeconds * 1000 });
-        const hours = duration.hours! + (duration.days || 0) * 24;
-        const formattedDuration = `${hours}h ${duration.minutes}m ${duration.seconds}s`;
+        if (isNaN(totalSeconds)) {
+          console.error("Invalid time calculation", { startTime, now });
+          setElapsedTime("0h 0m 0s");
+          return;
+        }
+        
+        // Calculate hours, minutes, seconds manually to avoid NaN errors
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = Math.floor(totalSeconds % 60);
+        
+        const formattedDuration = `${hours}h ${minutes}m ${seconds}s`;
         setElapsedTime(formattedDuration);
       } catch (error) {
         console.error("Error calculating elapsed time:", error);
-        setElapsedTime("Error");
+        setElapsedTime("0h 0m 0s");
       }
     }
   }, [startTime, isRunning]);
