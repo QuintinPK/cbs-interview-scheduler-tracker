@@ -1,63 +1,22 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { formatTime } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 
-const ActiveInterviewersCard: React.FC = () => {
-  const [activeSessions, setActiveSessions] = useState<Session[]>([]);
-  const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        
-        // Load interviewers
-        const { data: interviewersData, error: interviewersError } = await supabase
-          .from('interviewers')
-          .select('*');
-          
-        if (interviewersError) throw interviewersError;
-        setInterviewers(interviewersData || []);
-        
-        // Load active sessions
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('is_active', true);
-          
-        if (sessionsError) throw sessionsError;
-        setActiveSessions(sessionsData || []);
-      } catch (error) {
-        console.error("Error loading active sessions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadData();
-    
-    // Set up real-time subscription for active sessions
-    const subscription = supabase
-      .channel('public:sessions')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'sessions'
-      }, () => {
-        // Refresh the data when sessions change
-        loadData();
-      })
-      .subscribe();
-      
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+interface ActiveInterviewersCardProps {
+  sessions: Session[];
+  interviewers?: Interviewer[];
+  loading?: boolean;
+}
+
+const ActiveInterviewersCard: React.FC<ActiveInterviewersCardProps> = ({
+  sessions,
+  interviewers = [],
+  loading = false
+}) => {
+  // Get only active sessions
+  const activeSessions = sessions.filter(session => session.is_active);
   
   // Get interviewer code from ID
   const getInterviewerCode = (interviewerId: string) => {
@@ -68,21 +27,13 @@ const ActiveInterviewersCard: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold flex items-center">
-          <span className="relative mr-2">
-            <span className="absolute top-1 left-0 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span className="absolute top-1 left-0 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
-            <span className="ml-3">Active Interviewers</span>
-          </span>
-        </CardTitle>
+        <CardTitle className="text-lg font-semibold">Active Interviewers</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center items-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-cbs" />
-          </div>
+          <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : activeSessions.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">No active interviewers at the moment</p>
+          <p className="text-muted-foreground text-center py-4">No active interviewers</p>
         ) : (
           <div className="space-y-4">
             {activeSessions.map((session) => (
@@ -93,7 +44,7 @@ const ActiveInterviewersCard: React.FC = () => {
                     Started at {formatTime(session.start_time)}
                   </p>
                 </div>
-                <div className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                <div className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-medium">
                   Active
                 </div>
               </div>
