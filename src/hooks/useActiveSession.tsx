@@ -94,6 +94,10 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   }, [interviewerCode, toast]);
 
   const switchUser = () => {
+    // Clear the interviewer code from localStorage
+    localStorage.removeItem("interviewerCode");
+    
+    // Reset all state
     setInterviewerCode("");
     setIsPrimaryUser(false);
     setIsRunning(false);
