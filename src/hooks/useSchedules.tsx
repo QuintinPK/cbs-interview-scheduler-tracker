@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Schedule } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
+import { startOfWeek, endOfWeek, parseISO, differenceInHours } from "date-fns";
 
 export const useSchedules = (interviewerId?: string) => {
   const { toast } = useToast();
@@ -132,12 +133,35 @@ export const useSchedules = (interviewerId?: string) => {
     }
   };
 
+  const getScheduledHoursForWeek = (weekStart: Date) => {
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    
+    // Filter schedules for the given week that are not cancelled
+    const weekSchedules = schedules.filter(schedule => {
+      const scheduleDate = parseISO(schedule.start_time);
+      return (
+        scheduleDate >= weekStart && 
+        scheduleDate <= weekEnd && 
+        schedule.status !== 'cancelled'
+      );
+    });
+    
+    // Calculate total hours
+    return weekSchedules.reduce((total, schedule) => {
+      const start = parseISO(schedule.start_time);
+      const end = parseISO(schedule.end_time);
+      const hours = differenceInHours(end, start);
+      return total + hours;
+    }, 0);
+  };
+
   return {
     schedules,
     loading,
     addSchedule,
     updateSchedule,
     deleteSchedule,
+    getScheduledHoursForWeek,
     refresh: loadSchedules
   };
 };

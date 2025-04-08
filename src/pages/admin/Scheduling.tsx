@@ -10,6 +10,7 @@ import { format, parseISO, startOfWeek } from "date-fns";
 import { PlusCircle } from "lucide-react";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useInterviewers } from "@/hooks/useInterviewers";
+import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
 
 // Import our new component files
 import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
@@ -42,10 +43,21 @@ const Scheduling = () => {
     loading: schedulesLoading, 
     addSchedule, 
     updateSchedule, 
-    deleteSchedule 
+    deleteSchedule,
+    getScheduledHoursForWeek
   } = useSchedules(selectedInterviewer?.id);
   
-  const loading = interviewersLoading || schedulesLoading;
+  // Use the new hook to get worked hours
+  const { 
+    workedHours, 
+    loading: workHoursLoading, 
+    calculateWorkHoursForWeek 
+  } = useInterviewerWorkHours(selectedInterviewer?.id);
+  
+  // Calculate scheduled hours for the current week
+  const scheduledHours = selectedInterviewer ? getScheduledHoursForWeek(currentWeekStart) : 0;
+  
+  const loading = interviewersLoading || schedulesLoading || workHoursLoading;
   
   useEffect(() => {
     const interviewerFromUrl = searchParams.get("interviewer");
@@ -53,6 +65,13 @@ const Scheduling = () => {
       setSelectedInterviewerCode(interviewerFromUrl);
     }
   }, [searchParams]);
+  
+  // Update worked hours when interviewer or week changes
+  useEffect(() => {
+    if (selectedInterviewer) {
+      calculateWorkHoursForWeek(currentWeekStart);
+    }
+  }, [selectedInterviewer, currentWeekStart]);
   
   const handleAddNew = () => {
     if (!selectedInterviewerCode || !selectedInterviewer) {
@@ -215,6 +234,11 @@ const Scheduling = () => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
 
+  const handleWeekChange = (newWeekStart: Date) => {
+    setCurrentWeekStart(newWeekStart);
+    // This will trigger the useEffect to recalculate worked hours
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -234,11 +258,13 @@ const Scheduling = () => {
           interviewers={interviewers}
           selectedInterviewerCode={selectedInterviewerCode}
           onInterviewerChange={setSelectedInterviewerCode}
+          scheduledHours={selectedInterviewer ? scheduledHours : undefined}
+          workedHours={selectedInterviewer ? workedHours : undefined}
         />
         
         <WeekNavigator 
           currentWeekStart={currentWeekStart}
-          onWeekChange={setCurrentWeekStart}
+          onWeekChange={handleWeekChange}
           onResetToCurrentWeek={resetToCurrentWeek}
         />
         
