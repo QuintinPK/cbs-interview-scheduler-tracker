@@ -9,11 +9,11 @@ interface CurrentSessionTimeProps {
 }
 
 const CurrentSessionTime: React.FC<CurrentSessionTimeProps> = ({ startTime, isRunning }) => {
-  const [elapsedTime, setElapsedTime] = useState<string>("0h 0m");
+  const [elapsedTime, setElapsedTime] = useState<string>("0h 0m 0s");
   
   useEffect(() => {
     if (!isRunning || !startTime) {
-      setElapsedTime("0h 0m");
+      setElapsedTime("0h 0m 0s");
       return;
     }
     
@@ -28,20 +28,22 @@ const CurrentSessionTime: React.FC<CurrentSessionTimeProps> = ({ startTime, isRu
     return () => clearInterval(intervalId);
     
     function calculateElapsedTime() {
-      const start = new Date(startTime);
-      const now = new Date();
-      const totalSeconds = differenceInSeconds(now, start);
-      
-      // Format the duration
-      const duration = intervalToDuration({ start: 0, end: totalSeconds * 1000 });
-      const formattedDuration = `${duration.hours! + (duration.days || 0) * 24}h ${duration.minutes}m ${duration.seconds}s`;
-      setElapsedTime(formattedDuration);
+      try {
+        const start = new Date(startTime);
+        const now = new Date();
+        const totalSeconds = differenceInSeconds(now, start);
+        
+        // Format the duration
+        const duration = intervalToDuration({ start: 0, end: totalSeconds * 1000 });
+        const hours = duration.hours! + (duration.days || 0) * 24;
+        const formattedDuration = `${hours}h ${duration.minutes}m ${duration.seconds}s`;
+        setElapsedTime(formattedDuration);
+      } catch (error) {
+        console.error("Error calculating elapsed time:", error);
+        setElapsedTime("Error");
+      }
     }
   }, [startTime, isRunning]);
-  
-  if (!isRunning) {
-    return null;
-  }
   
   return (
     <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">

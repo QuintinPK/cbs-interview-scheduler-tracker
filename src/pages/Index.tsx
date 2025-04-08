@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
 import { useActiveSession } from "@/hooks/useActiveSession";
-import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
 
 const Index = () => {
   const {
@@ -20,8 +19,6 @@ const Index = () => {
     isPrimaryUser,
     switchUser
   } = useActiveSession();
-
-  const { totalActiveTime } = useInterviewerWorkHours(interviewerCode);
   
   return (
     <MainLayout>
@@ -42,7 +39,6 @@ const Index = () => {
           setStartLocation={setStartLocation}
           activeSession={activeSession}
           setActiveSession={setActiveSession}
-          totalActiveTime={totalActiveTime}
           isPrimaryUser={isPrimaryUser}
           switchUser={switchUser}
         />

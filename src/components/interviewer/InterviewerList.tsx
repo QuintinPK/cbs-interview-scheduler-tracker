@@ -10,7 +10,8 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Pencil, Calendar, Trash2, Loader2 } from "lucide-react";
+import { Pencil, Calendar, Trash2, Loader2, BarChart } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface InterviewerListProps {
   interviewers: Interviewer[];
@@ -18,6 +19,7 @@ interface InterviewerListProps {
   onEdit: (interviewer: Interviewer) => void;
   onDelete: (interviewer: Interviewer) => void;
   onSchedule: (interviewer: Interviewer) => void;
+  onViewDashboard: (interviewer: Interviewer) => void;
 }
 
 const InterviewerList: React.FC<InterviewerListProps> = ({
@@ -25,7 +27,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   loading,
   onEdit,
   onDelete,
-  onSchedule
+  onSchedule,
+  onViewDashboard
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -59,11 +62,28 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               interviewers.map((interviewer) => (
                 <TableRow key={interviewer.id}>
                   <TableCell className="font-medium">{interviewer.code}</TableCell>
-                  <TableCell>{`${interviewer.first_name} ${interviewer.last_name}`}</TableCell>
+                  <TableCell>
+                    <button 
+                      onClick={() => onViewDashboard(interviewer)} 
+                      className="text-left hover:text-cbs hover:underline transition-colors"
+                    >
+                      {`${interviewer.first_name} ${interviewer.last_name}`}
+                    </button>
+                  </TableCell>
                   <TableCell>{interviewer.phone || '-'}</TableCell>
                   <TableCell>{interviewer.email || '-'}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onViewDashboard(interviewer)}
+                        title="Dashboard"
+                        disabled={loading}
+                      >
+                        <BarChart className="h-4 w-4" />
+                      </Button>
+                      
                       <Button
                         variant="ghost"
                         size="icon"

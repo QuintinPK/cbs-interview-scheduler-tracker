@@ -12,6 +12,7 @@ import Login from "./pages/admin/Login";
 import Dashboard from "./pages/admin/Dashboard";
 import Sessions from "./pages/admin/Sessions";
 import Interviewers from "./pages/admin/Interviewers";
+import InterviewerDashboard from "./pages/admin/InterviewerDashboard";
 import Scheduling from "./pages/admin/Scheduling";
 import NotFound from "./pages/NotFound";
 
@@ -56,6 +57,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Interviewers />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/interviewer/:id" 
+        element={
+          <ProtectedRoute>
+            <InterviewerDashboard />
           </ProtectedRoute>
         } 
       />

@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
-import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
 import RecentlyActiveCard from "@/components/admin/RecentlyActiveCard";
 import QuickStatsCard from "@/components/admin/QuickStatsCard";
 import InactiveInterviewersCard from "@/components/admin/InactiveInterviewersCard";
@@ -84,12 +83,6 @@ const Dashboard = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ActiveInterviewersCard 
-            sessions={sessions} 
-            interviewers={interviewers} 
-            loading={loading} 
-          />
-          
           <RecentlyActiveCard 
             sessions={sessions} 
             interviewers={interviewers} 

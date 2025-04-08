@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Session } from "@/types";
@@ -24,7 +23,6 @@ import { format } from "date-fns";
 import { cn, formatDateTime } from "@/lib/utils";
 import SessionFilters from "@/components/session/SessionFilters";
 import SessionList from "@/components/session/SessionList";
-import SessionTotals from "@/components/session/SessionTotals";
 import { useSessions } from "@/hooks/useSessions";
 import { useToast } from "@/hooks/use-toast";
 
@@ -50,7 +48,6 @@ const Sessions = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
-  // Edit states
   const [editEndDate, setEditEndDate] = useState<Date | undefined>(undefined);
   const [editEndTime, setEditEndTime] = useState("");
   const [editLocation, setEditLocation] = useState({
@@ -168,13 +165,6 @@ const Sessions = () => {
             Export to CSV
           </Button>
         </div>
-        
-        {/* Session Totals */}
-        <SessionTotals 
-          sessions={filteredSessions} 
-          loading={loading} 
-          getInterviewerCode={getInterviewerCode} 
-        />
         
         {/* Filters */}
         <SessionFilters

@@ -1,6 +1,5 @@
-
 import React, { useState } from "react";
-import { Play, Square, Clock, LogOut } from "lucide-react";
+import { Play, Square, LogOut } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,6 @@ interface SessionFormProps {
   setStartLocation: (location: Location | undefined) => void;
   activeSession: Session | null;
   setActiveSession: (session: Session | null) => void;
-  totalActiveTime: string;
   isPrimaryUser: boolean;
   switchUser: () => void;
 }
@@ -37,7 +35,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
   setStartLocation,
   activeSession,
   setActiveSession,
-  totalActiveTime,
   isPrimaryUser,
   switchUser
 }) => {
@@ -57,7 +54,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     try {
       setLoading(true);
       
-      // Get the interviewer id from the code
       const { data: interviewers, error: interviewerError } = await supabase
         .from('interviewers')
         .select('id')
@@ -78,7 +74,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       const interviewerId = interviewers[0].id;
       
       if (!isRunning) {
-        // Start a new session
         const currentLocation = await getCurrentLocation();
         
         const { data: session, error: insertError } = await supabase
@@ -107,7 +102,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: `Started at ${new Date().toLocaleTimeString()}`,
         });
       } else {
-        // End the current session
         const currentLocation = await getCurrentLocation();
         
         if (!activeSession) return;
@@ -182,16 +176,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           </>
         )}
       </div>
-      
-      {interviewerCode && (
-        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="h-5 w-5 text-cbs" />
-            <p className="font-medium text-cbs">Total Active Time</p>
-          </div>
-          <p className="text-xl font-bold text-gray-800">{totalActiveTime}</p>
-        </div>
-      )}
       
       <CurrentSessionTime startTime={startTime} isRunning={isRunning} />
       

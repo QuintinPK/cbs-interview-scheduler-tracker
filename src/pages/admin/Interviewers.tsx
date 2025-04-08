@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Interviewer } from "@/types";
@@ -27,7 +26,6 @@ const Interviewers = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
-  // Form state
   const [formData, setFormData] = useState({
     code: "",
     first_name: "",
@@ -86,7 +84,6 @@ const Interviewers = () => {
   };
   
   const handleSubmit = async () => {
-    // Validate form
     if (!formData.code || !formData.first_name || !formData.last_name) {
       return;
     }
@@ -102,7 +99,6 @@ const Interviewers = () => {
       
       setShowAddEditDialog(false);
     } catch (error) {
-      // Error is already handled in the hooks
     } finally {
       setSubmitting(false);
     }
@@ -116,7 +112,6 @@ const Interviewers = () => {
       await deleteInterviewer(selectedInterviewer.id);
       setShowDeleteDialog(false);
     } catch (error) {
-      // Error is already handled in the hooks
     } finally {
       setSubmitting(false);
     }
@@ -124,6 +119,10 @@ const Interviewers = () => {
   
   const handleSchedule = (interviewer: Interviewer) => {
     navigate(`/admin/scheduling?interviewer=${interviewer.code}`);
+  };
+  
+  const handleViewDashboard = (interviewer: Interviewer) => {
+    navigate(`/admin/interviewer/${interviewer.id}`);
   };
   
   return (
@@ -141,7 +140,6 @@ const Interviewers = () => {
           </Button>
         </div>
         
-        {/* Search */}
         <div className="bg-white p-4 rounded-lg shadow-sm border">
           <div className="max-w-md">
             <Input
@@ -153,17 +151,16 @@ const Interviewers = () => {
           </div>
         </div>
         
-        {/* Interviewers Table */}
         <InterviewerList
           interviewers={filteredInterviewers}
           loading={loading}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onSchedule={handleSchedule}
+          onViewDashboard={handleViewDashboard}
         />
       </div>
       
-      {/* Add/Edit Dialog */}
       <Dialog open={showAddEditDialog} onOpenChange={setShowAddEditDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -181,7 +178,6 @@ const Interviewers = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
