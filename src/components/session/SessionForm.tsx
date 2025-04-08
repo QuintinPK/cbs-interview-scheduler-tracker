@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { Play, Square } from "lucide-react";
+import { Play, Square, Clock } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Session, Location } from "@/types";
@@ -19,6 +19,7 @@ interface SessionFormProps {
   setStartLocation: (location: Location | undefined) => void;
   activeSession: Session | null;
   setActiveSession: (session: Session | null) => void;
+  totalActiveTime: string;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -31,7 +32,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   startLocation,
   setStartLocation,
   activeSession,
-  setActiveSession
+  setActiveSession,
+  totalActiveTime
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -152,6 +154,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
           disabled={loading}
         />
       </div>
+      
+      {interviewerCode && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-5 w-5 text-cbs" />
+            <p className="font-medium text-cbs">Total Active Time</p>
+          </div>
+          <p className="text-xl font-bold text-gray-800">{totalActiveTime}</p>
+        </div>
+      )}
       
       {isRunning && (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">

@@ -4,13 +4,29 @@ import { Session, Location } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
 
-export const useActiveSession = (interviewerCode: string) => {
+export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
+  const [interviewerCode, setInterviewerCode] = useState(initialInterviewerCode);
   const [isRunning, setIsRunning] = useState(false);
   const [startTime, setStartTime] = useState<string | null>(null);
   const [startLocation, setStartLocation] = useState<Location | undefined>(undefined);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Load saved interviewer code from localStorage on initial render
+  useEffect(() => {
+    const savedCode = localStorage.getItem("interviewerCode");
+    if (savedCode && !interviewerCode) {
+      setInterviewerCode(savedCode);
+    }
+  }, [interviewerCode]);
+
+  // Save interviewer code to localStorage when it changes
+  useEffect(() => {
+    if (interviewerCode) {
+      localStorage.setItem("interviewerCode", interviewerCode);
+    }
+  }, [interviewerCode]);
 
   // Check if there's an active session for this interviewer on code change
   useEffect(() => {
@@ -76,6 +92,8 @@ export const useActiveSession = (interviewerCode: string) => {
   }, [interviewerCode, toast]);
 
   return {
+    interviewerCode,
+    setInterviewerCode,
     isRunning,
     setIsRunning,
     startTime,

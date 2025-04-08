@@ -1,12 +1,14 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
 import { useActiveSession } from "@/hooks/useActiveSession";
+import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
 
 const Index = () => {
-  const [interviewerCode, setInterviewerCode] = useState("");
   const {
+    interviewerCode,
+    setInterviewerCode,
     isRunning,
     setIsRunning,
     startTime,
@@ -15,7 +17,9 @@ const Index = () => {
     setStartLocation,
     activeSession,
     setActiveSession
-  } = useActiveSession(interviewerCode);
+  } = useActiveSession();
+
+  const { totalActiveTime } = useInterviewerWorkHours(interviewerCode);
   
   return (
     <MainLayout>
@@ -36,6 +40,7 @@ const Index = () => {
           setStartLocation={setStartLocation}
           activeSession={activeSession}
           setActiveSession={setActiveSession}
+          totalActiveTime={totalActiveTime}
         />
         
         <p className="mt-6 text-sm text-gray-500">
