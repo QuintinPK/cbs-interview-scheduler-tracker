@@ -18,7 +18,8 @@ const Index = () => {
     setActiveSession,
     isPrimaryUser,
     setIsPrimaryUser,
-    switchUser
+    switchUser,
+    endSession
   } = useActiveSession();
   
   return (
@@ -42,6 +43,7 @@ const Index = () => {
           setActiveSession={setActiveSession}
           isPrimaryUser={isPrimaryUser}
           switchUser={switchUser}
+          endSession={endSession}
         />
         
         <p className="mt-6 text-sm text-gray-500">

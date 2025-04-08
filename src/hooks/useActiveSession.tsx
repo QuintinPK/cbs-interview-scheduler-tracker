@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Location } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -124,6 +123,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     resetSessionState();
   };
 
+  // Function to end session while preserving the primary user status
+  const endSession = () => {
+    resetSessionState();
+    // We keep the interviewer code and primary user status
+  };
+
   return {
     interviewerCode,
     setInterviewerCode,
@@ -138,6 +143,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     loading,
     isPrimaryUser,
     setIsPrimaryUser,
-    switchUser
+    switchUser,
+    endSession
   };
 };

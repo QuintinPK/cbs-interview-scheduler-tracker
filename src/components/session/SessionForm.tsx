@@ -22,6 +22,7 @@ interface SessionFormProps {
   setActiveSession: (session: Session | null) => void;
   isPrimaryUser: boolean;
   switchUser: () => void;
+  endSession: () => void;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -36,7 +37,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   activeSession,
   setActiveSession,
   isPrimaryUser,
-  switchUser
+  switchUser,
+  endSession
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -119,10 +121,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
           
         if (updateError) throw updateError;
         
-        setActiveSession(null);
-        setIsRunning(false);
-        setStartTime(null);
-        setStartLocation(undefined);
+        // Use endSession instead of resetting everything
+        endSession();
         
         toast({
           title: "Session Ended",
