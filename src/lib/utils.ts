@@ -1,7 +1,7 @@
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Location, Session } from "@/types";
+import { Location } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -61,22 +61,32 @@ export async function getCurrentLocation(): Promise<Location | undefined> {
   });
 }
 
-export function exportToCSV(sessions: Session[]): void {
+interface ExportSession {
+  InterviewerCode: string;
+  StartTime: string;
+  EndTime: string;
+  Duration: string;
+  StartLocation: string;
+  EndLocation: string;
+  Status: string;
+}
+
+export function exportToCSV(data: ExportSession[]): void {
   // Headers
   let csvContent = "Interviewer Code,Start Date/Time,End Date/Time,Duration,Start Location,End Location\n";
   
   // Data
-  sessions.forEach(session => {
-    const row = [
-      session.interviewerCode,
-      session.startTime ? formatDateTime(session.startTime) : "",
-      session.endTime ? formatDateTime(session.endTime) : "Ongoing",
-      session.endTime ? calculateDuration(session.startTime, session.endTime) : "Ongoing",
-      session.startLocation ? `${session.startLocation.latitude}, ${session.startLocation.longitude}` : "N/A",
-      session.endLocation ? `${session.endLocation.latitude}, ${session.endLocation.longitude}` : "N/A"
+  data.forEach(row => {
+    const csvRow = [
+      row.InterviewerCode,
+      row.StartTime,
+      row.EndTime,
+      row.Duration,
+      row.StartLocation,
+      row.EndLocation
     ];
     
-    csvContent += row.join(",") + "\n";
+    csvContent += csvRow.join(",") + "\n";
   });
   
   // Create and download the file

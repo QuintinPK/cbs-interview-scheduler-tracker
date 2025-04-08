@@ -1,20 +1,27 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Session } from "@/types";
+import { Session, Interviewer } from "@/types";
 import { formatTime } from "@/lib/utils";
 
 interface RecentlyActiveCardProps {
   sessions: Session[];
+  interviewers?: Interviewer[];
 }
 
-const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({ sessions }) => {
+const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({ sessions, interviewers = [] }) => {
   const today = new Date().toISOString().split('T')[0];
   
   const todaySessions = sessions.filter(session => {
-    const sessionDate = new Date(session.startTime).toISOString().split('T')[0];
+    const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
     return sessionDate === today;
   });
+  
+  // Get interviewer code from ID
+  const getInterviewerCode = (interviewerId: string) => {
+    const interviewer = interviewers.find(i => i.id === interviewerId);
+    return interviewer ? interviewer.code : 'Unknown';
+  };
   
   return (
     <Card>
@@ -29,20 +36,20 @@ const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({ sessions }) => 
             {todaySessions.map((session) => (
               <div key={session.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                 <div>
-                  <p className="font-medium">{session.interviewerCode}</p>
+                  <p className="font-medium">{getInterviewerCode(session.interviewer_id)}</p>
                   <p className="text-sm text-muted-foreground">
-                    {session.isActive 
-                      ? `Started at ${formatTime(session.startTime)}`
-                      : `${formatTime(session.startTime)} - ${formatTime(session.endTime!)}`
+                    {session.is_active 
+                      ? `Started at ${formatTime(session.start_time)}`
+                      : `${formatTime(session.start_time)} - ${formatTime(session.end_time!)}`
                     }
                   </p>
                 </div>
                 <div className={`px-2 py-1 rounded text-xs font-medium ${
-                  session.isActive 
+                  session.is_active 
                     ? "bg-green-100 text-green-800" 
                     : "bg-gray-100 text-gray-800"
                 }`}>
-                  {session.isActive ? "Active" : "Completed"}
+                  {session.is_active ? "Active" : "Completed"}
                 </div>
               </div>
             ))}
