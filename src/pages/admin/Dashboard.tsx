@@ -79,7 +79,7 @@ const Dashboard = () => {
         
         <div className="md:col-span-4">
           <h2 className="text-xl font-semibold mb-4">Today's Activity</h2>
-          <RecentlyActiveCard sessions={sessions} interviewers={interviewers} />
+          <RecentlyActiveCard sessions={sessions} interviewers={interviewers} loading={loading} />
         </div>
       </div>
     </AdminLayout>

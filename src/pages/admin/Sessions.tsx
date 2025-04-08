@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Session } from "@/types";
-import { exportToCSV } from "@/lib/utils";
+import { exportToCSV, calculateDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,8 +25,10 @@ import { cn, formatDateTime } from "@/lib/utils";
 import SessionFilters from "@/components/session/SessionFilters";
 import SessionList from "@/components/session/SessionList";
 import { useSessions } from "@/hooks/useSessions";
+import { useToast } from "@/hooks/use-toast";
 
 const Sessions = () => {
+  const { toast } = useToast();
   const { 
     filteredSessions, 
     loading, 

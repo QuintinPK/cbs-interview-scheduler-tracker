@@ -7,9 +7,14 @@ import { formatTime } from "@/lib/utils";
 interface RecentlyActiveCardProps {
   sessions: Session[];
   interviewers?: Interviewer[];
+  loading?: boolean;
 }
 
-const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({ sessions, interviewers = [] }) => {
+const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({ 
+  sessions, 
+  interviewers = [],
+  loading = false
+}) => {
   const today = new Date().toISOString().split('T')[0];
   
   const todaySessions = sessions.filter(session => {
@@ -29,7 +34,9 @@ const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({ sessions, inter
         <CardTitle className="text-lg font-semibold">Today's Active Interviewers</CardTitle>
       </CardHeader>
       <CardContent>
-        {todaySessions.length === 0 ? (
+        {loading ? (
+          <p className="text-muted-foreground text-center py-4">Loading...</p>
+        ) : todaySessions.length === 0 ? (
           <p className="text-muted-foreground text-center py-4">No interviewers active today</p>
         ) : (
           <div className="space-y-4">
