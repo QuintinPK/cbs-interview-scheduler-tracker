@@ -4,6 +4,7 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
 import RecentlyActiveCard from "@/components/admin/RecentlyActiveCard";
 import QuickStatsCard from "@/components/admin/QuickStatsCard";
+import InactiveInterviewersCard from "@/components/admin/InactiveInterviewersCard";
 import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -73,6 +74,15 @@ const Dashboard = () => {
       <div className="space-y-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
         
+        {/* Quick Stats now at the top */}
+        <div>
+          <QuickStatsCard 
+            sessions={sessions} 
+            interviewers={interviewers} 
+            loading={loading} 
+          />
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ActiveInterviewersCard 
             sessions={sessions} 
@@ -88,7 +98,7 @@ const Dashboard = () => {
         </div>
         
         <div className="mt-6">
-          <QuickStatsCard 
+          <InactiveInterviewersCard 
             sessions={sessions} 
             interviewers={interviewers} 
             loading={loading} 
