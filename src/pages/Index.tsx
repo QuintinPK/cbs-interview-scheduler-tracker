@@ -25,7 +25,7 @@ const Index = () => {
     <MainLayout>
       <div className="flex flex-col items-center justify-center min-h-[80vh] max-w-md mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Tracker</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Tracker (OMNIBUS 2025)</h1>
           <p className="text-muted-foreground">Track your interviews and working hours</p>
         </div>
         
