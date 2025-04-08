@@ -25,9 +25,15 @@ const ActiveInterviewersCard: React.FC<ActiveInterviewersCardProps> = ({
   };
   
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Active Interviewers</CardTitle>
+        <CardTitle className="text-lg font-semibold flex items-center">
+          <span className="relative mr-2">
+            <span className="absolute top-1 left-0 w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="absolute top-1 left-0 w-2 h-2 bg-green-500 rounded-full animate-ping"></span>
+            <span className="ml-3">Active Interviewers</span>
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (

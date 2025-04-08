@@ -29,7 +29,7 @@ const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({
   };
   
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Today's Active Interviewers</CardTitle>
       </CardHeader>

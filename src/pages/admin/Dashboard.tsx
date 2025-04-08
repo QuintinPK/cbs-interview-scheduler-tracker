@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
 import RecentlyActiveCard from "@/components/admin/RecentlyActiveCard";
+import QuickStatsCard from "@/components/admin/QuickStatsCard";
 import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -69,17 +70,29 @@ const Dashboard = () => {
   
   return (
     <AdminLayout>
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        <div className="md:col-span-8">
-          <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-          <div className="grid gap-6">
-            <ActiveInterviewersCard sessions={sessions} interviewers={interviewers} loading={loading} />
-          </div>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ActiveInterviewersCard 
+            sessions={sessions} 
+            interviewers={interviewers} 
+            loading={loading} 
+          />
+          
+          <RecentlyActiveCard 
+            sessions={sessions} 
+            interviewers={interviewers} 
+            loading={loading} 
+          />
         </div>
         
-        <div className="md:col-span-4">
-          <h2 className="text-xl font-semibold mb-4">Today's Activity</h2>
-          <RecentlyActiveCard sessions={sessions} interviewers={interviewers} loading={loading} />
+        <div className="mt-6">
+          <QuickStatsCard 
+            sessions={sessions} 
+            interviewers={interviewers} 
+            loading={loading} 
+          />
         </div>
       </div>
     </AdminLayout>
