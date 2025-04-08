@@ -17,6 +17,7 @@ const Index = () => {
     activeSession,
     setActiveSession,
     isPrimaryUser,
+    setIsPrimaryUser,
     switchUser
   } = useActiveSession();
   

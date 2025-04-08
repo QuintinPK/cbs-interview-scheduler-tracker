@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Play, Square, LogOut } from "lucide-react";
 import { Label } from "@/components/ui/label";
@@ -144,7 +145,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
       <div className="space-y-2">
-        {isPrimaryUser ? (
+        {isPrimaryUser && !isRunning ? (
           <div className="flex justify-between items-center">
             <div>
               <Label htmlFor="interviewer-code">Interviewer Code</Label>
@@ -171,7 +172,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
               value={interviewerCode}
               onChange={(e) => setInterviewerCode(e.target.value)}
               className="text-lg"
-              disabled={loading}
+              disabled={loading || isRunning}
             />
           </>
         )}

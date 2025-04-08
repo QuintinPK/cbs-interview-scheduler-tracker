@@ -25,10 +25,10 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Save interviewer code to localStorage when it changes
   useEffect(() => {
-    if (interviewerCode) {
+    if (interviewerCode && isPrimaryUser) {
       localStorage.setItem("interviewerCode", interviewerCode);
     }
-  }, [interviewerCode]);
+  }, [interviewerCode, isPrimaryUser]);
 
   // Check if there's an active session for this interviewer on code change
   useEffect(() => {
@@ -119,6 +119,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setActiveSession,
     loading,
     isPrimaryUser,
+    setIsPrimaryUser,
     switchUser
   };
 };
