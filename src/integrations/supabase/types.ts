@@ -9,7 +9,127 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      interviewers: {
+        Row: {
+          code: string
+          created_at: string
+          email: string | null
+          first_name: string
+          id: string
+          last_name: string
+          phone: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          email?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          phone?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      schedules: {
+        Row: {
+          created_at: string
+          end_time: string
+          id: string
+          interviewer_id: string
+          notes: string | null
+          start_time: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          id?: string
+          interviewer_id: string
+          notes?: string | null
+          start_time: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          id?: string
+          interviewer_id?: string
+          notes?: string | null
+          start_time?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_interviewer_id_fkey"
+            columns: ["interviewer_id"]
+            isOneToOne: false
+            referencedRelation: "interviewers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          end_address: string | null
+          end_latitude: number | null
+          end_longitude: number | null
+          end_time: string | null
+          id: string
+          interviewer_id: string
+          is_active: boolean
+          start_address: string | null
+          start_latitude: number | null
+          start_longitude: number | null
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          end_address?: string | null
+          end_latitude?: number | null
+          end_longitude?: number | null
+          end_time?: string | null
+          id?: string
+          interviewer_id: string
+          is_active?: boolean
+          start_address?: string | null
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string
+        }
+        Update: {
+          created_at?: string
+          end_address?: string | null
+          end_latitude?: number | null
+          end_longitude?: number | null
+          end_time?: string | null
+          id?: string
+          interviewer_id?: string
+          is_active?: boolean
+          start_address?: string | null
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_interviewer_id_fkey"
+            columns: ["interviewer_id"]
+            isOneToOne: false
+            referencedRelation: "interviewers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

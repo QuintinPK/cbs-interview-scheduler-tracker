@@ -1,14 +1,13 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { mockSessions } from "@/lib/mock-data";
-import { Session } from "@/types";
+import { Session, Interviewer } from "@/types";
 import { 
   formatDateTime, 
   calculateDuration,
   exportToCSV 
 } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Table, 
   TableBody, 
@@ -29,28 +28,23 @@ import {
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Download, Pencil, StopCircle, Trash2 } from "lucide-react";
+import { CalendarIcon, Download, Pencil, StopCircle, Trash2, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const Sessions = () => {
   const { toast } = useToast();
-  const [sessions, setSessions] = useState<Session[]>(mockSessions);
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>(mockSessions);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
   
   // Filter states
   const [interviewerCodeFilter, setInterviewerCodeFilter] = useState("");
@@ -64,19 +58,77 @@ const Sessions = () => {
     longitude: "",
   });
   
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        
+        // Load interviewers first
+        const { data: interviewersData, error: interviewersError } = await supabase
+          .from('interviewers')
+          .select('*');
+          
+        if (interviewersError) throw interviewersError;
+        setInterviewers(interviewersData || []);
+        
+        // Then load sessions
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('sessions')
+          .select('*')
+          .order('start_time', { ascending: false });
+          
+        if (sessionsError) throw sessionsError;
+        
+        const transformedSessions = sessionsData.map(session => ({
+          ...session,
+          start_latitude: session.start_latitude !== null ? Number(session.start_latitude) : null,
+          start_longitude: session.start_longitude !== null ? Number(session.start_longitude) : null,
+          end_latitude: session.end_latitude !== null ? Number(session.end_latitude) : null,
+          end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
+        }));
+        
+        setSessions(transformedSessions);
+        setFilteredSessions(transformedSessions);
+      } catch (error) {
+        console.error("Error loading data:", error);
+        toast({
+          title: "Error",
+          description: "Could not load sessions data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [toast]);
+  
+  const getInterviewerCode = (interviewerId: string) => {
+    const interviewer = interviewers.find(i => i.id === interviewerId);
+    return interviewer ? interviewer.code : 'Unknown';
+  };
+  
   const applyFilters = () => {
     let filtered = [...sessions];
     
     if (interviewerCodeFilter) {
-      filtered = filtered.filter(session => 
-        session.interviewerCode.toLowerCase().includes(interviewerCodeFilter.toLowerCase())
+      const matchingInterviewers = interviewers.filter(interviewer => 
+        interviewer.code.toLowerCase().includes(interviewerCodeFilter.toLowerCase())
       );
+      
+      if (matchingInterviewers.length > 0) {
+        const interviewerIds = matchingInterviewers.map(i => i.id);
+        filtered = filtered.filter(session => interviewerIds.includes(session.interviewer_id));
+      } else {
+        filtered = [];
+      }
     }
     
     if (dateFilter) {
       const filterDate = dateFilter.toISOString().split('T')[0];
       filtered = filtered.filter(session => {
-        const sessionDate = new Date(session.startTime).toISOString().split('T')[0];
+        const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
         return sessionDate === filterDate;
       });
     }
@@ -93,18 +145,18 @@ const Sessions = () => {
   const handleEdit = (session: Session) => {
     setSelectedSession(session);
     
-    if (session.endTime) {
-      setEditEndDate(new Date(session.endTime));
-      setEditEndTime(format(new Date(session.endTime), "HH:mm"));
+    if (session.end_time) {
+      setEditEndDate(new Date(session.end_time));
+      setEditEndTime(format(new Date(session.end_time), "HH:mm"));
     } else {
       setEditEndDate(new Date());
       setEditEndTime(format(new Date(), "HH:mm"));
     }
     
-    if (session.endLocation) {
+    if (session.end_latitude && session.end_longitude) {
       setEditLocation({
-        latitude: session.endLocation.latitude.toString(),
-        longitude: session.endLocation.longitude.toString(),
+        latitude: session.end_latitude.toString(),
+        longitude: session.end_longitude.toString(),
       });
     } else {
       setEditLocation({ latitude: "", longitude: "" });
@@ -118,109 +170,164 @@ const Sessions = () => {
     setShowDeleteDialog(true);
   };
   
-  const handleStopSession = (session: Session) => {
-    const updatedSessions = sessions.map(s => {
-      if (s.id === session.id) {
-        return {
-          ...s,
-          endTime: new Date().toISOString(),
-          isActive: false,
-        };
-      }
-      return s;
-    });
-    
-    setSessions(updatedSessions);
-    setFilteredSessions(
-      filteredSessions.map(s => {
-        if (s.id === session.id) {
-          return {
-            ...s,
-            endTime: new Date().toISOString(),
-            isActive: false,
-          };
-        }
-        return s;
-      })
-    );
-    
-    toast({
-      title: "Session Stopped",
-      description: `Session for ${session.interviewerCode} has been stopped.`,
-    });
+  const handleStopSession = async (session: Session) => {
+    try {
+      setLoading(true);
+      
+      const currentLocation = await getCurrentLocation();
+      
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          end_time: new Date().toISOString(),
+          end_latitude: currentLocation?.latitude || null,
+          end_longitude: currentLocation?.longitude || null,
+          end_address: currentLocation?.address || null,
+          is_active: false
+        })
+        .eq('id', session.id);
+        
+      if (error) throw error;
+      
+      const { data: updatedSessions, error: fetchError } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('start_time', { ascending: false });
+        
+      if (fetchError) throw fetchError;
+      
+      const transformedSessions = updatedSessions.map(s => ({
+        ...s,
+        start_latitude: s.start_latitude !== null ? Number(s.start_latitude) : null,
+        start_longitude: s.start_longitude !== null ? Number(s.start_longitude) : null,
+        end_latitude: s.end_latitude !== null ? Number(s.end_latitude) : null,
+        end_longitude: s.end_longitude !== null ? Number(s.end_longitude) : null,
+      }));
+      
+      setSessions(transformedSessions);
+      applyFilters();
+      
+      toast({
+        title: "Session Stopped",
+        description: `Session for ${getInterviewerCode(session.interviewer_id)} has been stopped.`,
+      });
+    } catch (error) {
+      console.error("Error stopping session:", error);
+      toast({
+        title: "Error",
+        description: "Could not stop session",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
-  const confirmEdit = () => {
+  const confirmEdit = async () => {
     if (!selectedSession || !editEndDate) return;
     
-    // Combine date and time
-    const [hours, minutes] = editEndTime.split(':').map(Number);
-    const endDateTime = new Date(editEndDate);
-    endDateTime.setHours(hours, minutes);
-    
-    // Update session
-    const updatedSessions = sessions.map(session => {
-      if (session.id === selectedSession.id) {
-        return {
-          ...session,
-          endTime: endDateTime.toISOString(),
-          endLocation: editLocation.latitude && editLocation.longitude
-            ? {
-                latitude: parseFloat(editLocation.latitude),
-                longitude: parseFloat(editLocation.longitude),
-              }
-            : undefined,
-          isActive: false,
-        };
-      }
-      return session;
-    });
-    
-    setSessions(updatedSessions);
-    setFilteredSessions(
-      filteredSessions.map(session => {
-        if (session.id === selectedSession.id) {
-          return {
-            ...session,
-            endTime: endDateTime.toISOString(),
-            endLocation: editLocation.latitude && editLocation.longitude
-              ? {
-                  latitude: parseFloat(editLocation.latitude),
-                  longitude: parseFloat(editLocation.longitude),
-                }
-              : undefined,
-            isActive: false,
-          };
-        }
-        return session;
-      })
-    );
-    
-    setShowEditDialog(false);
-    toast({
-      title: "Session Updated",
-      description: `Session for ${selectedSession.interviewerCode} has been updated.`,
-    });
+    try {
+      setLoading(true);
+      
+      const [hours, minutes] = editEndTime.split(':').map(Number);
+      const endDateTime = new Date(editEndDate);
+      endDateTime.setHours(hours, minutes);
+      
+      const { error } = await supabase
+        .from('sessions')
+        .update({
+          end_time: endDateTime.toISOString(),
+          end_latitude: editLocation.latitude ? parseFloat(editLocation.latitude) : null,
+          end_longitude: editLocation.longitude ? parseFloat(editLocation.longitude) : null,
+          is_active: false
+        })
+        .eq('id', selectedSession.id);
+        
+      if (error) throw error;
+      
+      const { data: updatedSessions, error: fetchError } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('start_time', { ascending: false });
+        
+      if (fetchError) throw fetchError;
+      
+      const transformedSessions = updatedSessions.map(s => ({
+        ...s,
+        start_latitude: s.start_latitude !== null ? Number(s.start_latitude) : null,
+        start_longitude: s.start_longitude !== null ? Number(s.start_longitude) : null,
+        end_latitude: s.end_latitude !== null ? Number(s.end_latitude) : null,
+        end_longitude: s.end_longitude !== null ? Number(s.end_longitude) : null,
+      }));
+      
+      setSessions(transformedSessions);
+      applyFilters();
+      
+      setShowEditDialog(false);
+      toast({
+        title: "Session Updated",
+        description: `Session for ${getInterviewerCode(selectedSession.interviewer_id)} has been updated.`,
+      });
+    } catch (error) {
+      console.error("Error updating session:", error);
+      toast({
+        title: "Error",
+        description: "Could not update session",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedSession) return;
     
-    const updatedSessions = sessions.filter(session => session.id !== selectedSession.id);
-    const updatedFilteredSessions = filteredSessions.filter(session => session.id !== selectedSession.id);
-    
-    setSessions(updatedSessions);
-    setFilteredSessions(updatedFilteredSessions);
-    
-    setShowDeleteDialog(false);
-    toast({
-      title: "Session Deleted",
-      description: `Session for ${selectedSession.interviewerCode} has been deleted.`,
-    });
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', selectedSession.id);
+        
+      if (error) throw error;
+      
+      const updatedSessions = sessions.filter(s => s.id !== selectedSession.id);
+      setSessions(updatedSessions);
+      setFilteredSessions(filteredSessions.filter(s => s.id !== selectedSession.id));
+      
+      setShowDeleteDialog(false);
+      toast({
+        title: "Session Deleted",
+        description: `Session for ${getInterviewerCode(selectedSession.interviewer_id)} has been deleted.`,
+      });
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      toast({
+        title: "Error",
+        description: "Could not delete session",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleExport = () => {
-    exportToCSV(filteredSessions);
+    const exportData = filteredSessions.map(session => ({
+      InterviewerCode: getInterviewerCode(session.interviewer_id),
+      StartTime: formatDateTime(session.start_time),
+      EndTime: session.end_time ? formatDateTime(session.end_time) : 'Active',
+      Duration: session.end_time ? calculateDuration(session.start_time, session.end_time) : 'Ongoing',
+      StartLocation: session.start_latitude && session.start_longitude ? 
+        `${session.start_latitude.toFixed(4)}, ${session.start_longitude.toFixed(4)}` : 'N/A',
+      EndLocation: session.end_latitude && session.end_longitude ? 
+        `${session.end_latitude.toFixed(4)}, ${session.end_longitude.toFixed(4)}` : 'N/A',
+      Status: session.is_active ? 'Active' : 'Completed'
+    }));
+    
+    exportToCSV(exportData);
     toast({
       title: "Export Started",
       description: "Your sessions data is being downloaded as a CSV file.",
@@ -235,6 +342,7 @@ const Sessions = () => {
           <Button
             onClick={handleExport}
             className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
+            disabled={loading}
           >
             <Download size={16} />
             Export to CSV
@@ -252,6 +360,7 @@ const Sessions = () => {
                 placeholder="Filter by interviewer code"
                 value={interviewerCodeFilter}
                 onChange={(e) => setInterviewerCodeFilter(e.target.value)}
+                disabled={loading}
               />
             </div>
             
@@ -265,6 +374,7 @@ const Sessions = () => {
                       "w-full justify-start text-left font-normal",
                       !dateFilter && "text-muted-foreground"
                     )}
+                    disabled={loading}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {dateFilter ? format(dateFilter, "PPP") : <span>Pick a date</span>}
@@ -283,10 +393,18 @@ const Sessions = () => {
             </div>
             
             <div className="flex items-end gap-2">
-              <Button onClick={applyFilters} className="bg-cbs hover:bg-cbs-light">
+              <Button 
+                onClick={applyFilters} 
+                className="bg-cbs hover:bg-cbs-light"
+                disabled={loading}
+              >
                 Apply Filters
               </Button>
-              <Button onClick={resetFilters} variant="outline">
+              <Button 
+                onClick={resetFilters} 
+                variant="outline"
+                disabled={loading}
+              >
                 Reset
               </Button>
             </div>
@@ -309,7 +427,15 @@ const Sessions = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSessions.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-10">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-cbs" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredSessions.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                       No sessions found
@@ -318,31 +444,31 @@ const Sessions = () => {
                 ) : (
                   filteredSessions.map((session) => (
                     <TableRow key={session.id}>
-                      <TableCell className="font-medium">{session.interviewerCode}</TableCell>
-                      <TableCell>{formatDateTime(session.startTime)}</TableCell>
+                      <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
+                      <TableCell>{formatDateTime(session.start_time)}</TableCell>
                       <TableCell>
-                        {session.endTime ? formatDateTime(session.endTime) : (
+                        {session.end_time ? formatDateTime(session.end_time) : (
                           <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
                             Active
                           </span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {session.endTime ? calculateDuration(session.startTime, session.endTime) : "Ongoing"}
+                        {session.end_time ? calculateDuration(session.start_time, session.end_time) : "Ongoing"}
                       </TableCell>
                       <TableCell>
-                        {session.startLocation ? (
+                        {session.start_latitude && session.start_longitude ? (
                           <span className="text-xs">
-                            {session.startLocation.latitude.toFixed(4)}, {session.startLocation.longitude.toFixed(4)}
+                            {session.start_latitude.toFixed(4)}, {session.start_longitude.toFixed(4)}
                           </span>
                         ) : (
                           "N/A"
                         )}
                       </TableCell>
                       <TableCell>
-                        {session.endLocation ? (
+                        {session.end_latitude && session.end_longitude ? (
                           <span className="text-xs">
-                            {session.endLocation.latitude.toFixed(4)}, {session.endLocation.longitude.toFixed(4)}
+                            {session.end_latitude.toFixed(4)}, {session.end_longitude.toFixed(4)}
                           </span>
                         ) : (
                           "N/A"
@@ -355,16 +481,18 @@ const Sessions = () => {
                             size="icon"
                             onClick={() => handleEdit(session)}
                             title="Edit"
+                            disabled={loading}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                           
-                          {session.isActive && (
+                          {session.is_active && (
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => handleStopSession(session)}
                               title="Stop Session"
+                              disabled={loading}
                             >
                               <StopCircle className="h-4 w-4" />
                             </Button>
@@ -375,6 +503,7 @@ const Sessions = () => {
                             size="icon"
                             onClick={() => handleDelete(session)}
                             title="Delete"
+                            disabled={loading}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -399,13 +528,16 @@ const Sessions = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Interviewer Code</Label>
-              <Input value={selectedSession?.interviewerCode || ""} disabled />
+              <Input 
+                value={selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ""} 
+                disabled 
+              />
             </div>
             
             <div className="space-y-2">
               <Label>Start Date/Time</Label>
               <Input 
-                value={selectedSession ? formatDateTime(selectedSession.startTime) : ""} 
+                value={selectedSession ? formatDateTime(selectedSession.start_time) : ""} 
                 disabled 
               />
             </div>
@@ -420,6 +552,7 @@ const Sessions = () => {
                       "w-full justify-start text-left font-normal",
                       !editEndDate && "text-muted-foreground"
                     )}
+                    disabled={loading}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {editEndDate ? format(editEndDate, "PPP") : <span>Pick a date</span>}
@@ -443,6 +576,7 @@ const Sessions = () => {
                 type="time"
                 value={editEndTime}
                 onChange={(e) => setEditEndTime(e.target.value)}
+                disabled={loading}
               />
             </div>
             
@@ -453,22 +587,39 @@ const Sessions = () => {
                   placeholder="Latitude"
                   value={editLocation.latitude}
                   onChange={(e) => setEditLocation({ ...editLocation, latitude: e.target.value })}
+                  disabled={loading}
                 />
                 <Input
                   placeholder="Longitude"
                   value={editLocation.longitude}
                   onChange={(e) => setEditLocation({ ...editLocation, longitude: e.target.value })}
+                  disabled={loading}
                 />
               </div>
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditDialog(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button onClick={confirmEdit} className="bg-cbs hover:bg-cbs-light">
-              Save Changes
+            <Button 
+              onClick={confirmEdit} 
+              className="bg-cbs hover:bg-cbs-light"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -482,19 +633,31 @@ const Sessions = () => {
           </DialogHeader>
           
           <div className="py-4">
-            <p>Are you sure you want to delete this session for {selectedSession?.interviewerCode}?</p>
+            <p>Are you sure you want to delete this session for {selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ''}?</p>
             <p className="text-sm text-muted-foreground mt-2">This action cannot be undone.</p>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button 
               variant="destructive" 
               onClick={confirmDelete}
+              disabled={loading}
             >
-              Delete
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

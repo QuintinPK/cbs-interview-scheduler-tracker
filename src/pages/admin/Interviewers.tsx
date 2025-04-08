@@ -1,9 +1,9 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { mockInterviewers } from "@/lib/mock-data";
 import { Interviewer } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   Table, 
   TableBody, 
@@ -22,35 +22,64 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Calendar, Pencil, Trash2 } from "lucide-react";
+import { PlusCircle, Calendar, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Interviewers = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [interviewers, setInterviewers] = useState<Interviewer[]>(mockInterviewers);
+  const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   // Form state
   const [formData, setFormData] = useState({
     code: "",
-    firstName: "",
-    lastName: "",
+    first_name: "",
+    last_name: "",
     phone: "",
     email: "",
   });
+  
+  useEffect(() => {
+    const loadInterviewers = async () => {
+      try {
+        setLoading(true);
+        
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('*')
+          .order('code');
+          
+        if (error) throw error;
+        
+        setInterviewers(data || []);
+      } catch (error) {
+        console.error("Error loading interviewers:", error);
+        toast({
+          title: "Error",
+          description: "Could not load interviewers",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadInterviewers();
+  }, [toast]);
   
   const filteredInterviewers = interviewers.filter((interviewer) => {
     const query = searchQuery.toLowerCase();
     return (
       interviewer.code.toLowerCase().includes(query) ||
-      interviewer.firstName.toLowerCase().includes(query) ||
-      interviewer.lastName.toLowerCase().includes(query) ||
-      interviewer.email.toLowerCase().includes(query)
+      interviewer.first_name.toLowerCase().includes(query) ||
+      interviewer.last_name.toLowerCase().includes(query) ||
+      (interviewer.email && interviewer.email.toLowerCase().includes(query))
     );
   });
   
@@ -67,8 +96,8 @@ const Interviewers = () => {
     setSelectedInterviewer(null);
     setFormData({
       code: "",
-      firstName: "",
-      lastName: "",
+      first_name: "",
+      last_name: "",
       phone: "",
       email: "",
     });
@@ -80,10 +109,10 @@ const Interviewers = () => {
     setSelectedInterviewer(interviewer);
     setFormData({
       code: interviewer.code,
-      firstName: interviewer.firstName,
-      lastName: interviewer.lastName,
-      phone: interviewer.phone,
-      email: interviewer.email,
+      first_name: interviewer.first_name,
+      last_name: interviewer.last_name,
+      phone: interviewer.phone || "",
+      email: interviewer.email || "",
     });
     setShowAddEditDialog(true);
   };
@@ -93,9 +122,9 @@ const Interviewers = () => {
     setShowDeleteDialog(true);
   };
   
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validate form
-    if (!formData.code || !formData.firstName || !formData.lastName) {
+    if (!formData.code || !formData.first_name || !formData.last_name) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -104,58 +133,104 @@ const Interviewers = () => {
       return;
     }
     
-    if (isEditing && selectedInterviewer) {
-      // Update existing interviewer
-      const updatedInterviewers = interviewers.map((interviewer) => {
-        if (interviewer.id === selectedInterviewer.id) {
-          return {
-            ...interviewer,
-            ...formData,
-          };
-        }
-        return interviewer;
-      });
+    try {
+      setLoading(true);
       
-      setInterviewers(updatedInterviewers);
-      toast({
-        title: "Success",
-        description: "Interviewer updated successfully",
-      });
-    } else {
-      // Add new interviewer
-      const newInterviewer: Interviewer = {
-        id: Date.now().toString(),
-        ...formData,
-      };
+      if (isEditing && selectedInterviewer) {
+        // Update existing interviewer
+        const { error } = await supabase
+          .from('interviewers')
+          .update({
+            code: formData.code,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            phone: formData.phone,
+            email: formData.email,
+          })
+          .eq('id', selectedInterviewer.id);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Interviewer updated successfully",
+        });
+      } else {
+        // Add new interviewer
+        const { error } = await supabase
+          .from('interviewers')
+          .insert([{
+            code: formData.code,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
+            phone: formData.phone,
+            email: formData.email,
+          }]);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "New interviewer added successfully",
+        });
+      }
       
-      setInterviewers([...interviewers, newInterviewer]);
+      // Refresh the interviewers list
+      const { data, error } = await supabase
+        .from('interviewers')
+        .select('*')
+        .order('code');
+        
+      if (error) throw error;
+      
+      setInterviewers(data || []);
+      setShowAddEditDialog(false);
+    } catch (error) {
+      console.error("Error saving interviewer:", error);
       toast({
-        title: "Success",
-        description: "New interviewer added successfully",
+        title: "Error",
+        description: "Could not save interviewer",
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-    
-    setShowAddEditDialog(false);
   };
   
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!selectedInterviewer) return;
     
-    const updatedInterviewers = interviewers.filter(
-      (interviewer) => interviewer.id !== selectedInterviewer.id
-    );
-    
-    setInterviewers(updatedInterviewers);
-    setShowDeleteDialog(false);
-    
-    toast({
-      title: "Success",
-      description: "Interviewer deleted successfully",
-    });
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase
+        .from('interviewers')
+        .delete()
+        .eq('id', selectedInterviewer.id);
+        
+      if (error) throw error;
+      
+      // Remove interviewer from state
+      setInterviewers(interviewers.filter(i => i.id !== selectedInterviewer.id));
+      setShowDeleteDialog(false);
+      
+      toast({
+        title: "Success",
+        description: "Interviewer deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting interviewer:", error);
+      toast({
+        title: "Error",
+        description: "Could not delete interviewer",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleSchedule = (interviewer: Interviewer) => {
-    // In a real app, this would navigate to the scheduling page with the interviewer pre-selected
     navigate(`/admin/scheduling?interviewer=${interviewer.code}`);
   };
   
@@ -167,6 +242,7 @@ const Interviewers = () => {
           <Button
             onClick={handleAddNew}
             className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
+            disabled={loading}
           >
             <PlusCircle size={16} />
             Add New Interviewer
@@ -184,6 +260,7 @@ const Interviewers = () => {
               placeholder="Search by name, code, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={loading}
             />
           </div>
         </div>
@@ -202,7 +279,15 @@ const Interviewers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInterviewers.length === 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10">
+                      <div className="flex justify-center items-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-cbs" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredInterviewers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                       No interviewers found
@@ -212,9 +297,9 @@ const Interviewers = () => {
                   filteredInterviewers.map((interviewer) => (
                     <TableRow key={interviewer.id}>
                       <TableCell className="font-medium">{interviewer.code}</TableCell>
-                      <TableCell>{`${interviewer.firstName} ${interviewer.lastName}`}</TableCell>
-                      <TableCell>{interviewer.phone}</TableCell>
-                      <TableCell>{interviewer.email}</TableCell>
+                      <TableCell>{`${interviewer.first_name} ${interviewer.last_name}`}</TableCell>
+                      <TableCell>{interviewer.phone || '-'}</TableCell>
+                      <TableCell>{interviewer.email || '-'}</TableCell>
                       <TableCell>
                         <div className="flex space-x-2">
                           <Button
@@ -222,6 +307,7 @@ const Interviewers = () => {
                             size="icon"
                             onClick={() => handleEdit(interviewer)}
                             title="Edit"
+                            disabled={loading}
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -231,6 +317,7 @@ const Interviewers = () => {
                             size="icon"
                             onClick={() => handleSchedule(interviewer)}
                             title="Schedule"
+                            disabled={loading}
                           >
                             <Calendar className="h-4 w-4" />
                           </Button>
@@ -240,6 +327,7 @@ const Interviewers = () => {
                             size="icon"
                             onClick={() => handleDelete(interviewer)}
                             title="Delete"
+                            disabled={loading}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -270,29 +358,32 @@ const Interviewers = () => {
                 value={formData.code}
                 onChange={handleInputChange}
                 placeholder="e.g. INT001"
+                disabled={loading}
               />
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">First Name*</Label>
+                <Label htmlFor="first_name">First Name*</Label>
                 <Input
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
                   onChange={handleInputChange}
                   placeholder="John"
+                  disabled={loading}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name*</Label>
+                <Label htmlFor="last_name">Last Name*</Label>
                 <Input
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
                   onChange={handleInputChange}
                   placeholder="Doe"
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -305,6 +396,7 @@ const Interviewers = () => {
                 value={formData.phone}
                 onChange={handleInputChange}
                 placeholder="06-12345678"
+                disabled={loading}
               />
             </div>
             
@@ -317,16 +409,32 @@ const Interviewers = () => {
                 value={formData.email}
                 onChange={handleInputChange}
                 placeholder="john.doe@example.com"
+                disabled={loading}
               />
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddEditDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAddEditDialog(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} className="bg-cbs hover:bg-cbs-light">
-              {isEditing ? "Save Changes" : "Add Interviewer"}
+            <Button 
+              onClick={handleSubmit} 
+              className="bg-cbs hover:bg-cbs-light"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isEditing ? "Saving..." : "Adding..."}
+                </>
+              ) : (
+                isEditing ? "Save Changes" : "Add Interviewer"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -343,21 +451,36 @@ const Interviewers = () => {
             <p>
               Are you sure you want to delete{" "}
               <span className="font-medium">
-                {selectedInterviewer?.firstName} {selectedInterviewer?.lastName}
+                {selectedInterviewer ? `${selectedInterviewer.first_name} ${selectedInterviewer.last_name}` : ''}
               </span>
               ?
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              This action cannot be undone.
+              This action cannot be undone. All sessions associated with this interviewer will also be deleted.
             </p>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Delete
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

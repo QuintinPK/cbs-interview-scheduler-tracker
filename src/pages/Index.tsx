@@ -3,12 +3,11 @@ import React, { useState, useEffect } from "react";
 import { Play, Square } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import MainLayout from "@/components/layout/MainLayout";
 import { getCurrentLocation } from "@/lib/utils";
 import { Session, Location } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import { mockSessions } from "@/lib/mock-data";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const { toast } = useToast();
@@ -16,22 +15,71 @@ const Index = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [startTime, setStartTime] = useState<string | null>(null);
   const [startLocation, setStartLocation] = useState<Location | undefined>(undefined);
-  const [sessions, setSessions] = useState<Session[]>(mockSessions);
+  const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(false);
   
-  // Check if there's an active session for this interviewer on component mount
+  // Check if there's an active session for this interviewer on code change
   useEffect(() => {
-    if (interviewerCode) {
-      const activeSession = sessions.find(
-        session => session.interviewerCode === interviewerCode && session.isActive
-      );
+    const checkActiveSession = async () => {
+      if (!interviewerCode.trim()) return;
       
-      if (activeSession) {
-        setIsRunning(true);
-        setStartTime(activeSession.startTime);
-        setStartLocation(activeSession.startLocation);
+      try {
+        setLoading(true);
+        
+        // First get the interviewer by code
+        const { data: interviewers, error: interviewerError } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .limit(1);
+          
+        if (interviewerError) throw interviewerError;
+        if (!interviewers || interviewers.length === 0) return;
+        
+        const interviewerId = interviewers[0].id;
+        
+        // Then check for active sessions
+        const { data: sessions, error: sessionError } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('interviewer_id', interviewerId)
+          .eq('is_active', true)
+          .limit(1);
+          
+        if (sessionError) throw sessionError;
+        
+        if (sessions && sessions.length > 0) {
+          setActiveSession(sessions[0]);
+          setIsRunning(true);
+          setStartTime(sessions[0].start_time);
+          
+          if (sessions[0].start_latitude && sessions[0].start_longitude) {
+            setStartLocation({
+              latitude: sessions[0].start_latitude,
+              longitude: sessions[0].start_longitude,
+              address: sessions[0].start_address || undefined
+            });
+          }
+        } else {
+          setActiveSession(null);
+          setIsRunning(false);
+          setStartTime(null);
+          setStartLocation(undefined);
+        }
+      } catch (error) {
+        console.error("Error checking active session:", error);
+        toast({
+          title: "Error",
+          description: "Could not check active sessions",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [interviewerCode, sessions]);
+    };
+    
+    checkActiveSession();
+  }, [interviewerCode, toast]);
   
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -43,53 +91,96 @@ const Index = () => {
       return;
     }
     
-    if (!isRunning) {
-      // Start a new session
-      const currentLocation = await getCurrentLocation();
-      const newStartTime = new Date().toISOString();
+    try {
+      setLoading(true);
       
-      const newSession: Session = {
-        id: Date.now().toString(),
-        interviewerCode,
-        startTime: newStartTime,
-        endTime: null,
-        startLocation: currentLocation,
-        isActive: true,
-      };
+      // Get the interviewer id from the code
+      const { data: interviewers, error: interviewerError } = await supabase
+        .from('interviewers')
+        .select('id')
+        .eq('code', interviewerCode)
+        .limit(1);
+        
+      if (interviewerError) throw interviewerError;
       
-      setSessions([...sessions, newSession]);
-      setIsRunning(true);
-      setStartTime(newStartTime);
-      setStartLocation(currentLocation);
+      if (!interviewers || interviewers.length === 0) {
+        toast({
+          title: "Error",
+          description: "Interviewer code not found",
+          variant: "destructive",
+        });
+        return;
+      }
       
+      const interviewerId = interviewers[0].id;
+      
+      if (!isRunning) {
+        // Start a new session
+        const currentLocation = await getCurrentLocation();
+        
+        const { data: session, error: insertError } = await supabase
+          .from('sessions')
+          .insert([
+            {
+              interviewer_id: interviewerId,
+              start_latitude: currentLocation?.latitude || null,
+              start_longitude: currentLocation?.longitude || null,
+              start_address: currentLocation?.address || null,
+              is_active: true
+            }
+          ])
+          .select()
+          .single();
+          
+        if (insertError) throw insertError;
+        
+        setActiveSession(session);
+        setIsRunning(true);
+        setStartTime(session.start_time);
+        setStartLocation(currentLocation);
+        
+        toast({
+          title: "Session Started",
+          description: `Started at ${new Date().toLocaleTimeString()}`,
+        });
+      } else {
+        // End the current session
+        const currentLocation = await getCurrentLocation();
+        
+        if (!activeSession) return;
+        
+        const { error: updateError } = await supabase
+          .from('sessions')
+          .update({
+            end_time: new Date().toISOString(),
+            end_latitude: currentLocation?.latitude || null,
+            end_longitude: currentLocation?.longitude || null,
+            end_address: currentLocation?.address || null,
+            is_active: false
+          })
+          .eq('id', activeSession.id);
+          
+        if (updateError) throw updateError;
+        
+        setActiveSession(null);
+        setIsRunning(false);
+        setStartTime(null);
+        setStartLocation(undefined);
+        
+        toast({
+          title: "Session Ended",
+          description: `Ended at ${new Date().toLocaleTimeString()}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error managing session:", error);
       toast({
-        title: "Session Started",
-        description: `Started at ${new Date().toLocaleTimeString()}`,
+        title: "Error",
+        description: "Could not manage session",
+        variant: "destructive",
       });
-    } else {
-      // End the current session
-      const currentLocation = await getCurrentLocation();
-      const updatedSessions = sessions.map(session => {
-        if (session.interviewerCode === interviewerCode && session.isActive) {
-          return {
-            ...session,
-            endTime: new Date().toISOString(),
-            endLocation: currentLocation,
-            isActive: false,
-          };
-        }
-        return session;
-      });
-      
-      setSessions(updatedSessions);
-      setIsRunning(false);
-      setStartTime(null);
-      setStartLocation(undefined);
-      
-      toast({
-        title: "Session Ended",
-        description: `Ended at ${new Date().toLocaleTimeString()}`,
-      });
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -110,6 +201,7 @@ const Index = () => {
               value={interviewerCode}
               onChange={(e) => setInterviewerCode(e.target.value)}
               className="text-lg"
+              disabled={loading}
             />
           </div>
           
@@ -130,15 +222,17 @@ const Index = () => {
           <div className="flex justify-center pt-4">
             <button
               onClick={handleStartStop}
-              disabled={!interviewerCode}
-              className={`start-stop-button w-24 h-24 ${
-                isRunning ? "running" : "stopped"
-              } ${!interviewerCode ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={loading || !interviewerCode}
+              className={`start-stop-button w-24 h-24 rounded-full flex items-center justify-center ${
+                isRunning ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
+              } ${(loading || !interviewerCode) ? "opacity-50 cursor-not-allowed" : ""} text-white transition-colors`}
             >
-              {isRunning ? (
+              {loading ? (
+                <div className="animate-spin h-10 w-10 border-4 border-white border-t-transparent rounded-full"></div>
+              ) : isRunning ? (
                 <Square className="h-10 w-10" />
               ) : (
-                <Play className="h-10 w-10" />
+                <Play className="h-10 w-10 ml-1" />
               )}
             </button>
           </div>

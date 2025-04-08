@@ -2,20 +2,24 @@
 export interface Interviewer {
   id: string;
   code: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   email: string;
 }
 
 export interface Session {
   id: string;
-  interviewerCode: string;
-  startTime: string;
-  endTime: string | null;
-  startLocation?: Location;
-  endLocation?: Location;
-  isActive: boolean;
+  interviewer_id: string;
+  start_time: string;
+  end_time: string | null;
+  start_latitude: number | null;
+  start_longitude: number | null;
+  start_address: string | null;
+  end_latitude: number | null;
+  end_longitude: number | null;
+  end_address: string | null;
+  is_active: boolean;
 }
 
 export interface Location {
@@ -26,8 +30,9 @@ export interface Location {
 
 export interface Schedule {
   id: string;
-  interviewerCode: string;
-  startTime: string;
-  endTime: string;
+  interviewer_id: string;
+  start_time: string;
+  end_time: string;
   status: 'scheduled' | 'completed' | 'cancelled';
+  notes?: string;
 }
