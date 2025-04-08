@@ -12,12 +12,14 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [startLocation, setStartLocation] = useState<Location | undefined>(undefined);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isPrimaryUser, setIsPrimaryUser] = useState(false);
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
     const savedCode = localStorage.getItem("interviewerCode");
     if (savedCode && !interviewerCode) {
       setInterviewerCode(savedCode);
+      setIsPrimaryUser(true);
     }
   }, [interviewerCode]);
 
@@ -91,6 +93,15 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     checkActiveSession();
   }, [interviewerCode, toast]);
 
+  const switchUser = () => {
+    setInterviewerCode("");
+    setIsPrimaryUser(false);
+    setIsRunning(false);
+    setStartTime(null);
+    setStartLocation(undefined);
+    setActiveSession(null);
+  };
+
   return {
     interviewerCode,
     setInterviewerCode,
@@ -102,6 +113,8 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setStartLocation,
     activeSession,
     setActiveSession,
-    loading
+    loading,
+    isPrimaryUser,
+    switchUser
   };
 };

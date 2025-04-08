@@ -16,7 +16,9 @@ const Index = () => {
     startLocation,
     setStartLocation,
     activeSession,
-    setActiveSession
+    setActiveSession,
+    isPrimaryUser,
+    switchUser
   } = useActiveSession();
 
   const { totalActiveTime } = useInterviewerWorkHours(interviewerCode);
@@ -41,6 +43,8 @@ const Index = () => {
           activeSession={activeSession}
           setActiveSession={setActiveSession}
           totalActiveTime={totalActiveTime}
+          isPrimaryUser={isPrimaryUser}
+          switchUser={switchUser}
         />
         
         <p className="mt-6 text-sm text-gray-500">

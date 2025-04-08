@@ -1,8 +1,9 @@
 
 import React, { useState } from "react";
-import { Play, Square, Clock } from "lucide-react";
+import { Play, Square, Clock, LogOut } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Session, Location } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,8 @@ interface SessionFormProps {
   activeSession: Session | null;
   setActiveSession: (session: Session | null) => void;
   totalActiveTime: string;
+  isPrimaryUser: boolean;
+  switchUser: () => void;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -34,7 +37,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
   setStartLocation,
   activeSession,
   setActiveSession,
-  totalActiveTime
+  totalActiveTime,
+  isPrimaryUser,
+  switchUser
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -145,15 +150,37 @@ const SessionForm: React.FC<SessionFormProps> = ({
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
       <div className="space-y-2">
-        <Label htmlFor="interviewer-code">Interviewer Code</Label>
-        <Input
-          id="interviewer-code"
-          placeholder="Enter your code"
-          value={interviewerCode}
-          onChange={(e) => setInterviewerCode(e.target.value)}
-          className="text-lg"
-          disabled={loading}
-        />
+        {isPrimaryUser ? (
+          <div className="flex justify-between items-center">
+            <div>
+              <Label htmlFor="interviewer-code">Interviewer Code</Label>
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-medium">{interviewerCode}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={switchUser}
+                  className="flex items-center gap-1"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Switch User</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Label htmlFor="interviewer-code">Interviewer Code</Label>
+            <Input
+              id="interviewer-code"
+              placeholder="Enter your code"
+              value={interviewerCode}
+              onChange={(e) => setInterviewerCode(e.target.value)}
+              className="text-lg"
+              disabled={loading}
+            />
+          </>
+        )}
       </div>
       
       {interviewerCode && (
