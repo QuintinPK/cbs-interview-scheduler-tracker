@@ -39,18 +39,27 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     return (end - start) / (1000 * 60 * 60); // Convert to hours
   };
   
-  const totalHoursThisWeek = sessions
-    .filter(session => {
-      const sessionDate = new Date(session.start_time);
-      return sessionDate >= startOfWeek && !session.is_active && session.end_time;
-    })
-    .reduce((total, session) => total + calculateSessionDuration(session), 0);
+  const thisWeekSessions = sessions.filter(session => {
+    const sessionDate = new Date(session.start_time);
+    return sessionDate >= startOfWeek && !session.is_active && session.end_time;
+  });
+  
+  const totalHoursThisWeek = thisWeekSessions.reduce(
+    (total, session) => total + calculateSessionDuration(session), 
+    0
+  );
+  
+  // Calculate average session length this week
+  const avgSessionLength = thisWeekSessions.length > 0 
+    ? totalHoursThisWeek / thisWeekSessions.length 
+    : 0;
   
   const statsItems = [
     { label: "Total Interviewers", value: totalInterviewers },
     { label: "Active Sessions", value: activeSessions },
     { label: "Sessions Today", value: sessionsToday },
-    { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) }
+    { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) },
+    { label: "Avg Session Length (h)", value: avgSessionLength.toFixed(1) }
   ];
   
   return (
@@ -62,7 +71,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
         {loading ? (
           <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {statsItems.map((item, index) => (
               <div key={index} className="bg-gray-50 p-4 rounded-md">
                 <p className="text-sm text-muted-foreground">{item.label}</p>
