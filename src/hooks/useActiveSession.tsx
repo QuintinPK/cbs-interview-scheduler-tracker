@@ -6,6 +6,8 @@ import { useToast } from "./use-toast";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
+  
+  // State variables
   const [interviewerCode, setInterviewerCode] = useState(initialInterviewerCode);
   const [isRunning, setIsRunning] = useState(false);
   const [startTime, setStartTime] = useState<string | null>(null);
@@ -16,18 +18,26 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
-    const savedCode = localStorage.getItem("interviewerCode");
-    if (savedCode && !interviewerCode) {
-      setInterviewerCode(savedCode);
-      setIsPrimaryUser(true);
-    }
+    const loadSavedInterviewerCode = () => {
+      const savedCode = localStorage.getItem("interviewerCode");
+      if (savedCode && !interviewerCode) {
+        setInterviewerCode(savedCode);
+        setIsPrimaryUser(true);
+      }
+    };
+    
+    loadSavedInterviewerCode();
   }, [interviewerCode]);
 
   // Save interviewer code to localStorage when it changes
   useEffect(() => {
-    if (interviewerCode && isPrimaryUser) {
-      localStorage.setItem("interviewerCode", interviewerCode);
-    }
+    const saveInterviewerCode = () => {
+      if (interviewerCode && isPrimaryUser) {
+        localStorage.setItem("interviewerCode", interviewerCode);
+      }
+    };
+    
+    saveInterviewerCode();
   }, [interviewerCode, isPrimaryUser]);
 
   // Check if there's an active session for this interviewer on code change
@@ -38,7 +48,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       try {
         setLoading(true);
         
-        // First get the interviewer by code
+        // Get the interviewer by code
         const { data: interviewers, error: interviewerError } = await supabase
           .from('interviewers')
           .select('id')
@@ -50,7 +60,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         
         const interviewerId = interviewers[0].id;
         
-        // Then check for active sessions
+        // Check for active sessions
         const { data: sessions, error: sessionError } = await supabase
           .from('sessions')
           .select('*')
@@ -61,22 +71,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         if (sessionError) throw sessionError;
         
         if (sessions && sessions.length > 0) {
-          setActiveSession(sessions[0]);
-          setIsRunning(true);
-          setStartTime(sessions[0].start_time);
-          
-          if (sessions[0].start_latitude && sessions[0].start_longitude) {
-            setStartLocation({
-              latitude: sessions[0].start_latitude,
-              longitude: sessions[0].start_longitude,
-              address: sessions[0].start_address || undefined
-            });
-          }
+          updateSessionState(sessions[0]);
         } else {
-          setActiveSession(null);
-          setIsRunning(false);
-          setStartTime(null);
-          setStartLocation(undefined);
+          resetSessionState();
         }
       } catch (error) {
         console.error("Error checking active session:", error);
@@ -93,6 +90,30 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     checkActiveSession();
   }, [interviewerCode, toast]);
 
+  // Helper function to update session state
+  const updateSessionState = (session: Session) => {
+    setActiveSession(session);
+    setIsRunning(true);
+    setStartTime(session.start_time);
+    
+    if (session.start_latitude && session.start_longitude) {
+      setStartLocation({
+        latitude: session.start_latitude,
+        longitude: session.start_longitude,
+        address: session.start_address || undefined
+      });
+    }
+  };
+
+  // Helper function to reset session state
+  const resetSessionState = () => {
+    setActiveSession(null);
+    setIsRunning(false);
+    setStartTime(null);
+    setStartLocation(undefined);
+  };
+
+  // Function to switch user
   const switchUser = () => {
     // Clear the interviewer code from localStorage
     localStorage.removeItem("interviewerCode");
@@ -100,10 +121,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     // Reset all state
     setInterviewerCode("");
     setIsPrimaryUser(false);
-    setIsRunning(false);
-    setStartTime(null);
-    setStartLocation(undefined);
-    setActiveSession(null);
+    resetSessionState();
   };
 
   return {
