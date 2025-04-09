@@ -145,9 +145,14 @@ const Costs = () => {
       setIsSaving(true);
       console.log("Updating hourly rate to:", hourlyRate);
       
-      // Use RPC function to bypass RLS policies
-      const { error } = await supabase.rpc('admin_update_hourly_rate', {
-        rate: hourlyRate
+      // Call edge function to update hourly rate
+      const { error } = await supabase.functions.invoke('admin-functions', {
+        body: {
+          action: "updateHourlyRate",
+          data: {
+            rate: hourlyRate
+          }
+        }
       });
       
       if (error) {

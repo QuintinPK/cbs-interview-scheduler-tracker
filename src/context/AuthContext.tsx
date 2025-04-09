@@ -85,7 +85,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Simple hash function for demo purposes
-  // In a real app, use a proper crypto library with salting
   const simpleHash = async (text: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -150,8 +149,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newPasswordHash = await simpleHash(newPassword);
       
       // Store the new password hash in the database using RPC
-      const { error } = await supabase.rpc('admin_update_password', {
-        password_hash: newPasswordHash
+      const { error } = await supabase.functions.invoke('admin-functions', {
+        body: {
+          action: "updatePassword",
+          data: {
+            passwordHash: newPasswordHash
+          }
+        }
       });
       
       if (error) {
