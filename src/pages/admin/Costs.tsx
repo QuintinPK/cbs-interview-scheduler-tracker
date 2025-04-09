@@ -22,9 +22,11 @@ const Costs = () => {
   const [calculatedCosts, setCalculatedCosts] = useState<{
     interviewerCosts: { id: string; name: string; hours: number; cost: number }[];
     totalCost: number;
+    totalHours: number;
   }>({
     interviewerCosts: [],
     totalCost: 0,
+    totalHours: 0
   });
 
   // Fetch the hourly rate from the database
@@ -38,7 +40,15 @@ const Costs = () => {
           .eq('key', 'hourly_rate')
           .single();
 
-        if (error) throw error;
+        if (error) {
+          // Handle "No rows found" error gracefully
+          if (error.code === 'PGRST116') {
+            // Set default rate if no setting exists
+            setHourlyRate(25);
+            return;
+          }
+          throw error;
+        }
         
         // Parse the value from the JSON value field
         if (data && data.value) {
@@ -50,11 +60,14 @@ const Costs = () => {
         }
       } catch (error) {
         console.error("Error fetching hourly rate:", error);
-        toast({
-          title: "Error",
-          description: "Failed to fetch hourly rate",
-          variant: "destructive",
-        });
+        // Don't show error toast for navigation issues
+        if (!(error instanceof Error && error.message.includes("fetch"))) {
+          toast({
+            title: "Error",
+            description: "Failed to fetch hourly rate",
+            variant: "destructive",
+          });
+        }
       }
     };
 
@@ -96,12 +109,14 @@ const Costs = () => {
       cost: hours * hourlyRate,
     }));
 
-    // Calculate total cost
+    // Calculate total hours and cost
+    const totalHours = interviewerCosts.reduce((sum, item) => sum + item.hours, 0);
     const totalCost = interviewerCosts.reduce((sum, item) => sum + item.cost, 0);
 
     setCalculatedCosts({
       interviewerCosts,
       totalCost,
+      totalHours
     });
   };
 
@@ -207,10 +222,18 @@ const Costs = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                <div className="bg-primary/10 p-6 rounded-lg">
-                  <p className="text-lg text-muted-foreground">Total Cost (All Interviewers)</p>
-                  <p className="text-4xl font-bold text-primary">€{calculatedCosts.totalCost.toFixed(2)}</p>
+                <div className="grid gap-4">
+                  <div className="bg-primary/10 p-6 rounded-lg">
+                    <p className="text-lg text-muted-foreground">Total Cost (All Interviewers)</p>
+                    <p className="text-4xl font-bold text-primary">€{calculatedCosts.totalCost.toFixed(2)}</p>
+                  </div>
+                  
+                  <div className="bg-primary/5 p-6 rounded-lg">
+                    <p className="text-lg text-muted-foreground">Total Hours Worked</p>
+                    <p className="text-3xl font-bold">{calculatedCosts.totalHours.toFixed(2)} hours</p>
+                  </div>
                 </div>
+                
                 <Button 
                   onClick={calculateCosts} 
                   className="w-full"
