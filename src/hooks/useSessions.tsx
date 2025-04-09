@@ -75,6 +75,11 @@ export const useSessions = () => {
     loadData();
   }, [toast]);
   
+  // Apply filters whenever the filter values change or interviewers are loaded
+  useEffect(() => {
+    applyFilters(interviewers);
+  }, [interviewerCodeFilter, dateFilter, interviewers]);
+  
   const getInterviewerCode = (interviewerId: string) => {
     const interviewer = interviewers.find(i => i.id === interviewerId);
     return interviewer ? interviewer.code : 'Unknown';

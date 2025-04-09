@@ -24,8 +24,6 @@ export const useSessionFilters = (sessions: Session[]) => {
       if (matchingInterviewers.length > 0) {
         const interviewerIds = matchingInterviewers.map(i => i.id);
         filtered = filtered.filter(session => interviewerIds.includes(session.interviewer_id));
-      } else {
-        filtered = [];
       }
     }
     

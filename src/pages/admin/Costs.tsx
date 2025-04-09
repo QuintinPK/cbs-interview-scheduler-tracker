@@ -176,6 +176,14 @@ const Costs = () => {
     }
   }, [hourlyRate, sessions, interviewers, loading, isLoading]);
 
+  // Handle hourly rate input changes with 0.50 step increments
+  const handleHourlyRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    if (!isNaN(value)) {
+      setHourlyRate(value);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -198,12 +206,14 @@ const Costs = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div className="space-y-2">
-                      <Label htmlFor="hourlyRate">Hourly Rate (€)</Label>
+                      <Label htmlFor="hourlyRate">Hourly Rate ($)</Label>
                       <Input
                         id="hourlyRate"
                         type="number"
                         value={hourlyRate}
-                        onChange={(e) => setHourlyRate(Number(e.target.value))}
+                        onChange={handleHourlyRateChange}
+                        step="0.50"
+                        min="0"
                         disabled={!isEditing}
                       />
                     </div>
@@ -247,7 +257,7 @@ const Costs = () => {
                 <div className="grid gap-4">
                   <div className="bg-primary/10 p-6 rounded-lg">
                     <p className="text-lg text-muted-foreground">Total Cost (All Interviewers)</p>
-                    <p className="text-4xl font-bold text-primary">€{calculatedCosts.totalCost.toFixed(2)}</p>
+                    <p className="text-4xl font-bold text-primary">${calculatedCosts.totalCost.toFixed(2)}</p>
                   </div>
                   
                   <div className="bg-primary/5 p-6 rounded-lg">
@@ -286,7 +296,7 @@ const Costs = () => {
                     <TableRow>
                       <TableHead>Interviewer</TableHead>
                       <TableHead>Total Hours</TableHead>
-                      <TableHead>Cost (€{hourlyRate}/hour)</TableHead>
+                      <TableHead>Cost (${hourlyRate}/hour)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -294,7 +304,7 @@ const Costs = () => {
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell>{item.hours.toFixed(2)}</TableCell>
-                        <TableCell>€{item.cost.toFixed(2)}</TableCell>
+                        <TableCell>${item.cost.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
