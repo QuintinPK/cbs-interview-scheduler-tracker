@@ -43,6 +43,7 @@ const Login = () => {
     }
     
     setIsLoading(true);
+    console.log("Login attempted with password:", password.slice(0, 1) + '*'.repeat(password.length - 1));
     
     try {
       console.log("Login form: attempting login with username:", username);

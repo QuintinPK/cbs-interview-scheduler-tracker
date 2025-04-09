@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error("Error fetching password hash:", error);
         // If no password hash found yet, check against the default
+        console.log("Error fetching hash, using default password");
         return password === "admin123";
       }
       
@@ -55,16 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return password === "admin123";
       }
       
-      let storedHash = "";
-      
       // Extract the hash based on the data format
-      if (typeof data.value === 'string') {
-        // If value is a string hash
-        storedHash = data.value;
-      } else if (typeof data.value === 'object' && data.value !== null) {
-        // If value is an object with hash property
-        storedHash = (data.value as any).hash || '';
-      }
+      const storedHash = typeof data.value === 'string' 
+        ? data.value 
+        : (typeof data.value === 'object' && data.value !== null) 
+          ? (data.value as any).hash || '' 
+          : '';
       
       console.log("Stored hash:", storedHash);
       
@@ -77,11 +74,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hash the input password and compare with stored hash
       const inputHash = await simpleHash(password);
       console.log("Input hash:", inputHash);
+      console.log("Do hashes match?", inputHash === storedHash);
       
       // Directly compare the hashes
-      const result = inputHash === storedHash;
-      console.log("Password verification result:", result);
-      return result;
+      return inputHash === storedHash;
     } catch (error) {
       console.error("Error verifying password:", error);
       // Fallback to default for demo
