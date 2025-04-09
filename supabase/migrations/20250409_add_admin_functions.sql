@@ -7,12 +7,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Upsert the hourly rate
+  -- Upsert the hourly rate (stored as a numeric value, not JSON object)
   INSERT INTO app_settings (key, value, updated_at, updated_by)
-  VALUES ('hourly_rate', rate, now(), 'admin')
+  VALUES ('hourly_rate', rate::numeric, now(), 'admin')
   ON CONFLICT (key) 
   DO UPDATE SET 
-    value = rate,
+    value = rate::numeric,
     updated_at = now(),
     updated_by = 'admin';
   

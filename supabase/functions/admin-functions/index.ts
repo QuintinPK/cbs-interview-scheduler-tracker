@@ -27,27 +27,23 @@ serve(async (req) => {
     // Handle different admin actions
     switch (action) {
       case "updateHourlyRate":
-        // Update hourly rate
-        result = await supabase
-          .from("app_settings")
-          .upsert({
-            key: "hourly_rate",
-            value: data.rate,
-            updated_at: new Date().toISOString(),
-            updated_by: "admin"
-          }, { onConflict: "key" });
+        // Store hourly rate as a numeric value, not a JSON object
+        const numericRate = Number(data.rate);
+        if (isNaN(numericRate)) {
+          throw new Error("Invalid rate value");
+        }
+        
+        // Update hourly rate using the RPC function
+        result = await supabase.rpc('admin_update_hourly_rate', {
+          rate: numericRate
+        });
         break;
         
       case "updatePassword":
         // Update admin password hash
-        result = await supabase
-          .from("app_settings")
-          .upsert({
-            key: "admin_password_hash",
-            value: { hash: data.passwordHash },
-            updated_at: new Date().toISOString(),
-            updated_by: "admin"
-          }, { onConflict: "key" });
+        result = await supabase.rpc('admin_update_password', {
+          password_hash: data.passwordHash
+        });
         break;
         
       default:

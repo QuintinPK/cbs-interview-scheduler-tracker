@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,10 +59,14 @@ const Costs = () => {
           } else if (typeof data.value === 'string') {
             rateValue = parseFloat(data.value);
           } else if (data.value !== null && typeof data.value === 'object') {
-            // Try to handle if it's stored as a JSON object
-            const strValue = data.value?.rate || data.value;
-            console.log("Hourly rate stored as object:", strValue);
-            rateValue = parseFloat(strValue);
+            // Handle if the value is stored as a JSON object or number
+            if (Array.isArray(data.value)) {
+              console.log("Hourly rate stored as array, can't parse");
+              rateValue = 25; // Use default
+            } else {
+              // It's an object, try to access directly or parse
+              rateValue = parseFloat(String(data.value));
+            }
           }
             
           if (!isNaN(rateValue)) {

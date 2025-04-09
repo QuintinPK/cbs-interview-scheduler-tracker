@@ -149,9 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hash the new password
       const newPasswordHash = await simpleHash(newPassword);
       
-      // Store the new password hash in the database
-      // Insert directly into the database bypassing RLS
-      // Note: In a production app, use a secure API endpoint with proper auth
+      // Store the new password hash in the database using RPC
       const { error } = await supabase.rpc('admin_update_password', {
         password_hash: newPasswordHash
       });
