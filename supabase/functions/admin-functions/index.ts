@@ -86,6 +86,31 @@ serve(async (req) => {
         result = { success: true };
         break;
         
+      case "getHourlyRate":
+        console.log("Fetching current hourly rate");
+        
+        // Get the current hourly rate
+        const { data: rateData, error: rateError } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'hourly_rate')
+          .maybeSingle();
+        
+        if (rateError) {
+          console.error("Error fetching hourly rate:", rateError);
+          throw rateError;
+        }
+        
+        // Return the hourly rate, or default if not found
+        const hourlyRate = rateData ? Number(rateData.value) : 25;
+        console.log("Retrieved hourly rate:", hourlyRate);
+        
+        result = { 
+          success: true,
+          hourlyRate: hourlyRate
+        };
+        break;
+        
       case "updatePassword":
         // Update admin password hash
         console.log("Updating password hash");
@@ -113,7 +138,7 @@ serve(async (req) => {
     }
     
     console.log("Operation completed successfully");
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

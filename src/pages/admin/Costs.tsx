@@ -28,70 +28,37 @@ const Costs = () => {
     totalHours: 0
   });
 
-  // Fetch the hourly rate from the database
+  // Fetch the hourly rate from the edge function
   useEffect(() => {
     const fetchHourlyRate = async () => {
       try {
         setIsLoading(true);
-        console.log("Fetching hourly rate from database");
-        const { data, error } = await supabase
-          .from('app_settings')
-          .select('*')
-          .eq('key', 'hourly_rate')
-          .maybeSingle();
+        console.log("Fetching hourly rate from edge function");
+        
+        const { data, error } = await supabase.functions.invoke('admin-functions', {
+          body: {
+            action: "getHourlyRate"
+          }
+        });
 
         if (error) {
           console.error("Error fetching hourly rate:", error);
-          // Handle errors gracefully
-          if (error.code === 'PGRST116') {
-            console.log("No hourly rate found, using default");
-            setHourlyRate(25);
+          throw error;
+        }
+        
+        console.log("Retrieved hourly rate data:", data);
+        
+        if (data && data.hourlyRate !== undefined) {
+          const rate = Number(data.hourlyRate);
+          if (!isNaN(rate)) {
+            console.log("Setting hourly rate to:", rate);
+            setHourlyRate(rate);
           } else {
-            throw error;
-          }
-        } else if (data) {
-          console.log("Retrieved hourly rate data:", data);
-          
-          // Handle the value based on its type
-          if (data.value !== null) {
-            let rateValue;
-            
-            if (typeof data.value === 'number') {
-              rateValue = data.value;
-            } else if (typeof data.value === 'string') {
-              rateValue = parseFloat(data.value);
-            } else if (typeof data.value === 'object') {
-              // Extract the value if it's stored as an object
-              const valueString = JSON.stringify(data.value);
-              console.log("Value as string:", valueString);
-              
-              // Try to extract a number from the JSON
-              try {
-                const parsed = JSON.parse(valueString);
-                if (typeof parsed === 'number') {
-                  rateValue = parsed;
-                } else {
-                  rateValue = 25; // Default
-                }
-              } catch {
-                rateValue = 25; // Default if parsing fails
-              }
-            }
-              
-            if (!isNaN(rateValue)) {
-              console.log("Setting hourly rate to:", rateValue);
-              setHourlyRate(rateValue);
-            } else {
-              console.log("Using default hourly rate, couldn't parse:", data.value);
-              setHourlyRate(25);
-            }
-          } else {
-            // Default if value is null
+            console.log("Using default hourly rate, couldn't parse:", data.hourlyRate);
             setHourlyRate(25);
           }
         } else {
-          // No data found
-          console.log("No hourly rate found, using default");
+          console.log("No hourly rate returned, using default");
           setHourlyRate(25);
         }
       } catch (error) {
