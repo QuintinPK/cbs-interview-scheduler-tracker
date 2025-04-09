@@ -2,9 +2,22 @@ import { useState, useEffect } from "react";
 import { Session, Location } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
+import { useConnectionStatus } from "./useConnectionStatus";
+import { 
+  saveActiveOfflineSession, 
+  getActiveOfflineSession, 
+  clearActiveOfflineSession,
+  savePendingSession,
+  getPendingSessions,
+  STORAGE_KEYS,
+  getFromStorage,
+  saveToStorage,
+  removeFromStorage
+} from "@/lib/offlineStorage";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
+  const { isOnline } = useConnectionStatus();
   
   // State variables
   const [interviewerCode, setInterviewerCode] = useState(initialInterviewerCode);
@@ -14,6 +27,8 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
+  const [isOfflineSession, setIsOfflineSession] = useState(false);
+  const [interviewerId, setInterviewerId] = useState<string | null>(null);
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
@@ -39,10 +54,41 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     saveInterviewerCode();
   }, [interviewerCode, isPrimaryUser]);
 
-  // Check if there's an active session for this interviewer on code change
+  // Load offline session if exists
+  useEffect(() => {
+    const checkOfflineSession = () => {
+      const offlineSession = getActiveOfflineSession();
+      if (offlineSession && interviewerCode) {
+        setIsOfflineSession(true);
+        setIsRunning(true);
+        setStartTime(offlineSession.start_time as string);
+        
+        if (offlineSession.start_latitude && offlineSession.start_longitude) {
+          setStartLocation({
+            latitude: offlineSession.start_latitude as number,
+            longitude: offlineSession.start_longitude as number,
+            address: offlineSession.start_address || undefined
+          });
+        }
+        
+        // Create a Session-like object from the offline data
+        const sessionData = {
+          ...offlineSession,
+          id: "offline", // Temporary ID
+          is_active: true
+        } as Session;
+        
+        setActiveSession(sessionData);
+      }
+    };
+    
+    checkOfflineSession();
+  }, [interviewerCode]);
+
+  // Check if there's an active session for this interviewer on code change or when coming online
   useEffect(() => {
     const checkActiveSession = async () => {
-      if (!interviewerCode.trim()) return;
+      if (!interviewerCode.trim() || !isOnline) return;
       
       try {
         setLoading(true);
@@ -58,6 +104,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         if (!interviewers || interviewers.length === 0) return;
         
         const interviewerId = interviewers[0].id;
+        setInterviewerId(interviewerId);
         
         // Check for active sessions
         const { data: sessions, error: sessionError } = await supabase
@@ -69,9 +116,21 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           
         if (sessionError) throw sessionError;
         
-        if (sessions && sessions.length > 0) {
+        // If we have an offline session and online session, handle the conflict
+        if (isOfflineSession && sessions && sessions.length > 0) {
+          handleSessionConflict(sessions[0]);
+        } 
+        // If we have an online session but no offline session
+        else if (sessions && sessions.length > 0) {
           updateSessionState(sessions[0]);
-        } else {
+          setIsOfflineSession(false);
+        }
+        // If we have an offline session but no online session
+        else if (isOfflineSession) {
+          // Keep the offline session state, it will be synced when ended
+        }
+        // No session active
+        else {
           resetSessionState();
         }
       } catch (error) {
@@ -87,7 +146,23 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     checkActiveSession();
-  }, [interviewerCode, toast]);
+  }, [interviewerCode, isOnline, toast, isOfflineSession]);
+
+  // Handle conflict between offline and online sessions
+  const handleSessionConflict = (onlineSession: Session) => {
+    // For now, we'll prioritize the online session
+    toast({
+      title: "Session Conflict",
+      description: "Found an active online session. Using that instead of your offline session.",
+    });
+
+    // Clear the offline session
+    clearActiveOfflineSession();
+    setIsOfflineSession(false);
+
+    // Use the online session
+    updateSessionState(onlineSession);
+  };
 
   // Helper function to update session state
   const updateSessionState = (session: Session) => {
@@ -110,6 +185,8 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setIsRunning(false);
     setStartTime(null);
     setStartLocation(undefined);
+    setIsOfflineSession(false);
+    clearActiveOfflineSession();
   };
 
   // Function to switch user
@@ -121,6 +198,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setInterviewerCode("");
     setIsPrimaryUser(false);
     resetSessionState();
+    setInterviewerId(null);
   };
 
   // Function to end session while preserving the primary user status
@@ -144,6 +222,10 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     isPrimaryUser,
     setIsPrimaryUser,
     switchUser,
-    endSession
+    endSession,
+    isOfflineSession,
+    setIsOfflineSession,
+    interviewerId,
+    isOnline
   };
 };
