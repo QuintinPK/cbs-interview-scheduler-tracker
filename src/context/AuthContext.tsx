@@ -40,7 +40,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Compare the provided password with the stored hash
       // In a real app, we'd use a proper hashing library with bcrypt
       // For this demo, we'll use a simple hash comparison
-      const storedHash = data.value.hash;
+      
+      // Fix the type error by ensuring data.value has a hash property
+      const valueObj = typeof data.value === 'object' ? data.value : {};
+      const storedHash = valueObj && 'hash' in valueObj ? (valueObj as { hash: string }).hash : '';
+      
       // Simple hash function for demo purposes
       const inputHash = await simpleHash(password);
       
