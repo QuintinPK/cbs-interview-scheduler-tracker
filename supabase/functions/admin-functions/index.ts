@@ -128,13 +128,17 @@ serve(async (req) => {
           throw checkPasswordError;
         }
         
+        // Create a hash value that's properly formatted for storage
+        const hashValue = { hash: data.passwordHash };
+        console.log("Storing hash value:", hashValue);
+        
         let updateResult;
         if (existingPasswordData) {
           // Update existing password hash
           updateResult = await supabase
             .from('app_settings')
             .update({
-              value: { hash: data.passwordHash },
+              value: hashValue,
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             })
@@ -145,7 +149,7 @@ serve(async (req) => {
             .from('app_settings')
             .insert({
               key: 'admin_password_hash',
-              value: { hash: data.passwordHash },
+              value: hashValue,
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             });
@@ -154,6 +158,19 @@ serve(async (req) => {
         if (updateResult.error) {
           console.error("Error updating password:", updateResult.error);
           throw updateResult.error;
+        }
+        
+        // Double-check that the password was updated correctly
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'admin_password_hash')
+          .maybeSingle();
+          
+        if (verifyError) {
+          console.error("Error verifying password update:", verifyError);
+        } else {
+          console.log("Password verified in database:", verifyData);
         }
         
         console.log("Password updated successfully");

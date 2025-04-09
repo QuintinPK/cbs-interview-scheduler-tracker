@@ -59,7 +59,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let storedHash = '';
       if (typeof data.value === 'object' && data.value !== null) {
         storedHash = (data.value as any).hash || '';
+      } else if (typeof data.value === 'string') {
+        try {
+          // Try parsing the value as JSON in case it's stored as a string
+          const parsed = JSON.parse(data.value);
+          storedHash = parsed.hash || '';
+        } catch (e) {
+          // If it's not valid JSON, use the value directly
+          storedHash = data.value;
+        }
       }
+      
+      console.log("Stored hash:", storedHash);
       
       // If there's no stored hash, use the default
       if (!storedHash) {
@@ -69,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Hash the input password and compare with stored hash
       const inputHash = await simpleHash(password);
+      console.log("Input hash:", inputHash);
       console.log("Comparing hashes");
       return inputHash === storedHash;
     } catch (error) {
@@ -135,12 +147,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Current password valid:", isValidPassword);
       
       if (!isValidPassword) {
+        console.log("Current password is invalid");
         return false;
       }
       
       // Hash the new password
       const newPasswordHash = await simpleHash(newPassword);
-      console.log("Generated new password hash");
+      console.log("Generated new password hash:", newPasswordHash);
       
       // Store the new password hash in the database using the edge function
       const { data, error } = await supabase.functions.invoke('admin-functions', {
@@ -155,6 +168,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error("Error updating password:", error);
         return false;
+      }
+      
+      console.log("Password update response:", data);
+      
+      // Verify that the password was updated in the database
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'admin_password_hash')
+        .maybeSingle();
+        
+      if (verifyError) {
+        console.error("Error verifying password update:", verifyError);
+      } else {
+        console.log("Password verification from database:", verifyData);
       }
       
       console.log("Password updated successfully");

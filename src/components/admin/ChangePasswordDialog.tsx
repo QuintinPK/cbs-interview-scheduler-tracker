@@ -55,11 +55,11 @@ const ChangePasswordDialog = () => {
         setOpen(false);
         resetForm();
       } else {
-        setError("Current password is incorrect");
+        setError("Failed to update password. Please check that your current password is correct.");
       }
     } catch (error) {
       console.error("Error updating password:", error);
-      setError("An unexpected error occurred");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }
