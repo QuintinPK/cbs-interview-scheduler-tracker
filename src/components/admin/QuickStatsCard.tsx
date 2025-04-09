@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -132,7 +133,9 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     { label: "Sessions Today", value: sessionsToday },
     { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) },
     { label: "Avg Session Length (h)", value: avgSessionLength.toFixed(1) },
-    { label: "Avg Sessions per Interviewer", value: avgSessionsPerInterviewer }
+    { label: "Avg Sessions per Interviewer (Week)", value: avgSessionsPerInterviewer },
+    { label: "Average Session Length (Week)", value: calculateAvgSessionLength() },
+    { label: "Avg Sessions Per Interviewer (Week)", value: calculateAvgSessionsPerInterviewer() }
   ];
   
   return (
@@ -151,16 +154,6 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
                 <p className="text-2xl font-bold text-primary mt-1">{item.value}</p>
               </div>
             ))}
-            
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Average Session Length (Week)</p>
-              <p className="text-2xl font-bold">{calculateAvgSessionLength()}</p>
-            </div>
-            
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Avg Sessions Per Interviewer (Week)</p>
-              <p className="text-2xl font-bold">{calculateAvgSessionsPerInterviewer()}</p>
-            </div>
           </div>
         )}
       </CardContent>
