@@ -51,7 +51,7 @@ const Login = () => {
       } else {
         toast({
           title: "Error",
-          description: "Invalid credentials. The username is 'admin'",
+          description: "Invalid credentials. Username: admin, Default password: admin123",
           variant: "destructive",
         });
       }
@@ -109,7 +109,7 @@ const Login = () => {
               </Button>
               
               <p className="text-sm text-center text-muted-foreground mt-4">
-                Username: admin
+                Username: admin, Default password: admin123
               </p>
             </form>
           </CardContent>

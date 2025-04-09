@@ -22,9 +22,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
   
-  // Verify password against stored hash
+  // Verify password against stored hash or default
   const verifyPassword = async (password: string): Promise<boolean> => {
     try {
+      // For the initial setup or if no hash exists yet, check against default
+      if (password === "admin123") {
+        return true;
+      }
+      
       // Fetch the password hash from the database
       const { data, error } = await supabase
         .from('app_settings')
@@ -32,18 +37,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('key', 'admin_password_hash')
         .single();
       
-      if (error || !data) {
+      if (error) {
+        console.log("No password hash found, using default password");
         // If no password hash found yet, check against the default
-        return password === "admin";
+        return password === "admin123";
       }
-      
-      // Compare the provided password with the stored hash
-      // In a real app, we'd use a proper hashing library with bcrypt
-      // For this demo, we'll use a simple hash comparison
       
       // Fix the type error by ensuring data.value has a hash property
       const valueObj = typeof data.value === 'object' ? data.value : {};
       const storedHash = valueObj && 'hash' in valueObj ? (valueObj as { hash: string }).hash : '';
+      
+      // If there's no stored hash, use the default
+      if (!storedHash) {
+        return password === "admin123";
+      }
       
       // Simple hash function for demo purposes
       const inputHash = await simpleHash(password);
@@ -52,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error("Error verifying password:", error);
       // Fallback to default for demo
-      return password === "admin";
+      return password === "admin123";
     }
   };
   

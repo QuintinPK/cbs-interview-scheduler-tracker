@@ -123,6 +123,9 @@ const Costs = () => {
     try {
       setIsSaving(true);
       
+      // Converting hourly rate to string to ensure consistent storage
+      const rateValue = hourlyRate.toString();
+      
       // First, check if a record exists
       const { data, error: checkError } = await supabase
         .from('app_settings')
@@ -130,33 +133,35 @@ const Costs = () => {
         .eq('key', 'hourly_rate')
         .single();
       
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
+      let updateResult;
       
-      // Update or insert based on whether the record exists
-      if (data) {
-        // Update existing record
-        const { error } = await supabase
-          .from('app_settings')
-          .update({
-            value: hourlyRate.toString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('key', 'hourly_rate');
-        
-        if (error) throw error;
-      } else {
-        // Insert new record
-        const { error } = await supabase
+      if (checkError && checkError.code === 'PGRST116') {
+        // Record doesn't exist, insert new one
+        updateResult = await supabase
           .from('app_settings')
           .insert({
             key: 'hourly_rate',
-            value: hourlyRate.toString(),
+            value: rateValue,
             updated_at: new Date().toISOString(),
+            updated_by: 'admin'
           });
-        
-        if (error) throw error;
+      } else if (!checkError) {
+        // Record exists, update it
+        updateResult = await supabase
+          .from('app_settings')
+          .update({
+            value: rateValue,
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          })
+          .eq('key', 'hourly_rate');
+      } else {
+        // Some other error occurred during the check
+        throw checkError;
+      }
+      
+      if (updateResult.error) {
+        throw updateResult.error;
       }
 
       toast({
