@@ -49,12 +49,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // If there's no stored hash, use the default
       if (!storedHash) {
+        console.log("No stored hash found, using default password");
         return password === "admin123";
       }
       
       // Simple hash function for demo purposes
       const inputHash = await simpleHash(password);
-      
+      console.log("Comparing input hash to stored hash");
       return inputHash === storedHash;
     } catch (error) {
       console.error("Error verifying password:", error);
@@ -93,8 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const updatePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
+      console.log("Attempting to update password");
       // First verify the current password
       const isValidPassword = await verifyPassword(currentPassword);
+      console.log("Current password valid:", isValidPassword);
       
       if (!isValidPassword) {
         return false;

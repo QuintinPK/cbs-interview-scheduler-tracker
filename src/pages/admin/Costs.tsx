@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,11 +49,23 @@ const Costs = () => {
         
         // Parse the value from the JSON value field
         if (data && data.value) {
-          const rateValue = typeof data.value === 'string' 
-            ? parseFloat(data.value) 
-            : parseFloat(data.value.toString());
+          let rateValue;
+          
+          if (typeof data.value === 'string') {
+            rateValue = parseFloat(data.value);
+          } else if (typeof data.value === 'number') {
+            rateValue = data.value;
+          } else if (typeof data.value === 'object') {
+            // Try to extract a number from the object
+            const objValue = data.value.toString();
+            rateValue = parseFloat(objValue);
+          }
             
-          setHourlyRate(rateValue || 25);
+          if (!isNaN(rateValue)) {
+            setHourlyRate(rateValue);
+          } else {
+            setHourlyRate(25); // Default if parsing fails
+          }
         }
       } catch (error) {
         console.error("Error fetching hourly rate:", error);
@@ -122,46 +133,23 @@ const Costs = () => {
   const updateHourlyRate = async () => {
     try {
       setIsSaving(true);
+      console.log("Updating hourly rate to:", hourlyRate);
       
-      // Converting hourly rate to string to ensure consistent storage
-      const rateValue = hourlyRate.toString();
-      
-      // First, check if a record exists
-      const { data, error: checkError } = await supabase
+      // Try to insert or update the hourly rate
+      const { error: upsertError } = await supabase
         .from('app_settings')
-        .select('*')
-        .eq('key', 'hourly_rate')
-        .single();
+        .upsert({
+          key: 'hourly_rate',
+          value: hourlyRate,
+          updated_at: new Date().toISOString(),
+          updated_by: 'admin'
+        }, {
+          onConflict: 'key'
+        });
       
-      let updateResult;
-      
-      if (checkError && checkError.code === 'PGRST116') {
-        // Record doesn't exist, insert new one
-        updateResult = await supabase
-          .from('app_settings')
-          .insert({
-            key: 'hourly_rate',
-            value: rateValue,
-            updated_at: new Date().toISOString(),
-            updated_by: 'admin'
-          });
-      } else if (!checkError) {
-        // Record exists, update it
-        updateResult = await supabase
-          .from('app_settings')
-          .update({
-            value: rateValue,
-            updated_at: new Date().toISOString(),
-            updated_by: 'admin'
-          })
-          .eq('key', 'hourly_rate');
-      } else {
-        // Some other error occurred during the check
-        throw checkError;
-      }
-      
-      if (updateResult.error) {
-        throw updateResult.error;
+      if (upsertError) {
+        console.error("Error in upsert operation:", upsertError);
+        throw upsertError;
       }
 
       toast({
