@@ -85,7 +85,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Get the stored hash from the response
-      const storedHash = data.value ? String(data.value) : "";
+      let storedHash = "";
+      
+      // Handle different possible response formats
+      if (typeof data.value === 'string') {
+        // Direct string value
+        storedHash = data.value;
+      } else if (data.value && typeof data.value === 'object') {
+        // JSON object with password hash
+        storedHash = String(data.value);
+      } else {
+        // Fallback
+        storedHash = String(data.value);
+      }
+      
       console.log("Stored hash from database:", storedHash);
       
       // Compare hashes
@@ -143,9 +156,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Hash the new password
       const newPasswordHash = await hashPassword(newPassword);
-      console.log("Generated hash for new password");
+      console.log("Generated hash for new password:", newPasswordHash);
       
-      // Store the new password hash
+      // Store the new password hash directly, not as an object
       const { error } = await supabase
         .from('app_settings')
         .upsert({
@@ -162,7 +175,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      console.log("Password updated successfully in database");
+      // Verify the password was updated correctly
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'admin_password_hash')
+        .maybeSingle();
+      
+      if (verifyError) {
+        console.error("Error verifying password update:", verifyError);
+        return false;
+      }
+      
+      console.log("Password updated and verified in database:", verifyData);
       return true;
     } catch (error) {
       console.error("Error in update password process:", error);

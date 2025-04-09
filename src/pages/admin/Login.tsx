@@ -44,6 +44,7 @@ const Login = () => {
     
     setIsLoading(true);
     console.log("Login attempted with username:", username);
+    console.log("Login attempted with password length:", password.length);
     
     try {
       const success = await login(username, password);
