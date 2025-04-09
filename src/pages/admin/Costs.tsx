@@ -35,7 +35,7 @@ const Costs = () => {
         setIsLoading(true);
         console.log("Fetching hourly rate from edge function");
         
-        const { data, error } = await supabase.functions.invoke('admin-functions', {
+        const { data: response, error } = await supabase.functions.invoke('admin-functions', {
           body: {
             action: "getHourlyRate"
           }
@@ -46,19 +46,21 @@ const Costs = () => {
           throw error;
         }
         
-        console.log("Retrieved hourly rate data:", data);
+        console.log("Retrieved hourly rate response:", response);
         
-        if (data && data.hourlyRate !== undefined) {
-          const rate = Number(data.hourlyRate);
+        if (response && response.data && response.data.hourlyRate !== undefined) {
+          const rate = Number(response.data.hourlyRate);
+          console.log("Parsed rate:", rate);
+          
           if (!isNaN(rate)) {
             console.log("Setting hourly rate to:", rate);
             setHourlyRate(rate);
           } else {
-            console.log("Using default hourly rate, couldn't parse:", data.hourlyRate);
+            console.log("Using default hourly rate, couldn't parse number:", response.data.hourlyRate);
             setHourlyRate(25);
           }
         } else {
-          console.log("No hourly rate returned, using default");
+          console.log("No hourly rate returned or invalid format, using default");
           setHourlyRate(25);
         }
       } catch (error) {
@@ -148,7 +150,7 @@ const Costs = () => {
         throw new Error(`Failed to update hourly rate: ${error.message}`);
       }
 
-      console.log("Hourly rate updated successfully:", data);
+      console.log("Hourly rate update response:", data);
       toast({
         title: "Success",
         description: "Hourly rate updated successfully",
@@ -176,7 +178,7 @@ const Costs = () => {
     }
   }, [hourlyRate, sessions, interviewers, loading, isLoading]);
 
-  // Handle hourly rate input changes with 0.50 step increments
+  // Handle hourly rate input changes
   const handleHourlyRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     if (!isNaN(value)) {

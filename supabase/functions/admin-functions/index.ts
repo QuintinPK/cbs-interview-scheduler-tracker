@@ -37,52 +37,16 @@ serve(async (req) => {
         
         console.log(`Updating hourly rate to: ${numericRate}`);
         
-        // First check if the record exists
-        const { data: existingData, error: checkError } = await supabase
-          .from('app_settings')
-          .select('*')
-          .eq('key', 'hourly_rate')
-          .maybeSingle();
+        // Call the database function to update hourly rate
+        const { data: updateResult, error: updateError } = await supabase
+          .rpc('admin_update_hourly_rate', { rate: numericRate });
         
-        if (checkError) {
-          console.error("Error checking for existing rate:", checkError);
-          throw checkError;
+        if (updateError) {
+          console.error("Error calling admin_update_hourly_rate function:", updateError);
+          throw updateError;
         }
         
-        // If record exists, update it, otherwise insert
-        if (existingData) {
-          // Update existing record
-          const { error: updateError } = await supabase
-            .from('app_settings')
-            .update({ 
-              value: numericRate,
-              updated_at: new Date().toISOString(),
-              updated_by: 'admin'
-            })
-            .eq('key', 'hourly_rate');
-          
-          if (updateError) {
-            console.error("Error updating hourly rate:", updateError);
-            throw updateError;
-          }
-        } else {
-          // Insert new record
-          const { error: insertError } = await supabase
-            .from('app_settings')
-            .insert({
-              key: 'hourly_rate',
-              value: numericRate,
-              updated_at: new Date().toISOString(),
-              updated_by: 'admin'
-            });
-          
-          if (insertError) {
-            console.error("Error inserting hourly rate:", insertError);
-            throw insertError;
-          }
-        }
-        
-        console.log("Hourly rate updated successfully");
+        console.log("Hourly rate updated successfully using RPC function");
         result = { success: true };
         break;
         
@@ -101,9 +65,39 @@ serve(async (req) => {
           throw rateError;
         }
         
-        // Return the hourly rate, or default if not found
-        const hourlyRate = rateData ? Number(rateData.value) : 25;
-        console.log("Retrieved hourly rate:", hourlyRate);
+        console.log("Raw hourly rate data from database:", rateData);
+        
+        // Extract and parse the hourly rate value
+        let hourlyRate = 25; // Default
+        if (rateData && rateData.value) {
+          try {
+            // Handle different possible formats of the stored value
+            if (typeof rateData.value === 'number') {
+              hourlyRate = rateData.value;
+            } else if (typeof rateData.value === 'string') {
+              hourlyRate = parseFloat(rateData.value);
+            } else if (typeof rateData.value === 'object') {
+              // If stored as JSONB text representation
+              const valueString = JSON.stringify(rateData.value);
+              console.log("Value as string:", valueString);
+              
+              // Try to extract the numeric value
+              const match = valueString.match(/"(\d+(\.\d+)?)"/);
+              if (match && match[1]) {
+                hourlyRate = parseFloat(match[1]);
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing hourly rate:", error);
+          }
+        }
+        
+        if (isNaN(hourlyRate)) {
+          console.log("Parsed value is NaN, using default rate");
+          hourlyRate = 25;
+        }
+        
+        console.log("Retrieved hourly rate (after parsing):", hourlyRate);
         
         result = { 
           success: true,
@@ -114,49 +108,17 @@ serve(async (req) => {
       case "updatePassword":
         // Update admin password hash
         console.log("Updating password hash");
-        console.log("New password hash:", data.passwordHash);
         
-        // Check if password hash entry exists
-        const { data: existingPasswordData, error: checkPasswordError } = await supabase
-          .from('app_settings')
-          .select('*')
-          .eq('key', 'admin_password_hash')
-          .maybeSingle();
-          
-        if (checkPasswordError) {
-          console.error("Error checking for existing password:", checkPasswordError);
-          throw checkPasswordError;
+        // Call the database function to update password
+        const { data: passwordResult, error: passwordError } = await supabase
+          .rpc('admin_update_password', { password_hash: data.passwordHash });
+        
+        if (passwordError) {
+          console.error("Error calling admin_update_password function:", passwordError);
+          throw passwordError;
         }
         
-        let updateResult;
-        if (existingPasswordData) {
-          // Update existing password hash
-          updateResult = await supabase
-            .from('app_settings')
-            .update({
-              value: { hash: data.passwordHash },
-              updated_at: new Date().toISOString(),
-              updated_by: 'admin'
-            })
-            .eq('key', 'admin_password_hash');
-        } else {
-          // Insert new password hash
-          updateResult = await supabase
-            .from('app_settings')
-            .insert({
-              key: 'admin_password_hash',
-              value: { hash: data.passwordHash },
-              updated_at: new Date().toISOString(),
-              updated_by: 'admin'
-            });
-        }
-        
-        if (updateResult.error) {
-          console.error("Error updating password:", updateResult.error);
-          throw updateResult.error;
-        }
-        
-        console.log("Password updated successfully");
+        console.log("Password updated successfully using RPC function");
         result = { success: true };
         break;
         

@@ -85,7 +85,7 @@ const Index = () => {
   useEffect(() => {
     const fetchHourlyRate = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('admin-functions', {
+        const { data: response, error } = await supabase.functions.invoke('admin-functions', {
           body: {
             action: "getHourlyRate"
           }
@@ -96,9 +96,12 @@ const Index = () => {
           return;
         }
         
-        if (data && data.hourlyRate !== undefined) {
-          const rate = Number(data.hourlyRate);
+        console.log("Hourly rate response:", response);
+        
+        if (response && response.data && response.data.hourlyRate !== undefined) {
+          const rate = Number(response.data.hourlyRate);
           if (!isNaN(rate)) {
+            console.log("Setting hourly rate to:", rate);
             setHourlyRate(rate);
           }
         }
