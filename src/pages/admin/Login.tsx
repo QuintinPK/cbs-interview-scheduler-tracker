@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -12,11 +12,18 @@ import MainLayout from "@/components/layout/MainLayout";
 const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/admin/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +51,7 @@ const Login = () => {
       } else {
         toast({
           title: "Error",
-          description: "Invalid credentials. Try admin/admin",
+          description: "Invalid credentials. The username is 'admin'",
           variant: "destructive",
         });
       }
@@ -102,7 +109,7 @@ const Login = () => {
               </Button>
               
               <p className="text-sm text-center text-muted-foreground mt-4">
-                Hint: Use "admin" for both username and password
+                Username: admin
               </p>
             </form>
           </CardContent>

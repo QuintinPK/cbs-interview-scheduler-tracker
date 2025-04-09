@@ -44,14 +44,7 @@ const ChangePasswordDialog = () => {
     try {
       setIsLoading(true);
       
-      // In a real app, this would verify the current password and update it
-      // For this demo app, we're just checking against the hardcoded value
-      if (currentPassword !== "admin") {
-        setError("Current password is incorrect");
-        return;
-      }
-
-      const success = await updatePassword(newPassword);
+      const success = await updatePassword(currentPassword, newPassword);
       
       if (success) {
         toast({
@@ -61,7 +54,7 @@ const ChangePasswordDialog = () => {
         setOpen(false);
         resetForm();
       } else {
-        setError("Failed to update password");
+        setError("Current password is incorrect");
       }
     } catch (error) {
       console.error("Error updating password:", error);

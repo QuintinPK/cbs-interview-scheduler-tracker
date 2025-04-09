@@ -1,11 +1,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  updatePassword: (newPassword: string) => Promise<boolean>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,12 +22,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
   
+  // Verify password against stored hash
+  const verifyPassword = async (password: string): Promise<boolean> => {
+    try {
+      // Fetch the password hash from the database
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'admin_password_hash')
+        .single();
+      
+      if (error || !data) {
+        // If no password hash found yet, check against the default
+        return password === "admin";
+      }
+      
+      // Compare the provided password with the stored hash
+      // In a real app, we'd use a proper hashing library with bcrypt
+      // For this demo, we'll use a simple hash comparison
+      const storedHash = data.value.hash;
+      // Simple hash function for demo purposes
+      const inputHash = await simpleHash(password);
+      
+      return inputHash === storedHash;
+    } catch (error) {
+      console.error("Error verifying password:", error);
+      // Fallback to default for demo
+      return password === "admin";
+    }
+  };
+  
+  // Simple hash function for demo purposes
+  // In a real app, use a proper crypto library with salting
+  const simpleHash = async (text: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+  
   const login = async (username: string, password: string): Promise<boolean> => {
-    // For demo purposes, hardcoded credentials
-    if (username === "admin" && password === localStorage.getItem("cbs_admin_password") || password === "admin") {
-      setIsAuthenticated(true);
-      localStorage.setItem("cbs_auth", "true");
-      return true;
+    if (username === "admin") {
+      const isValidPassword = await verifyPassword(password);
+      
+      if (isValidPassword) {
+        setIsAuthenticated(true);
+        localStorage.setItem("cbs_auth", "true");
+        return true;
+      }
     }
     return false;
   };
@@ -36,11 +80,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem("cbs_auth");
   };
   
-  const updatePassword = async (newPassword: string): Promise<boolean> => {
+  const updatePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
-      // In a real app, this would call an API to update the password
-      // For this demo app, we're just storing it in localStorage
-      localStorage.setItem("cbs_admin_password", newPassword);
+      // First verify the current password
+      const isValidPassword = await verifyPassword(currentPassword);
+      
+      if (!isValidPassword) {
+        return false;
+      }
+      
+      // Hash the new password
+      const newPasswordHash = await simpleHash(newPassword);
+      
+      // Store the new password hash in the database
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ 
+          key: 'admin_password_hash',
+          value: { hash: newPasswordHash },
+          updated_by: 'admin',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'key' 
+        });
+      
+      if (error) {
+        console.error("Error updating password:", error);
+        return false;
+      }
+      
       return true;
     } catch (error) {
       console.error("Error updating password:", error);
