@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Calculator, Save } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDataFetching } from "@/hooks/useDataFetching";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const Costs = () => {
   const { toast } = useToast();
@@ -18,6 +19,7 @@ const Costs = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [calculatedCosts, setCalculatedCosts] = useState<{
     interviewerCosts: { id: string; name: string; hours: number; cost: number }[];
     totalCost: number;
@@ -33,6 +35,7 @@ const Costs = () => {
     const fetchHourlyRate = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         console.log("Fetching hourly rate from edge function");
         
         const { data: response, error } = await supabase.functions.invoke('admin-functions', {
@@ -43,6 +46,7 @@ const Costs = () => {
 
         if (error) {
           console.error("Error fetching hourly rate:", error);
+          setError("Failed to fetch hourly rate from server");
           throw error;
         }
         
@@ -67,11 +71,7 @@ const Costs = () => {
         console.error("Error fetching hourly rate:", error);
         // Don't show error toast for navigation issues
         if (!(error instanceof Error && error.message.includes("fetch"))) {
-          toast({
-            title: "Error",
-            description: "Failed to fetch hourly rate",
-            variant: "destructive",
-          });
+          setError("Failed to fetch hourly rate from server");
         }
         // Use default value
         setHourlyRate(25);
@@ -133,6 +133,7 @@ const Costs = () => {
   const updateHourlyRate = async () => {
     try {
       setIsSaving(true);
+      setError(null);
       console.log("Updating hourly rate to:", hourlyRate);
       
       // Call edge function to update hourly rate
@@ -147,10 +148,26 @@ const Costs = () => {
       
       if (error) {
         console.error("Edge function error:", error);
+        setError("Failed to update hourly rate: " + error.message);
+        toast({
+          title: "Error",
+          description: "Failed to update hourly rate: " + error.message,
+          variant: "destructive",
+        });
         throw new Error(`Failed to update hourly rate: ${error.message}`);
       }
 
       console.log("Hourly rate update response:", data);
+      if (!data?.success) {
+        setError("Failed to update hourly rate: Edge Function returned a non-2xx status code");
+        toast({
+          title: "Error",
+          description: "Failed to update hourly rate: Edge Function returned a non-2xx status code",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Success",
         description: "Hourly rate updated successfully",
@@ -161,11 +178,7 @@ const Costs = () => {
       calculateCosts();
     } catch (error) {
       console.error("Error updating hourly rate:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update hourly rate",
-        variant: "destructive",
-      });
+      setError(error instanceof Error ? error.message : "Failed to update hourly rate");
     } finally {
       setIsSaving(false);
     }
@@ -192,6 +205,13 @@ const Costs = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Costs Calculator</h1>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Hourly Rate Card */}

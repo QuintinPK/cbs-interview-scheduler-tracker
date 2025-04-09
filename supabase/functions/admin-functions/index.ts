@@ -37,17 +37,39 @@ serve(async (req) => {
         
         console.log(`Updating hourly rate to: ${numericRate}`);
         
-        // Call the database function to update hourly rate
-        const { data: updateResult, error: updateError } = await supabase
-          .rpc('admin_update_hourly_rate', { rate: numericRate });
-        
-        if (updateError) {
-          console.error("Error calling admin_update_hourly_rate function:", updateError);
-          throw updateError;
+        try {
+          // Call the database function to update hourly rate
+          const { data: updateResult, error: updateError } = await supabase
+            .rpc('admin_update_hourly_rate', { rate: numericRate });
+          
+          if (updateError) {
+            console.error("Error calling admin_update_hourly_rate function:", updateError);
+            throw updateError;
+          }
+          
+          console.log("Hourly rate updated successfully using RPC function:", updateResult);
+          result = { success: true };
+        } catch (rpcError) {
+          console.error("RPC error details:", rpcError);
+          
+          // Fallback: Direct database update if RPC fails
+          console.log("Using fallback method for updating hourly rate");
+          const { error: directUpdateError } = await supabase
+            .from('app_settings')
+            .upsert({
+              key: 'hourly_rate',
+              value: to_jsonb(numericRate),
+              updated_at: new Date(),
+              updated_by: 'admin'
+            }, { onConflict: 'key' });
+            
+          if (directUpdateError) {
+            console.error("Error with direct update:", directUpdateError);
+            throw directUpdateError;
+          }
+          
+          result = { success: true };
         }
-        
-        console.log("Hourly rate updated successfully using RPC function");
-        result = { success: true };
         break;
         
       case "getHourlyRate":
@@ -77,14 +99,21 @@ serve(async (req) => {
             } else if (typeof rateData.value === 'string') {
               hourlyRate = parseFloat(rateData.value);
             } else if (typeof rateData.value === 'object') {
-              // If stored as JSONB text representation
-              const valueString = JSON.stringify(rateData.value);
-              console.log("Value as string:", valueString);
+              // Try to extract the numeric value from JSONB
+              const valueText = JSON.stringify(rateData.value);
+              console.log("Value as string:", valueText);
               
-              // Try to extract the numeric value
-              const match = valueString.match(/"(\d+(\.\d+)?)"/);
-              if (match && match[1]) {
-                hourlyRate = parseFloat(match[1]);
+              // Try several methods to extract the value
+              if (rateData.value.hasOwnProperty('value')) {
+                hourlyRate = Number(rateData.value.value);
+              } else if (valueText.match(/^\d+(\.\d+)?$/)) {
+                hourlyRate = Number(valueText);
+              } else {
+                // Try to parse as a numeric value directly
+                const parsed = Number(rateData.value);
+                if (!isNaN(parsed)) {
+                  hourlyRate = parsed;
+                }
               }
             }
           } catch (error) {

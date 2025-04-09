@@ -6,6 +6,7 @@ import { useActiveSession } from "@/hooks/useActiveSession";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTime } from "@/lib/utils";
 import { DollarSign } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Index = () => {
   const {
@@ -28,6 +29,44 @@ const Index = () => {
   const [totalHours, setTotalHours] = useState<number>(0);
   const [hourlyRate, setHourlyRate] = useState<number>(25);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch the hourly rate
+  useEffect(() => {
+    const fetchHourlyRate = async () => {
+      try {
+        setError(null);
+        console.log("Fetching hourly rate");
+        
+        const { data: response, error } = await supabase.functions.invoke('admin-functions', {
+          body: {
+            action: "getHourlyRate"
+          }
+        });
+        
+        if (error) {
+          console.error("Error fetching hourly rate:", error);
+          setError("Could not load hourly rate");
+          return;
+        }
+        
+        console.log("Hourly rate response:", response);
+        
+        if (response && response.data && response.data.hourlyRate !== undefined) {
+          const rate = Number(response.data.hourlyRate);
+          if (!isNaN(rate)) {
+            console.log("Setting hourly rate to:", rate);
+            setHourlyRate(rate);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching hourly rate:", error);
+        setError("Could not load hourly rate");
+      }
+    };
+    
+    fetchHourlyRate();
+  }, []);
   
   // Fetch total hours for the current interviewer
   useEffect(() => {
@@ -36,6 +75,7 @@ const Index = () => {
       
       try {
         setIsLoadingHours(true);
+        setError(null);
         
         // Get the interviewer ID first
         const { data: interviewers, error: interviewerError } = await supabase
@@ -44,7 +84,12 @@ const Index = () => {
           .eq('code', interviewerCode)
           .limit(1);
           
-        if (interviewerError) throw interviewerError;
+        if (interviewerError) {
+          console.error("Error fetching interviewer:", interviewerError);
+          setError("Could not load interviewer data");
+          throw interviewerError;
+        }
+        
         if (!interviewers || interviewers.length === 0) return;
         
         const interviewerId = interviewers[0].id;
@@ -56,7 +101,11 @@ const Index = () => {
           .eq('interviewer_id', interviewerId)
           .not('end_time', 'is', null);
           
-        if (sessionsError) throw sessionsError;
+        if (sessionsError) {
+          console.error("Error fetching sessions:", sessionsError);
+          setError("Could not load session data");
+          throw sessionsError;
+        }
         
         // Calculate total hours
         let totalMinutes = 0;
@@ -81,38 +130,6 @@ const Index = () => {
     fetchTotalHours();
   }, [interviewerCode]);
   
-  // Fetch the hourly rate
-  useEffect(() => {
-    const fetchHourlyRate = async () => {
-      try {
-        const { data: response, error } = await supabase.functions.invoke('admin-functions', {
-          body: {
-            action: "getHourlyRate"
-          }
-        });
-        
-        if (error) {
-          console.error("Error fetching hourly rate:", error);
-          return;
-        }
-        
-        console.log("Hourly rate response:", response);
-        
-        if (response && response.data && response.data.hourlyRate !== undefined) {
-          const rate = Number(response.data.hourlyRate);
-          if (!isNaN(rate)) {
-            console.log("Setting hourly rate to:", rate);
-            setHourlyRate(rate);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching hourly rate:", error);
-      }
-    };
-    
-    fetchHourlyRate();
-  }, []);
-  
   return (
     <MainLayout>
       <div className="flex flex-col items-center justify-center min-h-[80vh] max-w-md mx-auto">
@@ -120,6 +137,12 @@ const Index = () => {
           <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Portal</h1>
           <p className="text-muted-foreground">Track your working hours</p>
         </div>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-4 w-full">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <SessionForm
           interviewerCode={interviewerCode}

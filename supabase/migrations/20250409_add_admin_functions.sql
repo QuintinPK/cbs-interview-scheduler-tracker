@@ -7,12 +7,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Upsert the hourly rate (stored as a numeric value, not JSON object)
-  INSERT INTO app_settings (key, value, updated_at, updated_by)
-  VALUES ('hourly_rate', rate::text::jsonb, now(), 'admin')
+  -- Log the function call for debugging
+  RAISE NOTICE 'admin_update_hourly_rate called with rate: %', rate;
+  
+  -- Upsert the hourly rate (stored as a numeric value)
+  INSERT INTO public.app_settings (key, value, updated_at, updated_by)
+  VALUES ('hourly_rate', to_jsonb(rate), now(), 'admin')
   ON CONFLICT (key) 
   DO UPDATE SET 
-    value = rate::text::jsonb,
+    value = to_jsonb(rate),
     updated_at = now(),
     updated_by = 'admin';
   
