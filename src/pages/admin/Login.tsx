@@ -16,7 +16,7 @@ const Login = () => {
   const { login, isAuthenticated } = useAuth();
   
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   
   // Get the page they were trying to access
@@ -55,7 +55,7 @@ const Login = () => {
       } else {
         toast({
           title: "Error",
-          description: "Invalid credentials. Try username: admin, password: admin123",
+          description: "Invalid credentials. Please check your username and password.",
           variant: "destructive",
         });
       }
@@ -65,6 +65,7 @@ const Login = () => {
         description: "An error occurred during login",
         variant: "destructive",
       });
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -117,6 +118,9 @@ const Login = () => {
                 <p className="text-sm text-center text-muted-foreground">
                   Username: <span className="font-mono">admin</span><br />
                   Password: <span className="font-mono">admin123</span>
+                </p>
+                <p className="text-xs text-center text-muted-foreground mt-2">
+                  (Or your most recently updated password)
                 </p>
               </div>
             </form>

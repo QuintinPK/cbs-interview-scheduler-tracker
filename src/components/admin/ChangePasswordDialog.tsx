@@ -49,7 +49,8 @@ const ChangePasswordDialog = () => {
       if (success) {
         toast({
           title: "Success",
-          description: "Password has been updated",
+          description: "Password has been updated. Please use the new password for your next login.",
+          duration: 5000,
         });
         setOpen(false);
         resetForm();

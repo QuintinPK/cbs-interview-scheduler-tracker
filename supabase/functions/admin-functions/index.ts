@@ -114,31 +114,58 @@ serve(async (req) => {
       case "updatePassword":
         // Update admin password hash
         console.log("Updating password hash");
+        console.log("New password hash:", data.passwordHash);
         
-        // Use direct insert/update instead of RPC to ensure service role is used
-        result = await supabase
+        // Check if password hash entry exists
+        const { data: existingPasswordData, error: checkPasswordError } = await supabase
           .from('app_settings')
-          .upsert({
-            key: 'admin_password_hash',
-            value: { hash: data.passwordHash },
-            updated_at: new Date().toISOString(),
-            updated_by: 'admin'
-          }, {
-            onConflict: 'key'
-          });
+          .select('*')
+          .eq('key', 'admin_password_hash')
+          .maybeSingle();
+          
+        if (checkPasswordError) {
+          console.error("Error checking for existing password:", checkPasswordError);
+          throw checkPasswordError;
+        }
+        
+        let updateResult;
+        if (existingPasswordData) {
+          // Update existing password hash
+          updateResult = await supabase
+            .from('app_settings')
+            .update({
+              value: { hash: data.passwordHash },
+              updated_at: new Date().toISOString(),
+              updated_by: 'admin'
+            })
+            .eq('key', 'admin_password_hash');
+        } else {
+          // Insert new password hash
+          updateResult = await supabase
+            .from('app_settings')
+            .insert({
+              key: 'admin_password_hash',
+              value: { hash: data.passwordHash },
+              updated_at: new Date().toISOString(),
+              updated_by: 'admin'
+            });
+        }
+        
+        if (updateResult.error) {
+          console.error("Error updating password:", updateResult.error);
+          throw updateResult.error;
+        }
+        
+        console.log("Password updated successfully");
+        result = { success: true };
         break;
         
       default:
         throw new Error("Invalid action");
     }
     
-    if (result.error) {
-      console.error("Error in database operation:", result.error);
-      throw result.error;
-    }
-    
-    console.log("Operation completed successfully");
-    return new Response(JSON.stringify(result), {
+    console.log("Operation completed successfully", result);
+    return new Response(JSON.stringify({ success: true, data: result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

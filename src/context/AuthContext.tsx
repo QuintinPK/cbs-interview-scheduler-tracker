@@ -32,13 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Verify password against stored hash or default
   const verifyPassword = async (password: string): Promise<boolean> => {
     try {
-      console.log("Verifying password:", password);
-      
-      // For the initial setup or if no hash exists yet, check against default
-      if (password === "admin123") {
-        console.log("Default password match found!");
-        return true;
-      }
+      console.log("Verifying password");
       
       // Fetch the password hash from the database - use anonymous access
       const { data, error } = await supabase
@@ -48,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       
       if (error) {
-        console.log("No password hash found or error:", error);
+        console.error("Error fetching password hash:", error);
         // If no password hash found yet, check against the default
         return password === "admin123";
       }
@@ -73,9 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return password === "admin123";
       }
       
-      // Simple hash function for demo purposes
+      // Hash the input password and compare with stored hash
       const inputHash = await simpleHash(password);
-      console.log("Comparing hashes:", inputHash, storedHash);
+      console.log("Comparing hashes");
       return inputHash === storedHash;
     } catch (error) {
       console.error("Error verifying password:", error);
@@ -94,13 +88,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const login = async (username: string, password: string): Promise<boolean> => {
-    console.log("Attempting login with username:", username, "and password:", password);
+    console.log("Attempting login with username:", username);
     if (username === "admin") {
       const isValidPassword = await verifyPassword(password);
       console.log("Password verification result:", isValidPassword);
       
       if (isValidPassword) {
-        // Create a session for Supabase
         try {
           // Login as a service role to set the admin flag
           // This allows RLS policies to recognize admin status
@@ -147,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Hash the new password
       const newPasswordHash = await simpleHash(newPassword);
+      console.log("Generated new password hash");
       
       // Store the new password hash in the database using the edge function
       const { data, error } = await supabase.functions.invoke('admin-functions', {
