@@ -54,12 +54,27 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     ? totalHoursThisWeek / thisWeekSessions.length 
     : 0;
   
+  // Calculate average sessions per interviewer this week
+  const activeInterviewersThisWeek = new Set();
+  
+  sessions.filter(session => {
+    const sessionDate = new Date(session.start_time);
+    return sessionDate >= startOfWeek;
+  }).forEach(session => {
+    activeInterviewersThisWeek.add(session.interviewer_id);
+  });
+  
+  const avgSessionsPerInterviewer = activeInterviewersThisWeek.size > 0
+    ? (thisWeekSessions.length / activeInterviewersThisWeek.size).toFixed(1)
+    : "0";
+  
   const statsItems = [
     { label: "Total Interviewers", value: totalInterviewers },
     { label: "Active Sessions", value: activeSessions },
     { label: "Sessions Today", value: sessionsToday },
     { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) },
-    { label: "Avg Session Length (h)", value: avgSessionLength.toFixed(1) }
+    { label: "Avg Session Length (h)", value: avgSessionLength.toFixed(1) },
+    { label: "Avg Sessions per Interviewer", value: avgSessionsPerInterviewer }
   ];
   
   return (
@@ -71,7 +86,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
         {loading ? (
           <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {statsItems.map((item, index) => (
               <div key={index} className="bg-gray-50 p-4 rounded-md">
                 <p className="text-sm text-muted-foreground">{item.label}</p>

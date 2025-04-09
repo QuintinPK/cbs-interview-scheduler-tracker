@@ -7,6 +7,7 @@ import InactiveInterviewersCard from "@/components/admin/InactiveInterviewersCar
 import WeeklySessionsChart from "@/components/admin/WeeklySessionsChart";
 import TopInterviewersChart from "@/components/admin/TopInterviewersChart";
 import UnusualSessionsCard from "@/components/admin/UnusualSessionsCard";
+import PeakSessionHoursChart from "@/components/admin/PeakSessionHoursChart";
 import { useDataFetching } from "@/hooks/useDataFetching";
 
 const Dashboard = () => {
@@ -26,21 +27,25 @@ const Dashboard = () => {
           />
         </div>
         
-        {/* Charts */}
+        {/* Weekly Sessions Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <WeeklySessionsChart 
             sessions={sessions} 
             loading={loading} 
           />
+          <PeakSessionHoursChart
+            sessions={sessions}
+            loading={loading}
+          />
+        </div>
+        
+        {/* Unusual Sessions and Top Interviewers */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TopInterviewersChart 
             sessions={sessions} 
             interviewers={interviewers} 
             loading={loading} 
           />
-        </div>
-        
-        {/* Unusual Sessions */}
-        <div className="mt-6">
           <UnusualSessionsCard 
             sessions={sessions} 
             interviewers={interviewers} 
