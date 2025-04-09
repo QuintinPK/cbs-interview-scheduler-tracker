@@ -19,7 +19,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Protected route component
+// Protected route component needs to be inside the AuthProvider context
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
@@ -32,69 +32,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Routes component needs to be inside AuthProvider
-const AppRoutes = () => {
-  return (
-    <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/admin/login" element={<Login />} />
-      
-      {/* Protected Admin Routes */}
-      <Route 
-        path="/admin/dashboard" 
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/sessions" 
-        element={
-          <ProtectedRoute>
-            <Sessions />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/interviewers" 
-        element={
-          <ProtectedRoute>
-            <Interviewers />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/interviewer/:id" 
-        element={
-          <ProtectedRoute>
-            <InterviewerDashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/scheduling" 
-        element={
-          <ProtectedRoute>
-            <Scheduling />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/costs" 
-        element={
-          <ProtectedRoute>
-            <Costs />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Not Found Route */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
-
+// AppRoutes component moved inside the App component to ensure proper context
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -102,7 +40,63 @@ const App = () => (
         <AuthProvider>
           <Toaster />
           <Sonner />
-          <AppRoutes />
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/admin/login" element={<Login />} />
+            
+            {/* Protected Admin Routes */}
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/sessions" 
+              element={
+                <ProtectedRoute>
+                  <Sessions />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/interviewers" 
+              element={
+                <ProtectedRoute>
+                  <Interviewers />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/interviewer/:id" 
+              element={
+                <ProtectedRoute>
+                  <InterviewerDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/scheduling" 
+              element={
+                <ProtectedRoute>
+                  <Scheduling />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/costs" 
+              element={
+                <ProtectedRoute>
+                  <Costs />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Not Found Route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ const Costs = () => {
   useEffect(() => {
     const fetchHourlyRate = async () => {
       try {
-        // Use the rpc method to get the data without typed tables
+        console.log("Fetching hourly rate from database");
         const { data, error } = await supabase
           .from('app_settings')
           .select('*')
@@ -38,33 +39,38 @@ const Costs = () => {
           .single();
 
         if (error) {
+          console.error("Error fetching hourly rate:", error);
           // Handle "No rows found" error gracefully
           if (error.code === 'PGRST116') {
-            // Set default rate if no setting exists
+            console.log("No hourly rate found, using default");
             setHourlyRate(25);
             return;
           }
           throw error;
         }
         
-        // Parse the value from the JSON value field
-        if (data && data.value) {
+        console.log("Retrieved hourly rate data:", data);
+        
+        if (data) {
           let rateValue;
           
-          if (typeof data.value === 'string') {
-            rateValue = parseFloat(data.value);
-          } else if (typeof data.value === 'number') {
+          if (typeof data.value === 'number') {
             rateValue = data.value;
-          } else if (typeof data.value === 'object') {
-            // Try to extract a number from the object
-            const objValue = data.value.toString();
-            rateValue = parseFloat(objValue);
+          } else if (typeof data.value === 'string') {
+            rateValue = parseFloat(data.value);
+          } else if (data.value !== null && typeof data.value === 'object') {
+            // Try to handle if it's stored as a JSON object
+            const strValue = JSON.stringify(data.value);
+            console.log("Hourly rate stored as object:", strValue);
+            rateValue = parseFloat(strValue);
           }
             
           if (!isNaN(rateValue)) {
+            console.log("Setting hourly rate to:", rateValue);
             setHourlyRate(rateValue);
           } else {
-            setHourlyRate(25); // Default if parsing fails
+            console.log("Using default hourly rate, couldn't parse:", data.value);
+            setHourlyRate(25);
           }
         }
       } catch (error) {
@@ -135,28 +141,56 @@ const Costs = () => {
       setIsSaving(true);
       console.log("Updating hourly rate to:", hourlyRate);
       
-      // Try to insert or update the hourly rate as a simple number value, not a complex object
-      const { error } = await supabase
+      // First, check if the record exists
+      const { data: existingData, error: checkError } = await supabase
         .from('app_settings')
-        .upsert({
-          key: 'hourly_rate',
-          value: hourlyRate,  // Store as a direct number value
-          updated_at: new Date().toISOString(),
-          updated_by: 'admin'
-        }, {
-          onConflict: 'key'
-        });
+        .select('*')
+        .eq('key', 'hourly_rate')
+        .maybeSingle();
+      
+      console.log("Existing data check:", existingData, checkError);
+      
+      let result;
+      
+      // If record exists, update it, otherwise insert it
+      if (existingData) {
+        console.log("Updating existing record");
+        result = await supabase
+          .from('app_settings')
+          .update({
+            value: hourlyRate,
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          })
+          .eq('key', 'hourly_rate');
+      } else {
+        console.log("Inserting new record");
+        result = await supabase
+          .from('app_settings')
+          .insert({
+            key: 'hourly_rate',
+            value: hourlyRate,
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          });
+      }
+      
+      const { error } = result;
       
       if (error) {
-        console.error("Error in upsert operation:", error);
+        console.error("Database operation error:", error);
         throw error;
       }
 
+      console.log("Hourly rate updated successfully");
       toast({
         title: "Success",
         description: "Hourly rate updated successfully",
       });
       setIsEditing(false);
+      
+      // Recalculate costs with new rate
+      calculateCosts();
     } catch (error) {
       console.error("Error updating hourly rate:", error);
       toast({

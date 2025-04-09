@@ -29,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // For the initial setup or if no hash exists yet, check against default
       if (password === "admin123") {
-        console.log("Default password match!");
+        console.log("Default password match found!");
         return true;
       }
       
@@ -38,11 +38,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('app_settings')
         .select('value')
         .eq('key', 'admin_password_hash')
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.log("No password hash found or error:", error);
         // If no password hash found yet, check against the default
+        return password === "admin123";
+      }
+      
+      console.log("Retrieved password data:", data);
+      
+      // If no data found, use the default
+      if (!data) {
+        console.log("No data found, checking against default password");
         return password === "admin123";
       }
       
@@ -60,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Simple hash function for demo purposes
       const inputHash = await simpleHash(password);
-      console.log("Comparing hashes:", inputHash === storedHash);
+      console.log("Comparing hashes:", inputHash, storedHash);
       return inputHash === storedHash;
     } catch (error) {
       console.error("Error verifying password:", error);
@@ -80,8 +88,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const login = async (username: string, password: string): Promise<boolean> => {
+    console.log("Attempting login with username:", username, "and password:", password);
     if (username === "admin") {
       const isValidPassword = await verifyPassword(password);
+      console.log("Password verification result:", isValidPassword);
       
       if (isValidPassword) {
         setIsAuthenticated(true);
