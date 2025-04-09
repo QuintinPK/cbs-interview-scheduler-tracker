@@ -148,8 +148,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hash the new password
       const newPasswordHash = await simpleHash(newPassword);
       
-      // Store the new password hash in the database using RPC
-      const { error } = await supabase.functions.invoke('admin-functions', {
+      // Store the new password hash in the database using the edge function
+      const { data, error } = await supabase.functions.invoke('admin-functions', {
         body: {
           action: "updatePassword",
           data: {
@@ -163,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
+      console.log("Password updated successfully");
       return true;
     } catch (error) {
       console.error("Error updating password:", error);

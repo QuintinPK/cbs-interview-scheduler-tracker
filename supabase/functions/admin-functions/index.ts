@@ -13,37 +13,58 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Get the request body
-  const { action, data } = await req.json();
-  
-  // Create a Supabase client with the Admin key
-  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
   try {
+    // Get the request body
+    const { action, data } = await req.json();
+    
+    // Create a Supabase client with the Admin key (SERVICE_ROLE_KEY)
+    // This bypasses RLS policies
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     let result;
+    console.log(`Processing action: ${action} with data:`, data);
     
     // Handle different admin actions
     switch (action) {
       case "updateHourlyRate":
-        // Store hourly rate as a numeric value, not a JSON object
+        // Store hourly rate as a numeric value
         const numericRate = Number(data.rate);
         if (isNaN(numericRate)) {
           throw new Error("Invalid rate value");
         }
         
-        // Update hourly rate using the RPC function
-        result = await supabase.rpc('admin_update_hourly_rate', {
-          rate: numericRate
-        });
+        console.log(`Updating hourly rate to: ${numericRate}`);
+        
+        // Use direct insert/update instead of RPC to ensure service role is used
+        result = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'hourly_rate',
+            value: numericRate,
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          }, { 
+            onConflict: 'key' 
+          });
         break;
         
       case "updatePassword":
         // Update admin password hash
-        result = await supabase.rpc('admin_update_password', {
-          password_hash: data.passwordHash
-        });
+        console.log("Updating password hash");
+        
+        // Use direct insert/update instead of RPC to ensure service role is used
+        result = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'admin_password_hash',
+            value: { hash: data.passwordHash },
+            updated_at: new Date().toISOString(),
+            updated_by: 'admin'
+          }, {
+            onConflict: 'key'
+          });
         break;
         
       default:
@@ -51,14 +72,17 @@ serve(async (req) => {
     }
     
     if (result.error) {
+      console.error("Error in database operation:", result.error);
       throw result.error;
     }
     
+    console.log("Operation completed successfully");
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
+    console.error("Error processing request:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,

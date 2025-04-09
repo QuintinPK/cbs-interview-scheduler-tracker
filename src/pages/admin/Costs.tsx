@@ -146,7 +146,7 @@ const Costs = () => {
       console.log("Updating hourly rate to:", hourlyRate);
       
       // Call edge function to update hourly rate
-      const { error } = await supabase.functions.invoke('admin-functions', {
+      const { data, error } = await supabase.functions.invoke('admin-functions', {
         body: {
           action: "updateHourlyRate",
           data: {
@@ -156,11 +156,11 @@ const Costs = () => {
       });
       
       if (error) {
-        console.error("Database operation error:", error);
-        throw error;
+        console.error("Edge function error:", error);
+        throw new Error(`Failed to update hourly rate: ${error.message}`);
       }
 
-      console.log("Hourly rate updated successfully");
+      console.log("Hourly rate updated successfully:", data);
       toast({
         title: "Success",
         description: "Hourly rate updated successfully",
@@ -173,7 +173,7 @@ const Costs = () => {
       console.error("Error updating hourly rate:", error);
       toast({
         title: "Error",
-        description: "Failed to update hourly rate: RLS policy is blocking the update. Please ask your administrator to set up the proper RLS policies.",
+        description: error instanceof Error ? error.message : "Failed to update hourly rate",
         variant: "destructive",
       });
     } finally {
