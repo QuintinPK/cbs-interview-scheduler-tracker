@@ -5,6 +5,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  updatePassword: (newPassword: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const login = async (username: string, password: string): Promise<boolean> => {
     // For demo purposes, hardcoded credentials
-    if (username === "admin" && password === "admin") {
+    if (username === "admin" && password === localStorage.getItem("cbs_admin_password") || password === "admin") {
       setIsAuthenticated(true);
       localStorage.setItem("cbs_auth", "true");
       return true;
@@ -35,8 +36,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem("cbs_auth");
   };
   
+  const updatePassword = async (newPassword: string): Promise<boolean> => {
+    try {
+      // In a real app, this would call an API to update the password
+      // For this demo app, we're just storing it in localStorage
+      localStorage.setItem("cbs_admin_password", newPassword);
+      return true;
+    } catch (error) {
+      console.error("Error updating password:", error);
+      return false;
+    }
+  };
+  
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );

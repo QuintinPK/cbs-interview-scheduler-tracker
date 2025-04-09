@@ -7,14 +7,17 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import ChangePasswordDialog from "@/components/admin/ChangePasswordDialog";
+import { useAuth } from "@/context/AuthContext";
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   
   const handleLogout = () => {
-    // In a real app, we would clear authentication state
+    logout();
     navigate("/");
   };
   
@@ -58,6 +61,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <span>{item.label}</span>
               </Link>
             ))}
+            <ChangePasswordDialog />
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 p-2 rounded-md w-full text-left hover:bg-white/10"
@@ -104,6 +108,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </nav>
             
             <div className="pt-4 border-t border-white/20 space-y-1">
+              <ChangePasswordDialog />
               <Button
                 variant="ghost"
                 className="flex items-center gap-2 w-full justify-start text-white hover:bg-white/10 hover:text-white p-2 h-auto font-normal"

@@ -10,8 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Calculator, Save } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDataFetching } from "@/hooks/useDataFetching";
-import { Session, Interviewer } from "@/types";
-import { calculateDuration } from "@/lib/utils";
 
 const Costs = () => {
   const { toast } = useToast();
@@ -125,16 +123,41 @@ const Costs = () => {
     try {
       setIsSaving(true);
       
-      // Use the untyped method to update the app_settings table
-      const { error } = await supabase
+      // First, check if a record exists
+      const { data, error: checkError } = await supabase
         .from('app_settings')
-        .update({
-          value: hourlyRate.toString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('key', 'hourly_rate');
-
-      if (error) throw error;
+        .select('*')
+        .eq('key', 'hourly_rate')
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+      
+      // Update or insert based on whether the record exists
+      if (data) {
+        // Update existing record
+        const { error } = await supabase
+          .from('app_settings')
+          .update({
+            value: hourlyRate.toString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('key', 'hourly_rate');
+        
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('app_settings')
+          .insert({
+            key: 'hourly_rate',
+            value: hourlyRate.toString(),
+            updated_at: new Date().toISOString(),
+          });
+        
+        if (error) throw error;
+      }
 
       toast({
         title: "Success",
