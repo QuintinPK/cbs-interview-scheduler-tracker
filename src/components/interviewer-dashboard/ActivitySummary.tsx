@@ -6,7 +6,7 @@ import { Session } from "@/types";
 import { 
   Clock, Calendar, Activity, 
   BarChart, Timer, TrendingUp, 
-  Users
+  Users, Award, Briefcase
 } from "lucide-react";
 
 interface ActivitySummaryProps {
@@ -43,6 +43,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
       <CardContent>
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-6">
+            {/* Recent Activity Card */}
             <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
               <h3 className="font-medium flex items-center text-primary mb-2">
                 <Calendar className="h-4 w-4 mr-2 opacity-70" />
@@ -55,6 +56,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
               </p>
             </div>
             
+            {/* Time Since Last Login Card */}
             <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
               <h3 className="font-medium flex items-center text-primary mb-2">
                 <Clock className="h-4 w-4 mr-2 opacity-70" />
@@ -70,9 +72,10 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
               </p>
             </div>
 
+            {/* Days Worked Card */}
             <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
               <h3 className="font-medium flex items-center text-primary mb-2">
-                <Calendar className="h-4 w-4 mr-2 opacity-70" />
+                <Briefcase className="h-4 w-4 mr-2 opacity-70" />
                 Days Worked
               </h3>
               <div className="grid grid-cols-2 gap-4">
@@ -89,9 +92,10 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
           </div>
           
           <div className="space-y-6">
+            {/* Sessions Metrics Card */}
             <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
               <h3 className="font-medium flex items-center text-primary mb-2">
-                <BarChart className="h-4 w-4 mr-2 opacity-70" />
+                <Award className="h-4 w-4 mr-2 opacity-70" />
                 Sessions Metrics
               </h3>
               <div className="space-y-3">
@@ -118,6 +122,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
               </div>
             </div>
             
+            {/* Working Hours Card */}
             <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
               <h3 className="font-medium flex items-center text-primary mb-2">
                 <Clock className="h-4 w-4 mr-2 opacity-70" />
@@ -139,6 +144,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
               </div>
             </div>
             
+            {/* Status Summary Card */}
             <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
               <h3 className="font-medium flex items-center text-primary mb-2">
                 <TrendingUp className="h-4 w-4 mr-2 opacity-70" />
