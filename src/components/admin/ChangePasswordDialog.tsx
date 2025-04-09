@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import { useAuth } from "@/context/AuthContext";
 
 const ChangePasswordDialog = () => {
   const { toast } = useToast();
-  const { updatePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -26,11 +24,22 @@ const ChangePasswordDialog = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
+  let updatePassword = async () => {
+    console.error("Auth context not available");
+    return false;
+  };
+
+  try {
+    const auth = useAuth();
+    updatePassword = auth.updatePassword;
+  } catch (err) {
+    console.error("Error accessing auth context:", err);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    // Validate passwords
     if (newPassword !== confirmPassword) {
       setError("New passwords do not match");
       return;
