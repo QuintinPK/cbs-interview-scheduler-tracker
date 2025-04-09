@@ -15,8 +15,8 @@ const Login = () => {
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
   
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("admin123");
   const [isLoading, setIsLoading] = useState(false);
   
   // Get the page they were trying to access
@@ -55,7 +55,7 @@ const Login = () => {
       } else {
         toast({
           title: "Error",
-          description: "Invalid credentials. Username: admin, Default password: admin123",
+          description: "Invalid credentials. Try username: admin, password: admin123",
           variant: "destructive",
         });
       }
@@ -112,9 +112,13 @@ const Login = () => {
                 {isLoading ? "Logging in..." : "Login"}
               </Button>
               
-              <p className="text-sm text-center text-muted-foreground mt-4">
-                Username: admin, Default password: admin123
-              </p>
+              <div className="p-3 bg-muted/30 rounded-md mt-4">
+                <p className="text-sm text-center font-medium">Default credentials</p>
+                <p className="text-sm text-center text-muted-foreground">
+                  Username: <span className="font-mono">admin</span><br />
+                  Password: <span className="font-mono">admin123</span>
+                </p>
+              </div>
             </form>
           </CardContent>
         </Card>

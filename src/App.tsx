@@ -32,7 +32,70 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// AppRoutes component moved inside the App component to ensure proper context
+// AppRoutes component needs to be inside the AuthProvider
+const AppRoutes = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/admin/login" element={<Login />} />
+      
+      {/* Protected Admin Routes */}
+      <Route 
+        path="/admin/dashboard" 
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/sessions" 
+        element={
+          <ProtectedRoute>
+            <Sessions />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/interviewers" 
+        element={
+          <ProtectedRoute>
+            <Interviewers />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/interviewer/:id" 
+        element={
+          <ProtectedRoute>
+            <InterviewerDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/scheduling" 
+        element={
+          <ProtectedRoute>
+            <Scheduling />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/costs" 
+        element={
+          <ProtectedRoute>
+            <Costs />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Not Found Route */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
+// App component
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -40,63 +103,7 @@ const App = () => (
         <AuthProvider>
           <Toaster />
           <Sonner />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/admin/login" element={<Login />} />
-            
-            {/* Protected Admin Routes */}
-            <Route 
-              path="/admin/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/sessions" 
-              element={
-                <ProtectedRoute>
-                  <Sessions />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/interviewers" 
-              element={
-                <ProtectedRoute>
-                  <Interviewers />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/interviewer/:id" 
-              element={
-                <ProtectedRoute>
-                  <InterviewerDashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/scheduling" 
-              element={
-                <ProtectedRoute>
-                  <Scheduling />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/admin/costs" 
-              element={
-                <ProtectedRoute>
-                  <Costs />
-                </ProtectedRoute>
-              } 
-            />
-            
-            {/* Not Found Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AppRoutes />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

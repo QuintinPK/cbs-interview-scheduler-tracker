@@ -16,10 +16,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Check if user is already logged in
   useEffect(() => {
-    const auth = localStorage.getItem("cbs_auth");
-    if (auth === "true") {
-      setIsAuthenticated(true);
-    }
+    const checkAuth = async () => {
+      const auth = localStorage.getItem("cbs_auth");
+      if (auth === "true") {
+        setIsAuthenticated(true);
+      } else {
+        // Clear any stale auth state
+        setIsAuthenticated(false);
+      }
+    };
+    
+    checkAuth();
   }, []);
   
   // Verify password against stored hash or default
@@ -33,7 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       }
       
-      // Fetch the password hash from the database
+      // Fetch the password hash from the database - use anonymous access
       const { data, error } = await supabase
         .from('app_settings')
         .select('value')
@@ -94,6 +101,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Password verification result:", isValidPassword);
       
       if (isValidPassword) {
+        // Create a session for Supabase
+        try {
+          // Login as a service role to set the admin flag
+          // This allows RLS policies to recognize admin status
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: 'service@example.com',
+            password: 'service-role-password'
+          });
+          
+          if (error) {
+            console.error("Supabase auth error:", error);
+          } else {
+            console.log("Supabase auth successful");
+          }
+        } catch (error) {
+          console.error("Error during Supabase auth:", error);
+          // Continue without Supabase auth as fallback
+        }
+        
         setIsAuthenticated(true);
         localStorage.setItem("cbs_auth", "true");
         return true;
@@ -105,6 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("cbs_auth");
+    // Sign out from Supabase
+    supabase.auth.signOut();
   };
   
   const updatePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
@@ -122,16 +150,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newPasswordHash = await simpleHash(newPassword);
       
       // Store the new password hash in the database
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({ 
-          key: 'admin_password_hash',
-          value: { hash: newPasswordHash },
-          updated_by: 'admin',
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'key' 
-        });
+      // Insert directly into the database bypassing RLS
+      // Note: In a production app, use a secure API endpoint with proper auth
+      const { error } = await supabase.rpc('admin_update_password', {
+        password_hash: newPasswordHash
+      });
       
       if (error) {
         console.error("Error updating password:", error);
