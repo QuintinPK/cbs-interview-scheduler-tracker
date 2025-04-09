@@ -55,19 +55,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return password === "admin123";
       }
       
-      // Safely access the hash property, handling different types of values
-      let storedHash = '';
-      if (typeof data.value === 'object' && data.value !== null && (data.value as any).hash) {
+      let storedHash = "";
+      
+      // Extract the hash based on the data format
+      if (typeof data.value === 'string') {
+        // If value is a string hash
+        storedHash = data.value;
+      } else if (typeof data.value === 'object' && data.value !== null) {
+        // If value is an object with hash property
         storedHash = (data.value as any).hash || '';
-      } else if (typeof data.value === 'string') {
-        try {
-          // Try parsing the value as JSON in case it's stored as a string
-          const parsed = JSON.parse(data.value);
-          storedHash = parsed.hash || '';
-        } catch (e) {
-          // If it's not valid JSON, use the value directly
-          storedHash = data.value;
-        }
       }
       
       console.log("Stored hash:", storedHash);
@@ -81,7 +77,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hash the input password and compare with stored hash
       const inputHash = await simpleHash(password);
       console.log("Input hash:", inputHash);
-      console.log("Comparing hashes, stored hash type:", typeof storedHash);
       
       // Directly compare the hashes
       const result = inputHash === storedHash;
@@ -159,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newPasswordHash = await simpleHash(newPassword);
       console.log("Generated new password hash:", newPasswordHash);
       
-      // Store the new password hash in the database using the edge function
+      // Store the new password hash directly as a string in the database
       const { data, error } = await supabase.functions.invoke('admin-functions', {
         body: {
           action: "updatePassword",

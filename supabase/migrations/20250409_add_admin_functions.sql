@@ -28,12 +28,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- Upsert the password hash
+  -- Upsert the password hash - Store as direct string value, not as JSON object
   INSERT INTO app_settings (key, value, updated_at, updated_by)
-  VALUES ('admin_password_hash', jsonb_build_object('hash', password_hash), now(), 'admin')
+  VALUES ('admin_password_hash', password_hash, now(), 'admin')
   ON CONFLICT (key) 
   DO UPDATE SET 
-    value = jsonb_build_object('hash', password_hash),
+    value = password_hash,
     updated_at = now(),
     updated_by = 'admin';
   

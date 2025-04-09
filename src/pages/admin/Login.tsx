@@ -25,6 +25,7 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
+      console.log("User is already authenticated, redirecting to:", from);
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, from]);
@@ -44,7 +45,7 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      console.log("Login form: attempting login");
+      console.log("Login form: attempting login with username:", username);
       const success = await login(username, password);
       console.log("Login form: login result:", success);
       

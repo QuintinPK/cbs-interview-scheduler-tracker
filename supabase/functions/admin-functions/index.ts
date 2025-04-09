@@ -112,7 +112,7 @@ serve(async (req) => {
         break;
         
       case "updatePassword":
-        // Update admin password hash
+        // Update admin password hash - store as direct string value
         console.log("Updating password hash");
         console.log("New password hash:", data.passwordHash);
         
@@ -128,25 +128,26 @@ serve(async (req) => {
           throw checkPasswordError;
         }
         
-        // Store hash as a direct string, not as an object
         let updateResult;
         if (existingPasswordData) {
-          // Update existing password hash
+          // Update existing password hash - store as direct string
           updateResult = await supabase
             .from('app_settings')
             .update({
-              value: data.passwordHash, // Store as direct string
+              // Store as direct string value, not as a JSON object
+              value: data.passwordHash,
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             })
             .eq('key', 'admin_password_hash');
         } else {
-          // Insert new password hash
+          // Insert new password hash - store as direct string
           updateResult = await supabase
             .from('app_settings')
             .insert({
               key: 'admin_password_hash',
-              value: data.passwordHash, // Store as direct string
+              // Store as direct string value, not as a JSON object
+              value: data.passwordHash,
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             });
