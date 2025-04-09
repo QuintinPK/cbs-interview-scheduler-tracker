@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
+import { Link } from "react-router-dom";
 
 interface UnusualSessionsCardProps {
   sessions: Session[];
@@ -70,11 +71,30 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
               </TableHeader>
               <TableBody>
                 {unusualSessions.map(session => (
-                  <TableRow key={session.id}>
-                    <TableCell>{getInterviewerCode(session.interviewer_id)}</TableCell>
-                    <TableCell>{formatDateTime(session.start_time)}</TableCell>
-                    <TableCell>{formatDateTime(session.end_time!)}</TableCell>
-                    <TableCell>{calculateDuration(session.start_time, session.end_time!)}</TableCell>
+                  <TableRow key={session.id} className="hover:bg-gray-50 cursor-pointer">
+                    <TableCell>
+                      <Link 
+                        to={`/admin/sessions`} 
+                        className="font-medium hover:underline"
+                      >
+                        {getInterviewerCode(session.interviewer_id)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/admin/sessions`} className="hover:underline">
+                        {formatDateTime(session.start_time)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/admin/sessions`} className="hover:underline">
+                        {formatDateTime(session.end_time!)}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Link to={`/admin/sessions`} className="hover:underline">
+                        {calculateDuration(session.start_time, session.end_time!)}
+                      </Link>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

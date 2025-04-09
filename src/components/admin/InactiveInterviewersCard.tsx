@@ -3,6 +3,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { UserX } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface InactiveInterviewersCardProps {
   sessions: Session[];
@@ -48,7 +49,11 @@ const InactiveInterviewersCard: React.FC<InactiveInterviewersCardProps> = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {inactiveInterviewers.map((interviewer) => (
-              <div key={interviewer.id} className="p-3 bg-gray-50 rounded-md">
+              <Link 
+                key={interviewer.id} 
+                to={`/admin/interviewer/${interviewer.id}`}
+                className="p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors"
+              >
                 <p className="font-medium">{interviewer.code}</p>
                 <p className="text-sm text-muted-foreground">
                   {interviewer.first_name} {interviewer.last_name}
@@ -56,7 +61,7 @@ const InactiveInterviewersCard: React.FC<InactiveInterviewersCardProps> = ({
                 <p className="text-xs text-muted-foreground mt-1">
                   {interviewer.email}
                 </p>
-              </div>
+              </Link>
             ))}
           </div>
         )}
