@@ -143,7 +143,7 @@ const Index = () => {
               </div>
               
               <p className="text-xl font-bold mb-2">
-                {isLoadingHours ? "Calculating..." : `€${(totalHours * hourlyRate).toFixed(2)}`}
+                {isLoadingHours ? "Calculating..." : `$${(totalHours * hourlyRate).toFixed(2)}`}
               </p>
               
               <p className="text-xs text-gray-500 mt-2">
