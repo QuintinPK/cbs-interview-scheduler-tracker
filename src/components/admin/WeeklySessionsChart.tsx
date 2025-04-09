@@ -79,7 +79,7 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
       }
     },
     average: {
-      label: "Average",
+      label: "Average (total)",
       theme: {
         light: "#dc2626",
         dark: "#ef4444"
@@ -90,7 +90,7 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Sessions this week</CardTitle>
+        <CardTitle className="text-lg font-semibold">Sessions This Week</CardTitle>
       </CardHeader>
       <CardContent className="h-[300px]">
         {loading ? (
