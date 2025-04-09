@@ -1,32 +1,24 @@
 
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import AdminLayout from "@/components/layout/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  ArrowLeft, Calendar, Clock, MapPin, 
-  BarChart, Timer, Activity, Users
-} from "lucide-react";
-import { 
-  Table, TableBody, TableCell, TableHead, 
-  TableHeader, TableRow 
-} from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
-import { Session, Interviewer, Schedule } from "@/types";
-import { 
-  formatDateTime, calculateDuration, 
-  formatTime, formatDateOnly 
-} from "@/lib/utils";
-import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { useSchedules } from "@/hooks/useSchedules";
+import { useParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
+import AdminLayout from "@/components/layout/AdminLayout";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { supabase } from "@/integrations/supabase/client";
+import { Session, Interviewer } from "@/types";
+import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
+import { useSchedules } from "@/hooks/useSchedules";
+
+// Importing our new components
+import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
+import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
+import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
+import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
+import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,8 +88,8 @@ const InterviewerDashboard = () => {
     
     let filtered = [...sessions];
     
-    const fromDate = dateRange.from;
-    const toDate = dateRange.to || fromDate;
+    const fromDate = new Date(dateRange.from);
+    const toDate = dateRange.to ? new Date(dateRange.to) : fromDate;
     
     // Set time to start of day for from date and end of day for to date
     fromDate.setHours(0, 0, 0, 0);
@@ -137,68 +129,17 @@ const InterviewerDashboard = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <Button
-              variant="ghost"
-              className="mb-2 -ml-4"
-              onClick={() => navigate("/admin/interviewers")}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Interviewers
-            </Button>
-            <h1 className="text-2xl md:text-3xl font-bold">
-              {loading ? "Loading..." : interviewer ? `${interviewer.first_name} ${interviewer.last_name}'s Dashboard` : "Interviewer Not Found"}
-            </h1>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={() => navigate(`/admin/scheduling?interviewer=${interviewer?.code}`)}
-              disabled={loading || !interviewer}
-            >
-              <Calendar className="mr-2 h-4 w-4" />
-              Schedule
-            </Button>
-          </div>
-        </div>
+        <InterviewerHeader 
+          interviewer={interviewer} 
+          loading={loading} 
+        />
         
         {interviewer && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Interviewer Code</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold">{interviewer.code}</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Active Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <Clock className="h-5 w-5 mr-2 text-cbs" />
-                  <p className="text-2xl font-bold">{calculateTotalTime()}</p>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Current Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center">
-                  <div className={`h-3 w-3 rounded-full mr-2 ${activeSessions.length > 0 ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                  <p className="text-2xl font-bold">{activeSessions.length > 0 ? 'Active' : 'Inactive'}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <InterviewerQuickStats
+            interviewer={interviewer}
+            totalTime={calculateTotalTime()}
+            hasActiveSessions={activeSessions.length > 0}
+          />
         )}
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -209,193 +150,29 @@ const InterviewerDashboard = () => {
           </TabsList>
           
           <TabsContent value="overview" className="space-y-4 pt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Activity Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium">Recent Activity</h3>
-                    <p className="text-muted-foreground">
-                      {sessions.length > 0 
-                        ? `Last active: ${formatDateTime(sessions[0].start_time)}`
-                        : "No activity recorded yet"}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">Time Since Last Login</h3>
-                    <p className="text-muted-foreground">
-                      {metrics.daysSinceLastActive === 0
-                        ? "Active today"
-                        : metrics.daysSinceLastActive === -1 
-                          ? "Never active"
-                          : `${metrics.daysSinceLastActive} day(s) ago`
-                      }
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium">Average Days Worked Per Week</h3>
-                    <p className="text-muted-foreground">
-                      {metrics.avgDaysPerWeek.toFixed(1)} days
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium">Days Worked In Past Month</h3>
-                    <p className="text-muted-foreground">
-                      {metrics.daysWorkedInMonth} days
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium">Sessions Within Planned Timeframe</h3>
-                    <p className="text-muted-foreground">
-                      {metrics.sessionsInPlanTime.toFixed(0)}% of sessions
-                    </p>
-                  </div>
-
-                  <div>
-                    <h3 className="font-medium">Average Session Duration</h3>
-                    <p className="text-muted-foreground">
-                      {metrics.avgSessionDuration}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <h3 className="font-medium">Earliest Start Time</h3>
-                      <p className="text-muted-foreground">
-                        {metrics.earliestStartTime ? formatTime(metrics.earliestStartTime) : "N/A"}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-medium">Latest End Time</h3>
-                      <p className="text-muted-foreground">
-                        {metrics.latestEndTime ? formatTime(metrics.latestEndTime) : "N/A"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">Current Status</h3>
-                    <p className="text-muted-foreground">
-                      {activeSessions.length > 0
-                        ? `Active since ${formatDateTime(activeSessions[0].start_time)}`
-                        : "Not currently active"}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">Total Sessions</h3>
-                    <p className="text-muted-foreground">{sessions.length} sessions recorded</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ActivitySummary
+              sessions={sessions}
+              daysSinceLastActive={metrics.daysSinceLastActive}
+              avgDaysPerWeek={metrics.avgDaysPerWeek}
+              daysWorkedInMonth={metrics.daysWorkedInMonth}
+              sessionsInPlanTime={metrics.sessionsInPlanTime}
+              avgSessionDuration={metrics.avgSessionDuration}
+              earliestStartTime={metrics.earliestStartTime}
+              latestEndTime={metrics.latestEndTime}
+              activeSessions={activeSessions}
+            />
           </TabsContent>
           
           <TabsContent value="sessions" className="pt-4">
-            <Card>
-              <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
-                <CardTitle>Session History</CardTitle>
-                <DateRangePicker 
-                  value={dateRange}
-                  onChange={setDateRange}
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Start Time</TableHead>
-                        <TableHead>End Time</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Location</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredSessions.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                            No sessions recorded
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredSessions.map((session) => (
-                          <TableRow key={session.id}>
-                            <TableCell>{formatDateTime(session.start_time)}</TableCell>
-                            <TableCell>
-                              {session.end_time ? formatDateTime(session.end_time) : 'Active'}
-                            </TableCell>
-                            <TableCell>
-                              {session.end_time 
-                                ? calculateDuration(session.start_time, session.end_time)
-                                : 'Ongoing'}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center">
-                                <div className={`h-2 w-2 rounded-full mr-2 ${session.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                                {session.is_active ? 'Active' : 'Completed'}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {session.start_latitude && session.start_longitude ? (
-                                <div className="flex items-center">
-                                  <MapPin className="h-4 w-4 mr-1 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground">
-                                    {session.start_latitude.toFixed(4)}, {session.start_longitude.toFixed(4)}
-                                  </span>
-                                </div>
-                              ) : (
-                                'N/A'
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+            <SessionHistory
+              sessions={filteredSessions}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+            />
           </TabsContent>
           
           <TabsContent value="contact" className="pt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium">Name</h3>
-                    <p className="text-muted-foreground">
-                      {interviewer?.first_name} {interviewer?.last_name}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">Phone</h3>
-                    <p className="text-muted-foreground">
-                      {interviewer?.phone || 'Not provided'}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">Email</h3>
-                    <p className="text-muted-foreground">
-                      {interviewer?.email || 'Not provided'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ContactInformation interviewer={interviewer} />
           </TabsContent>
         </Tabs>
       </div>
