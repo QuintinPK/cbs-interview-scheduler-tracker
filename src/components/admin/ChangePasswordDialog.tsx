@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -24,11 +25,13 @@ const ChangePasswordDialog = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
-  let updatePassword = async () => {
+  // Define a default updatePassword function with the correct signature
+  let updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean> = async (currentPassword, newPassword) => {
     console.error("Auth context not available");
     return false;
   };
 
+  // Try to get the real updatePassword function from the auth context
   try {
     const auth = useAuth();
     updatePassword = auth.updatePassword;
