@@ -17,6 +17,7 @@ const Costs = () => {
   const [hourlyRate, setHourlyRate] = useState<number>(25);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [calculatedCosts, setCalculatedCosts] = useState<{
     interviewerCosts: { id: string; name: string; hours: number; cost: number }[];
     totalCost: number;
@@ -31,6 +32,7 @@ const Costs = () => {
   useEffect(() => {
     const fetchHourlyRate = async () => {
       try {
+        setIsLoading(true);
         console.log("Fetching hourly rate from database");
         const { data, error } = await supabase
           .from('app_settings')
@@ -40,42 +42,57 @@ const Costs = () => {
 
         if (error) {
           console.error("Error fetching hourly rate:", error);
-          // Handle "No rows found" error gracefully
+          // Handle errors gracefully
           if (error.code === 'PGRST116') {
             console.log("No hourly rate found, using default");
             setHourlyRate(25);
-            return;
-          }
-          throw error;
-        }
-        
-        console.log("Retrieved hourly rate data:", data);
-        
-        if (data) {
-          let rateValue;
-          
-          if (typeof data.value === 'number') {
-            rateValue = data.value;
-          } else if (typeof data.value === 'string') {
-            rateValue = parseFloat(data.value);
-          } else if (data.value !== null && typeof data.value === 'object') {
-            // Handle if the value is stored as a JSON object or number
-            if (Array.isArray(data.value)) {
-              console.log("Hourly rate stored as array, can't parse");
-              rateValue = 25; // Use default
-            } else {
-              // It's an object, try to access directly or parse
-              rateValue = parseFloat(String(data.value));
-            }
-          }
-            
-          if (!isNaN(rateValue)) {
-            console.log("Setting hourly rate to:", rateValue);
-            setHourlyRate(rateValue);
           } else {
-            console.log("Using default hourly rate, couldn't parse:", data.value);
+            throw error;
+          }
+        } else if (data) {
+          console.log("Retrieved hourly rate data:", data);
+          
+          // Handle the value based on its type
+          if (data.value !== null) {
+            let rateValue;
+            
+            if (typeof data.value === 'number') {
+              rateValue = data.value;
+            } else if (typeof data.value === 'string') {
+              rateValue = parseFloat(data.value);
+            } else if (typeof data.value === 'object') {
+              // Extract the value if it's stored as an object
+              const valueString = JSON.stringify(data.value);
+              console.log("Value as string:", valueString);
+              
+              // Try to extract a number from the JSON
+              try {
+                const parsed = JSON.parse(valueString);
+                if (typeof parsed === 'number') {
+                  rateValue = parsed;
+                } else {
+                  rateValue = 25; // Default
+                }
+              } catch {
+                rateValue = 25; // Default if parsing fails
+              }
+            }
+              
+            if (!isNaN(rateValue)) {
+              console.log("Setting hourly rate to:", rateValue);
+              setHourlyRate(rateValue);
+            } else {
+              console.log("Using default hourly rate, couldn't parse:", data.value);
+              setHourlyRate(25);
+            }
+          } else {
+            // Default if value is null
             setHourlyRate(25);
           }
+        } else {
+          // No data found
+          console.log("No hourly rate found, using default");
+          setHourlyRate(25);
         }
       } catch (error) {
         console.error("Error fetching hourly rate:", error);
@@ -87,6 +104,10 @@ const Costs = () => {
             variant: "destructive",
           });
         }
+        // Use default value
+        setHourlyRate(25);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -183,10 +204,10 @@ const Costs = () => {
 
   // Calculate costs initially and when hourly rate changes
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !isLoading) {
       calculateCosts();
     }
-  }, [hourlyRate, sessions, interviewers, loading]);
+  }, [hourlyRate, sessions, interviewers, loading, isLoading]);
 
   return (
     <AdminLayout>
@@ -202,44 +223,50 @@ const Costs = () => {
               <CardTitle className="text-lg font-semibold">Hourly Rate</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label htmlFor="hourlyRate">Hourly Rate (€)</Label>
-                    <Input
-                      id="hourlyRate"
-                      type="number"
-                      value={hourlyRate}
-                      onChange={(e) => setHourlyRate(Number(e.target.value))}
-                      disabled={!isEditing}
-                    />
+              {isLoading ? (
+                <div className="flex items-center justify-center h-24">
+                  <p className="text-muted-foreground">Loading hourly rate...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label htmlFor="hourlyRate">Hourly Rate (€)</Label>
+                      <Input
+                        id="hourlyRate"
+                        type="number"
+                        value={hourlyRate}
+                        onChange={(e) => setHourlyRate(Number(e.target.value))}
+                        disabled={!isEditing}
+                      />
+                    </div>
+                    <div>
+                      {isEditing ? (
+                        <Button 
+                          onClick={updateHourlyRate} 
+                          disabled={isSaving}
+                          className="w-full"
+                        >
+                          <Save className="mr-2 h-4 w-4" />
+                          {isSaving ? "Saving..." : "Save Rate"}
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={() => setIsEditing(true)} 
+                          variant="outline"
+                          className="w-full"
+                        >
+                          Edit Rate
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    {isEditing ? (
-                      <Button 
-                        onClick={updateHourlyRate} 
-                        disabled={isSaving}
-                        className="w-full"
-                      >
-                        <Save className="mr-2 h-4 w-4" />
-                        {isSaving ? "Saving..." : "Save Rate"}
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={() => setIsEditing(true)} 
-                        variant="outline"
-                        className="w-full"
-                      >
-                        Edit Rate
-                      </Button>
-                    )}
+                  <div className="text-sm text-muted-foreground mt-4">
+                    <p className="font-medium">Note:</p>
+                    <p>In the future, a bonus or extra amount may be applied based on the interview result type (response or non-response), but this is currently not included in the calculation.</p>
                   </div>
                 </div>
-                <div className="text-sm text-muted-foreground mt-4">
-                  <p className="font-medium">Note:</p>
-                  <p>In the future, a bonus or extra amount may be applied based on the interview result type (response or non-response), but this is currently not included in the calculation.</p>
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
@@ -281,7 +308,7 @@ const Costs = () => {
             <CardTitle className="text-lg font-semibold">Costs Per Interviewer</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
+            {loading || isLoading ? (
               <p className="text-center py-4 text-muted-foreground">Loading...</p>
             ) : calculatedCosts.interviewerCosts.length === 0 ? (
               <p className="text-center py-4 text-muted-foreground">No data available</p>
