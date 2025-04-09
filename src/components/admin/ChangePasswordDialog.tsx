@@ -30,8 +30,7 @@ const ChangePasswordDialog = () => {
     e.preventDefault();
     setError("");
 
-    console.log("Starting password change process");
-
+    // Validate passwords
     if (newPassword !== confirmPassword) {
       setError("New passwords do not match");
       return;
@@ -44,11 +43,8 @@ const ChangePasswordDialog = () => {
 
     try {
       setIsLoading(true);
-      console.log("Current password provided:", currentPassword);
-      console.log("New password length:", newPassword.length);
       
       const success = await updatePassword(currentPassword, newPassword);
-      console.log("Password update result:", success);
       
       if (success) {
         toast({
@@ -59,12 +55,11 @@ const ChangePasswordDialog = () => {
         setOpen(false);
         resetForm();
       } else {
-        console.error("Password update failed");
-        setError("Failed to update password. Please check that your current password is correct.");
+        setError("Current password is incorrect");
       }
     } catch (error) {
       console.error("Error updating password:", error);
-      setError("An unexpected error occurred. Please try again.");
+      setError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }

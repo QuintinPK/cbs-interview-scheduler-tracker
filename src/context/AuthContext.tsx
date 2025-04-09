@@ -21,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (auth === "true") {
         setIsAuthenticated(true);
       } else {
+        // Clear any stale auth state
         setIsAuthenticated(false);
       }
     };
@@ -28,25 +29,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
   
-  // Simple hash function
-  const hashPassword = async (password: string): Promise<string> => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  };
-  
-  // Verify password
-  const verifyPassword = async (inputPassword: string): Promise<boolean> => {
+  // Verify password against stored hash or default
+  const verifyPassword = async (password: string): Promise<boolean> => {
     try {
-      console.log("Verifying password against database");
+      console.log("Verifying password");
       
-      // Hash the input password
-      const inputHash = await hashPassword(inputPassword);
-      console.log("Generated hash for input password:", inputHash);
-      
-      // Fetch the stored hash from the database
+      // Fetch the password hash from the database - use anonymous access
       const { data, error } = await supabase
         .from('app_settings')
         .select('value')
@@ -54,143 +42,125 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       
       if (error) {
-        console.error("Database error while fetching password hash:", error);
-        // Fall back to default password if there's a database error
-        const defaultPasswordHash = await hashPassword("cbs123");
-        return inputHash === defaultPasswordHash;
+        console.error("Error fetching password hash:", error);
+        // If no password hash found yet, check against the default
+        return password === "admin123";
       }
       
-      console.log("Database response:", data);
+      console.log("Retrieved password data:", data);
       
-      // If no data found, use the default password
+      // If no data found, use the default
       if (!data) {
-        console.log("No password hash found in database, using default");
-        const defaultPasswordHash = await hashPassword("cbs123");
-        
-        // Store the default hash in the database
-        const { error: insertError } = await supabase
-          .from('app_settings')
-          .insert({
-            key: 'admin_password_hash',
-            value: defaultPasswordHash,
-            updated_at: new Date().toISOString(),
-            updated_by: 'system'
-          });
-          
-        if (insertError) {
-          console.error("Error storing default password hash:", insertError);
-        }
-        
-        return inputHash === defaultPasswordHash;
+        console.log("No data found, checking against default password");
+        return password === "admin123";
       }
       
-      // Get the stored hash from the response
-      let storedHash = "";
-      
-      // Handle different possible response formats
-      if (typeof data.value === 'string') {
-        // Direct string value
-        storedHash = data.value;
-      } else if (data.value && typeof data.value === 'object') {
-        // JSON object with password hash
-        storedHash = String(data.value);
-      } else {
-        // Fallback
-        storedHash = String(data.value);
+      // Safely access the hash property, handling different types of values
+      let storedHash = '';
+      if (typeof data.value === 'object' && data.value !== null) {
+        storedHash = (data.value as any).hash || '';
       }
       
-      console.log("Stored hash from database:", storedHash);
+      // If there's no stored hash, use the default
+      if (!storedHash) {
+        console.log("No stored hash found, using default password");
+        return password === "admin123";
+      }
       
-      // Compare hashes
-      const isMatch = inputHash === storedHash;
-      console.log("Password verification result:", isMatch);
-      
-      return isMatch;
+      // Hash the input password and compare with stored hash
+      const inputHash = await simpleHash(password);
+      console.log("Comparing hashes");
+      return inputHash === storedHash;
     } catch (error) {
-      console.error("Error in password verification:", error);
+      console.error("Error verifying password:", error);
       // Fallback to default for demo
-      return inputPassword === "cbs123";
+      return password === "admin123";
     }
   };
   
-  // Login function
+  // Simple hash function for demo purposes
+  const simpleHash = async (text: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+  
   const login = async (username: string, password: string): Promise<boolean> => {
-    console.log("Login attempt for username:", username);
-    
-    if (username !== "admin") {
-      console.log("Username is not 'admin', login failed");
-      return false;
+    console.log("Attempting login with username:", username);
+    if (username === "admin") {
+      const isValidPassword = await verifyPassword(password);
+      console.log("Password verification result:", isValidPassword);
+      
+      if (isValidPassword) {
+        try {
+          // Login as a service role to set the admin flag
+          // This allows RLS policies to recognize admin status
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: 'service@example.com',
+            password: 'service-role-password'
+          });
+          
+          if (error) {
+            console.error("Supabase auth error:", error);
+          } else {
+            console.log("Supabase auth successful");
+          }
+        } catch (error) {
+          console.error("Error during Supabase auth:", error);
+          // Continue without Supabase auth as fallback
+        }
+        
+        setIsAuthenticated(true);
+        localStorage.setItem("cbs_auth", "true");
+        return true;
+      }
     }
-    
-    const isValid = await verifyPassword(password);
-    console.log("Password verification result:", isValid);
-    
-    if (isValid) {
-      setIsAuthenticated(true);
-      localStorage.setItem("cbs_auth", "true");
-      return true;
-    }
-    
     return false;
   };
   
-  // Logout function
   const logout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("cbs_auth");
+    // Sign out from Supabase
+    supabase.auth.signOut();
   };
   
-  // Update password function
   const updatePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
       console.log("Attempting to update password");
-      
       // First verify the current password
-      const isCurrentPasswordValid = await verifyPassword(currentPassword);
-      console.log("Current password verification:", isCurrentPasswordValid);
+      const isValidPassword = await verifyPassword(currentPassword);
+      console.log("Current password valid:", isValidPassword);
       
-      if (!isCurrentPasswordValid) {
-        console.log("Current password is invalid, update failed");
+      if (!isValidPassword) {
         return false;
       }
       
       // Hash the new password
-      const newPasswordHash = await hashPassword(newPassword);
-      console.log("Generated hash for new password:", newPasswordHash);
+      const newPasswordHash = await simpleHash(newPassword);
+      console.log("Generated new password hash");
       
-      // Store the new password hash directly, not as an object
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          key: 'admin_password_hash',
-          value: newPasswordHash,
-          updated_at: new Date().toISOString(),
-          updated_by: 'admin'
-        }, {
-          onConflict: 'key'
-        });
+      // Store the new password hash in the database using the edge function
+      const { data, error } = await supabase.functions.invoke('admin-functions', {
+        body: {
+          action: "updatePassword",
+          data: {
+            passwordHash: newPasswordHash
+          }
+        }
+      });
       
       if (error) {
-        console.error("Error updating password in database:", error);
+        console.error("Error updating password:", error);
         return false;
       }
       
-      // Verify the password was updated correctly
-      const { data: verifyData, error: verifyError } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'admin_password_hash')
-        .maybeSingle();
-      
-      if (verifyError) {
-        console.error("Error verifying password update:", verifyError);
-        return false;
-      }
-      
-      console.log("Password updated and verified in database:", verifyData);
+      console.log("Password updated successfully");
       return true;
     } catch (error) {
-      console.error("Error in update password process:", error);
+      console.error("Error updating password:", error);
       return false;
     }
   };

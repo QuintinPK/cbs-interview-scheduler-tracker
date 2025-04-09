@@ -25,7 +25,6 @@ const Login = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      console.log("User is already authenticated, redirecting to:", from);
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, from]);
@@ -43,12 +42,9 @@ const Login = () => {
     }
     
     setIsLoading(true);
-    console.log("Login attempted with username:", username);
-    console.log("Login attempted with password length:", password.length);
     
     try {
       const success = await login(username, password);
-      console.log("Login result:", success);
       
       if (success) {
         toast({
@@ -64,12 +60,12 @@ const Login = () => {
         });
       }
     } catch (error) {
-      console.error("Login error:", error);
       toast({
         title: "Error",
         description: "An error occurred during login",
         variant: "destructive",
       });
+      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +117,7 @@ const Login = () => {
                 <p className="text-sm text-center font-medium">Default credentials</p>
                 <p className="text-sm text-center text-muted-foreground">
                   Username: <span className="font-mono">admin</span><br />
-                  Password: <span className="font-mono">cbs123</span>
+                  Password: <span className="font-mono">admin123</span>
                 </p>
                 <p className="text-xs text-center text-muted-foreground mt-2">
                   (Or your most recently updated password)

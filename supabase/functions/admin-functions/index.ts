@@ -112,7 +112,7 @@ serve(async (req) => {
         break;
         
       case "updatePassword":
-        // Update admin password hash - store as direct string value
+        // Update admin password hash
         console.log("Updating password hash");
         console.log("New password hash:", data.passwordHash);
         
@@ -130,24 +130,22 @@ serve(async (req) => {
         
         let updateResult;
         if (existingPasswordData) {
-          // Update existing password hash - store as direct string
+          // Update existing password hash
           updateResult = await supabase
             .from('app_settings')
             .update({
-              // Store as direct string value, not as a JSON object
-              value: data.passwordHash,
+              value: { hash: data.passwordHash },
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             })
             .eq('key', 'admin_password_hash');
         } else {
-          // Insert new password hash - store as direct string
+          // Insert new password hash
           updateResult = await supabase
             .from('app_settings')
             .insert({
               key: 'admin_password_hash',
-              // Store as direct string value, not as a JSON object
-              value: data.passwordHash,
+              value: { hash: data.passwordHash },
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             });
@@ -156,19 +154,6 @@ serve(async (req) => {
         if (updateResult.error) {
           console.error("Error updating password:", updateResult.error);
           throw updateResult.error;
-        }
-        
-        // Double-check that the password was updated correctly
-        const { data: verifyData, error: verifyError } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'admin_password_hash')
-          .maybeSingle();
-          
-        if (verifyError) {
-          console.error("Error verifying password update:", verifyError);
-        } else {
-          console.log("Password verified in database:", verifyData);
         }
         
         console.log("Password updated successfully");

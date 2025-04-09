@@ -79,7 +79,7 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
       }
     },
     average: {
-      label: "Average (total)",
+      label: "Average",
       theme: {
         light: "#dc2626",
         dark: "#ef4444"
