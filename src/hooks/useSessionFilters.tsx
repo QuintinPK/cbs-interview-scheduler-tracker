@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Session } from "@/types";
+import { startOfDay, endOfDay } from "date-fns";
 
 export const useSessionFilters = (sessions: Session[]) => {
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
@@ -29,10 +30,14 @@ export const useSessionFilters = (sessions: Session[]) => {
     }
     
     if (dateFilter) {
-      const filterDate = dateFilter.toISOString().split('T')[0];
+      // Create start and end of the selected day in local timezone
+      const localStartOfDay = startOfDay(dateFilter);
+      const localEndOfDay = endOfDay(dateFilter);
+      
+      // Filter sessions where the start_time falls within the local day range
       filtered = filtered.filter(session => {
-        const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
-        return sessionDate === filterDate;
+        const sessionDate = new Date(session.start_time);
+        return sessionDate >= localStartOfDay && sessionDate <= localEndOfDay;
       });
     }
     
