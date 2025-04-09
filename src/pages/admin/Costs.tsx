@@ -31,15 +31,22 @@ const Costs = () => {
   useEffect(() => {
     const fetchHourlyRate = async () => {
       try {
+        // Use the rpc method to get the data without typed tables
         const { data, error } = await supabase
-          .from("app_settings")
-          .select("value")
-          .eq("key", "hourly_rate")
+          .from('app_settings')
+          .select('*')
+          .eq('key', 'hourly_rate')
           .single();
 
         if (error) throw error;
-        if (data) {
-          setHourlyRate(Number(data.value));
+        
+        // Parse the value from the JSON value field
+        if (data && data.value) {
+          const rateValue = typeof data.value === 'string' 
+            ? parseFloat(data.value) 
+            : parseFloat(data.value.toString());
+            
+          setHourlyRate(rateValue || 25);
         }
       } catch (error) {
         console.error("Error fetching hourly rate:", error);
@@ -102,13 +109,15 @@ const Costs = () => {
   const updateHourlyRate = async () => {
     try {
       setIsSaving(true);
+      
+      // Use the untyped method to update the app_settings table
       const { error } = await supabase
-        .from("app_settings")
+        .from('app_settings')
         .update({
-          value: hourlyRate,
+          value: hourlyRate.toString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("key", "hourly_rate");
+        .eq('key', 'hourly_rate');
 
       if (error) throw error;
 
