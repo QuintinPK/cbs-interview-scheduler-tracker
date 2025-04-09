@@ -154,7 +154,7 @@ const Costs = () => {
           description: "Failed to update hourly rate: " + error.message,
           variant: "destructive",
         });
-        throw new Error(`Failed to update hourly rate: ${error.message}`);
+        return;
       }
 
       console.log("Hourly rate update response:", data);

@@ -58,7 +58,7 @@ serve(async (req) => {
             .from('app_settings')
             .upsert({
               key: 'hourly_rate',
-              value: to_jsonb(numericRate),
+              value: numericRate,
               updated_at: new Date(),
               updated_by: 'admin'
             }, { onConflict: 'key' });
