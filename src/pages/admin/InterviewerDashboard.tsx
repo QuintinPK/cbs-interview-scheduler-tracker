@@ -5,11 +5,23 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Calendar, Clock, MapPin } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { 
+  ArrowLeft, Calendar, Clock, MapPin, 
+  BarChart, Timer, Activity, Users
+} from "lucide-react";
+import { 
+  Table, TableBody, TableCell, TableHead, 
+  TableHeader, TableRow 
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { Session, Interviewer } from "@/types";
-import { formatDateTime, calculateDuration } from "@/lib/utils";
+import { Session, Interviewer, Schedule } from "@/types";
+import { 
+  formatDateTime, calculateDuration, 
+  formatTime, formatDateOnly 
+} from "@/lib/utils";
+import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { useSchedules } from "@/hooks/useSchedules";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,6 +30,15 @@ const InterviewerDashboard = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [dateRange, setDateRange] = useState<{
+    from?: Date;
+    to?: Date;
+  } | undefined>(undefined);
+  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
+  
+  // Use our custom metrics hook
+  const metrics = useInterviewerMetrics(id, sessions);
+  const { schedules } = useSchedules(id);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -54,6 +75,7 @@ const InterviewerDashboard = () => {
         }));
         
         setSessions(transformedSessions || []);
+        setFilteredSessions(transformedSessions || []);
       } catch (error) {
         console.error("Error fetching interviewer data:", error);
       } finally {
@@ -63,6 +85,30 @@ const InterviewerDashboard = () => {
     
     fetchData();
   }, [id]);
+  
+  // Apply date filter to sessions
+  useEffect(() => {
+    if (!dateRange || !dateRange.from) {
+      setFilteredSessions(sessions);
+      return;
+    }
+    
+    let filtered = [...sessions];
+    
+    const fromDate = dateRange.from;
+    const toDate = dateRange.to || fromDate;
+    
+    // Set time to start of day for from date and end of day for to date
+    fromDate.setHours(0, 0, 0, 0);
+    toDate.setHours(23, 59, 59, 999);
+    
+    filtered = filtered.filter(session => {
+      const sessionDate = new Date(session.start_time);
+      return sessionDate >= fromDate && sessionDate <= toDate;
+    });
+    
+    setFilteredSessions(filtered);
+  }, [dateRange, sessions]);
   
   // Calculate total active time
   const calculateTotalTime = () => {
@@ -178,6 +224,62 @@ const InterviewerDashboard = () => {
                   </div>
                   
                   <div>
+                    <h3 className="font-medium">Time Since Last Login</h3>
+                    <p className="text-muted-foreground">
+                      {metrics.daysSinceLastActive === 0
+                        ? "Active today"
+                        : metrics.daysSinceLastActive === -1 
+                          ? "Never active"
+                          : `${metrics.daysSinceLastActive} day(s) ago`
+                      }
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium">Average Days Worked Per Week</h3>
+                    <p className="text-muted-foreground">
+                      {metrics.avgDaysPerWeek.toFixed(1)} days
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium">Days Worked In Past Month</h3>
+                    <p className="text-muted-foreground">
+                      {metrics.daysWorkedInMonth} days
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium">Sessions Within Planned Timeframe</h3>
+                    <p className="text-muted-foreground">
+                      {metrics.sessionsInPlanTime.toFixed(0)}% of sessions
+                    </p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-medium">Average Session Duration</h3>
+                    <p className="text-muted-foreground">
+                      {metrics.avgSessionDuration}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="font-medium">Earliest Start Time</h3>
+                      <p className="text-muted-foreground">
+                        {metrics.earliestStartTime ? formatTime(metrics.earliestStartTime) : "N/A"}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-medium">Latest End Time</h3>
+                      <p className="text-muted-foreground">
+                        {metrics.latestEndTime ? formatTime(metrics.latestEndTime) : "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div>
                     <h3 className="font-medium">Current Status</h3>
                     <p className="text-muted-foreground">
                       {activeSessions.length > 0
@@ -197,8 +299,12 @@ const InterviewerDashboard = () => {
           
           <TabsContent value="sessions" className="pt-4">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 md:space-y-0">
                 <CardTitle>Session History</CardTitle>
+                <DateRangePicker 
+                  value={dateRange}
+                  onChange={setDateRange}
+                />
               </CardHeader>
               <CardContent>
                 <div className="rounded-md border">
@@ -213,14 +319,14 @@ const InterviewerDashboard = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sessions.length === 0 ? (
+                      {filteredSessions.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                             No sessions recorded
                           </TableCell>
                         </TableRow>
                       ) : (
-                        sessions.map((session) => (
+                        filteredSessions.map((session) => (
                           <TableRow key={session.id}>
                             <TableCell>{formatDateTime(session.start_time)}</TableCell>
                             <TableCell>

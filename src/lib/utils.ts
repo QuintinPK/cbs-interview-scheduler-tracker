@@ -1,4 +1,3 @@
-
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Location } from "@/types";
@@ -16,11 +15,27 @@ export function formatDate(dateString: string): string {
   });
 }
 
-export function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('nl-NL', { 
-    hour: '2-digit',
-    minute: '2-digit'
+export function formatTime(date: Date | string) {
+  if (!date) return '';
+  
+  const d = typeof date === 'string' ? new Date(date) : date;
+  
+  return d.toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+export function formatDateOnly(date: Date | string) {
+  if (!date) return '';
+  
+  const d = typeof date === 'string' ? new Date(date) : date;
+  
+  return d.toLocaleDateString([], { 
+    year: 'numeric', 
+    month: 'short', 
+    day: 'numeric' 
   });
 }
 

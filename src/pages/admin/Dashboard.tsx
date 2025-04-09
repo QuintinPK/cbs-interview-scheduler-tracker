@@ -39,7 +39,7 @@ const Dashboard = () => {
           />
         </div>
         
-        {/* Unusual Sessions and Top Interviewers */}
+        {/* Top Interviewers and Unusual Sessions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TopInterviewersChart 
             sessions={sessions} 

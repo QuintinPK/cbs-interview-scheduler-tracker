@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -68,6 +67,65 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     ? (thisWeekSessions.length / activeInterviewersThisWeek.size).toFixed(1)
     : "0";
   
+  const calculateAvgSessionsPerInterviewer = () => {
+    if (loading || !sessions.length || !interviewers.length) return 0;
+    
+    // Get start of current week (Sunday)
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    // Filter sessions for current week
+    const thisWeekSessions = sessions.filter(session => {
+      const sessionDate = new Date(session.start_time);
+      return sessionDate >= startOfWeek;
+    });
+    
+    // Get unique interviewer IDs with sessions this week
+    const interviewersWithSessions = new Set(
+      thisWeekSessions.map(session => session.interviewer_id)
+    );
+    
+    if (interviewersWithSessions.size === 0) return 0;
+    
+    return (thisWeekSessions.length / interviewersWithSessions.size).toFixed(1);
+  };
+  
+  const calculateAvgSessionLength = () => {
+    if (loading || !sessions.length) return "0m";
+    
+    // Get start of current week (Sunday)
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    // Filter completed sessions for current week
+    const thisWeekCompletedSessions = sessions.filter(session => {
+      const sessionDate = new Date(session.start_time);
+      return sessionDate >= startOfWeek && session.end_time && !session.is_active;
+    });
+    
+    if (thisWeekCompletedSessions.length === 0) return "0m";
+    
+    // Calculate total minutes
+    let totalMinutes = 0;
+    
+    thisWeekCompletedSessions.forEach(session => {
+      const start = new Date(session.start_time);
+      const end = new Date(session.end_time!);
+      const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+      totalMinutes += durationMinutes;
+    });
+    
+    const avgMinutes = totalMinutes / thisWeekCompletedSessions.length;
+    const hours = Math.floor(avgMinutes / 60);
+    const minutes = Math.floor(avgMinutes % 60);
+    
+    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  };
+  
   const statsItems = [
     { label: "Total Interviewers", value: totalInterviewers },
     { label: "Active Sessions", value: activeSessions },
@@ -86,13 +144,23 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
         {loading ? (
           <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {statsItems.map((item, index) => (
               <div key={index} className="bg-gray-50 p-4 rounded-md">
                 <p className="text-sm text-muted-foreground">{item.label}</p>
                 <p className="text-2xl font-bold text-primary mt-1">{item.value}</p>
               </div>
             ))}
+            
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Average Session Length (Week)</p>
+              <p className="text-2xl font-bold">{calculateAvgSessionLength()}</p>
+            </div>
+            
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Avg Sessions Per Interviewer (Week)</p>
+              <p className="text-2xl font-bold">{calculateAvgSessionsPerInterviewer()}</p>
+            </div>
           </div>
         )}
       </CardContent>
