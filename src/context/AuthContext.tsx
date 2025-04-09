@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Safely access the hash property, handling different types of values
       let storedHash = '';
-      if (typeof data.value === 'object' && data.value !== null) {
+      if (typeof data.value === 'object' && data.value !== null && (data.value as any).hash) {
         storedHash = (data.value as any).hash || '';
       } else if (typeof data.value === 'string') {
         try {
@@ -81,8 +81,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hash the input password and compare with stored hash
       const inputHash = await simpleHash(password);
       console.log("Input hash:", inputHash);
-      console.log("Comparing hashes");
-      return inputHash === storedHash;
+      console.log("Comparing hashes, stored hash type:", typeof storedHash);
+      
+      // Directly compare the hashes
+      const result = inputHash === storedHash;
+      console.log("Password verification result:", result);
+      return result;
     } catch (error) {
       console.error("Error verifying password:", error);
       // Fallback to default for demo

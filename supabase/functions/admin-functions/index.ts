@@ -128,17 +128,14 @@ serve(async (req) => {
           throw checkPasswordError;
         }
         
-        // Create a hash value that's properly formatted for storage
-        const hashValue = { hash: data.passwordHash };
-        console.log("Storing hash value:", hashValue);
-        
+        // Store hash as a direct string, not as an object
         let updateResult;
         if (existingPasswordData) {
           // Update existing password hash
           updateResult = await supabase
             .from('app_settings')
             .update({
-              value: hashValue,
+              value: data.passwordHash, // Store as direct string
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             })
@@ -149,7 +146,7 @@ serve(async (req) => {
             .from('app_settings')
             .insert({
               key: 'admin_password_hash',
-              value: hashValue,
+              value: data.passwordHash, // Store as direct string
               updated_at: new Date().toISOString(),
               updated_by: 'admin'
             });

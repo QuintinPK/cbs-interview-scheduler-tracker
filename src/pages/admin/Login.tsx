@@ -44,7 +44,9 @@ const Login = () => {
     setIsLoading(true);
     
     try {
+      console.log("Login form: attempting login");
       const success = await login(username, password);
+      console.log("Login form: login result:", success);
       
       if (success) {
         toast({
@@ -60,12 +62,12 @@ const Login = () => {
         });
       }
     } catch (error) {
+      console.error("Login error:", error);
       toast({
         title: "Error",
         description: "An error occurred during login",
         variant: "destructive",
       });
-      console.error("Login error:", error);
     } finally {
       setIsLoading(false);
     }
