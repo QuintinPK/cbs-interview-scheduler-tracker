@@ -43,12 +43,11 @@ const Login = () => {
     }
     
     setIsLoading(true);
-    console.log("Login attempted with password:", password.slice(0, 1) + '*'.repeat(password.length - 1));
+    console.log("Login attempted with username:", username);
     
     try {
-      console.log("Login form: attempting login with username:", username);
       const success = await login(username, password);
-      console.log("Login form: login result:", success);
+      console.log("Login result:", success);
       
       if (success) {
         toast({
@@ -121,7 +120,7 @@ const Login = () => {
                 <p className="text-sm text-center font-medium">Default credentials</p>
                 <p className="text-sm text-center text-muted-foreground">
                   Username: <span className="font-mono">admin</span><br />
-                  Password: <span className="font-mono">admin123</span>
+                  Password: <span className="font-mono">cbs123</span>
                 </p>
                 <p className="text-xs text-center text-muted-foreground mt-2">
                   (Or your most recently updated password)

@@ -18,26 +18,13 @@ import { useAuth } from "@/context/AuthContext";
 
 const ChangePasswordDialog = () => {
   const { toast } = useToast();
+  const { updatePassword } = useAuth();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-
-  // Define a default updatePassword function with the correct signature
-  let updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean> = async (currentPassword, newPassword) => {
-    console.error("Auth context not available");
-    return false;
-  };
-
-  // Try to get the real updatePassword function from the auth context
-  try {
-    const auth = useAuth();
-    updatePassword = auth.updatePassword;
-  } catch (err) {
-    console.error("Error accessing auth context:", err);
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +42,10 @@ const ChangePasswordDialog = () => {
 
     try {
       setIsLoading(true);
+      console.log("Attempting to update password");
       
       const success = await updatePassword(currentPassword, newPassword);
+      console.log("Password update result:", success);
       
       if (success) {
         toast({
