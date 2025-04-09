@@ -22,6 +22,7 @@ import {
 import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useSchedules } from "@/hooks/useSchedules";
+import { DateRange } from "react-day-picker";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,10 +31,10 @@ const InterviewerDashboard = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState<{
-    from?: Date;
-    to?: Date;
-  } | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: undefined,
+    to: undefined
+  });
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
   
   // Use our custom metrics hook

@@ -31,7 +31,17 @@ export const useInterviewerMetrics = (interviewerId?: string, sessions: Session[
           
         if (error) throw error;
         
-        setSchedules(data || []);
+        // Convert raw data to Schedule type with proper status typing
+        const formattedSchedules: Schedule[] = (data || []).map(schedule => ({
+          id: schedule.id,
+          interviewer_id: schedule.interviewer_id,
+          start_time: schedule.start_time,
+          end_time: schedule.end_time,
+          status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
+          notes: schedule.notes || undefined
+        }));
+        
+        setSchedules(formattedSchedules);
       } catch (error) {
         console.error("Error fetching schedules:", error);
       }
