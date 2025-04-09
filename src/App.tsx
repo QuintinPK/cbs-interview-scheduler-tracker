@@ -14,6 +14,7 @@ import Sessions from "./pages/admin/Sessions";
 import Interviewers from "./pages/admin/Interviewers";
 import InterviewerDashboard from "./pages/admin/InterviewerDashboard";
 import Scheduling from "./pages/admin/Scheduling";
+import Costs from "./pages/admin/Costs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Scheduling />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/costs" 
+        element={
+          <ProtectedRoute>
+            <Costs />
           </ProtectedRoute>
         } 
       />

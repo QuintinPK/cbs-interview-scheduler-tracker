@@ -3,7 +3,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X 
+  LogOut, Home, Menu, X, DollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { path: "/admin/sessions", label: "Session Logs", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
+    { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
   ];
   
   return (
