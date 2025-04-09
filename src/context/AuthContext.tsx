@@ -25,8 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Verify password against stored hash or default
   const verifyPassword = async (password: string): Promise<boolean> => {
     try {
+      console.log("Verifying password:", password);
+      
       // For the initial setup or if no hash exists yet, check against default
       if (password === "admin123") {
+        console.log("Default password match!");
         return true;
       }
       
@@ -38,14 +41,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
       
       if (error) {
-        console.log("No password hash found, using default password");
+        console.log("No password hash found or error:", error);
         // If no password hash found yet, check against the default
         return password === "admin123";
       }
       
-      // Fix the type error by ensuring data.value has a hash property
-      const valueObj = typeof data.value === 'object' ? data.value : {};
-      const storedHash = valueObj && 'hash' in valueObj ? (valueObj as { hash: string }).hash : '';
+      // Safely access the hash property, handling different types of values
+      let storedHash = '';
+      if (typeof data.value === 'object' && data.value !== null) {
+        storedHash = (data.value as any).hash || '';
+      }
       
       // If there's no stored hash, use the default
       if (!storedHash) {
@@ -55,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Simple hash function for demo purposes
       const inputHash = await simpleHash(password);
-      console.log("Comparing input hash to stored hash");
+      console.log("Comparing hashes:", inputHash === storedHash);
       return inputHash === storedHash;
     } catch (error) {
       console.error("Error verifying password:", error);

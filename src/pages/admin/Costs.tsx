@@ -135,21 +135,21 @@ const Costs = () => {
       setIsSaving(true);
       console.log("Updating hourly rate to:", hourlyRate);
       
-      // Try to insert or update the hourly rate
-      const { error: upsertError } = await supabase
+      // Try to insert or update the hourly rate as a simple number value, not a complex object
+      const { error } = await supabase
         .from('app_settings')
         .upsert({
           key: 'hourly_rate',
-          value: hourlyRate,
+          value: hourlyRate,  // Store as a direct number value
           updated_at: new Date().toISOString(),
           updated_by: 'admin'
         }, {
           onConflict: 'key'
         });
       
-      if (upsertError) {
-        console.error("Error in upsert operation:", upsertError);
-        throw upsertError;
+      if (error) {
+        console.error("Error in upsert operation:", error);
+        throw error;
       }
 
       toast({
