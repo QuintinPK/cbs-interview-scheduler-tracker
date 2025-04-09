@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Interviewer } from "@/types";
@@ -10,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { PlusCircle, Loader2 } from "lucide-react";
+import { PlusCircle, Loader2, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InterviewerForm from "@/components/interviewer/InterviewerForm";
 import InterviewerList from "@/components/interviewer/InterviewerList";
@@ -129,10 +130,18 @@ const Interviewers = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold">Interviewer Management</h1>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cbs to-cbs-light bg-clip-text text-transparent">
+              Interviewer Management
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your interview team and their assignments
+            </p>
+          </div>
+          
           <Button
             onClick={handleAddNew}
-            className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
+            className="bg-cbs hover:bg-cbs-light flex items-center gap-2 transition-all shadow-sm hover:shadow"
             disabled={loading}
           >
             <PlusCircle size={16} />
@@ -140,14 +149,20 @@ const Interviewers = () => {
           </Button>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="max-w-md">
+        <div className="bg-white p-5 rounded-lg shadow-sm border">
+          <div className="max-w-md relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Search by name, code, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={loading}
+              className="pl-9 border-gray-200 focus:border-cbs focus:ring-1 focus:ring-cbs"
             />
+          </div>
+          
+          <div className="mt-2 text-sm text-muted-foreground">
+            {filteredInterviewers.length} interviewer{filteredInterviewers.length !== 1 ? 's' : ''} found
           </div>
         </div>
         
