@@ -7,6 +7,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  verifyPassword: (password: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -166,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, updatePassword }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, updatePassword, verifyPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -151,6 +151,111 @@ serve(async (req) => {
         result = { success: true };
         break;
         
+      case "updateProjectTitle":
+        // Update project title
+        console.log("Updating project title to:", data.title);
+        
+        const { error: titleError } = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'project_title',
+            value: { title: data.title },
+            updated_at: new Date(),
+            updated_by: 'admin'
+          }, { onConflict: 'key' });
+          
+        if (titleError) {
+          console.error("Error updating project title:", titleError);
+          throw titleError;
+        }
+        
+        console.log("Project title updated successfully");
+        result = { success: true };
+        break;
+        
+      case "deleteAllSessionData":
+        // Delete all sessions and interviews
+        console.log("Deleting all session and interview data");
+        
+        // First delete all interviews because they reference sessions
+        const { error: interviewsError } = await supabase
+          .from('interviews')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
+        
+        if (interviewsError) {
+          console.error("Error deleting interviews:", interviewsError);
+          throw interviewsError;
+        }
+        
+        // Then delete all sessions
+        const { error: sessionsError } = await supabase
+          .from('sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
+        
+        if (sessionsError) {
+          console.error("Error deleting sessions:", sessionsError);
+          throw sessionsError;
+        }
+        
+        console.log("All session and interview data deleted successfully");
+        result = { success: true };
+        break;
+        
+      case "deleteAllInterviewerData":
+        // Delete all interviewer data
+        console.log("Deleting all interviewer data");
+        
+        // First delete all sessions and interviews because they reference interviewers
+        // Delete all interviews first
+        const { error: interviewsDeleteError } = await supabase
+          .from('interviews')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
+        
+        if (interviewsDeleteError) {
+          console.error("Error deleting interviews:", interviewsDeleteError);
+          throw interviewsDeleteError;
+        }
+        
+        // Delete all sessions
+        const { error: sessionsDeleteError } = await supabase
+          .from('sessions')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
+        
+        if (sessionsDeleteError) {
+          console.error("Error deleting sessions:", sessionsDeleteError);
+          throw sessionsDeleteError;
+        }
+        
+        // Delete all schedules
+        const { error: schedulesDeleteError } = await supabase
+          .from('schedules')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
+        
+        if (schedulesDeleteError) {
+          console.error("Error deleting schedules:", schedulesDeleteError);
+          throw schedulesDeleteError;
+        }
+        
+        // Finally delete all interviewers
+        const { error: interviewersDeleteError } = await supabase
+          .from('interviewers')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
+        
+        if (interviewersDeleteError) {
+          console.error("Error deleting interviewers:", interviewersDeleteError);
+          throw interviewersDeleteError;
+        }
+        
+        console.log("All interviewer data deleted successfully");
+        result = { success: true };
+        break;
+        
       default:
         throw new Error("Invalid action");
     }

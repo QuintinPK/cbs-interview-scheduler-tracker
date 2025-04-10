@@ -3,11 +3,10 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X, DollarSign
+  LogOut, Home, Menu, X, DollarSign, Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import ChangePasswordDialog from "@/components/admin/ChangePasswordDialog";
 import { useAuth } from "@/context/AuthContext";
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -27,6 +26,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
+    { path: "/admin/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },
   ];
   
   return (
@@ -61,7 +61,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <span>{item.label}</span>
               </Link>
             ))}
-            <ChangePasswordDialog />
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 p-2 rounded-md w-full text-left hover:bg-white/10"
@@ -108,7 +107,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </nav>
             
             <div className="pt-4 border-t border-white/20 space-y-1">
-              <ChangePasswordDialog />
               <Button
                 variant="ghost"
                 className="flex items-center gap-2 w-full justify-start text-white hover:bg-white/10 hover:text-white p-2 h-auto font-normal"
