@@ -6,11 +6,12 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import { Schedule } from "@/types";
 import { Button } from "@/components/ui/button";
 import { DateRange } from "react-day-picker";
-import { format, parseISO, startOfWeek } from "date-fns";
+import { format, parseISO, startOfWeek, endOfWeek } from "date-fns";
 import { PlusCircle } from "lucide-react";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
+import { useSessions } from "@/hooks/useSessions";
 
 // Import our new component files
 import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
@@ -38,6 +39,7 @@ const Scheduling = () => {
   // Use the custom hooks to fetch data
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const selectedInterviewer = interviewers.find(i => i.code === selectedInterviewerCode);
+  
   const { 
     schedules, 
     loading: schedulesLoading, 
@@ -47,7 +49,15 @@ const Scheduling = () => {
     getScheduledHoursForWeek
   } = useSchedules(selectedInterviewer?.id);
   
-  // Use the new hook to get worked hours
+  // Add sessions hook to get realised sessions
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+  const { sessions, loading: sessionsLoading } = useSessions(
+    selectedInterviewer?.id, 
+    format(currentWeekStart, "yyyy-MM-dd"), 
+    format(weekEnd, "yyyy-MM-dd")
+  );
+  
+  // Use the hook to get worked hours
   const { 
     workedHours, 
     loading: workHoursLoading, 
@@ -57,7 +67,7 @@ const Scheduling = () => {
   // Calculate scheduled hours for the current week
   const scheduledHours = selectedInterviewer ? getScheduledHoursForWeek(currentWeekStart) : 0;
   
-  const loading = interviewersLoading || schedulesLoading || workHoursLoading;
+  const loading = interviewersLoading || schedulesLoading || workHoursLoading || sessionsLoading;
   
   useEffect(() => {
     const interviewerFromUrl = searchParams.get("interviewer");
@@ -288,6 +298,7 @@ const Scheduling = () => {
             <ScheduleGrid 
               currentWeekStart={currentWeekStart}
               schedules={schedules}
+              sessions={sessions}
               onEditSchedule={handleEdit}
               onDeleteSchedule={handleDelete}
             />
