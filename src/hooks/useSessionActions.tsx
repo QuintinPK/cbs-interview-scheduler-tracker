@@ -5,7 +5,7 @@ import { getCurrentLocation } from "@/lib/utils";
 
 export const useSessionActions = (
   sessions: Session[], 
-  setSessions: React.Dispatch<React.SetStateAction<Session[]>>,
+  setSessions: (sessions: Session[]) => void,
   filteredSessions: Session[],
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
   toast: any
@@ -90,6 +90,7 @@ export const useSessionActions = (
         
       if (error) throw error;
       
+      // Update sessions state by filtering out the deleted session
       setSessions(sessions.filter(s => s.id !== sessionId));
       
       toast({
