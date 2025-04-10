@@ -9,6 +9,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle } from "lucide-react";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
 import { Session, Interview } from "@/types";
@@ -116,9 +117,9 @@ const SessionList: React.FC<SessionListProps> = ({
                     <TableCell>{formatDateTime(session.start_time)}</TableCell>
                     <TableCell>
                       {session.end_time ? formatDateTime(session.end_time) : (
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+                        <Badge variant="warning">
                           Active
-                        </span>
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -143,14 +144,20 @@ const SessionList: React.FC<SessionListProps> = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center space-x-1">
-                        <MessageCircle className="h-4 w-4 text-gray-500" />
-                        <span>{
-                          expandedSessions[session.id] && sessionInterviews[session.id] 
-                            ? getInterviewsCount(session.id) 
-                            : "..."
-                        }</span>
-                      </div>
+                      {sessionInterviews[session.id] ? (
+                        <Badge variant="purple" className="flex items-center space-x-1">
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          <span>{getInterviewsCount(session.id)}</span>
+                        </Badge>
+                      ) : (
+                        <div 
+                          className="flex items-center text-gray-400 cursor-pointer hover:text-gray-600"
+                          onClick={() => toggleSessionExpanded(session.id)}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-1" />
+                          <span>Check</span>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">

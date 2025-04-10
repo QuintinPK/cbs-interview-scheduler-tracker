@@ -29,7 +29,7 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews }) => {
     
     if (result === 'response') {
       return (
-        <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
+        <Badge variant="success" className="flex items-center">
           <CheckCircle className="h-3 w-3 mr-1" />
           Response
         </Badge>
@@ -37,7 +37,7 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews }) => {
     }
     
     return (
-      <Badge className="bg-red-100 text-red-800 hover:bg-red-200">
+      <Badge variant="danger" className="flex items-center">
         <XCircle className="h-3 w-3 mr-1" />
         Non-response
       </Badge>
@@ -76,9 +76,9 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews }) => {
                       {formatDateTime(interview.end_time)}
                     </div>
                   ) : (
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                    <Badge variant="warning">
                       Active
-                    </span>
+                    </Badge>
                   )}
                 </TableCell>
                 <TableCell>
@@ -94,7 +94,7 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews }) => {
                 </TableCell>
                 <TableCell>
                   {interview.is_active ? (
-                    <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Active</Badge>
+                    <Badge variant="warning">Active</Badge>
                   ) : (
                     getResultBadge(interview.result)
                   )}
