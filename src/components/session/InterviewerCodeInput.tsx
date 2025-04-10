@@ -24,30 +24,36 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
 }) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor="interviewer-code">Interviewer Code</Label>
-      
       {isPrimaryUser && !isRunning ? (
-        <div className="flex items-center gap-2">
-          <p className="text-lg font-medium">{interviewerCode}</p>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={switchUser}
-            className="flex items-center gap-1"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Switch User</span>
-          </Button>
+        <div className="flex justify-between items-center">
+          <div>
+            <Label htmlFor="interviewer-code">Interviewer Code</Label>
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-medium">{interviewerCode}</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={switchUser}
+                className="flex items-center gap-1"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Switch User</span>
+              </Button>
+            </div>
+          </div>
         </div>
       ) : (
-        <Input
-          id="interviewer-code"
-          placeholder="Enter your code"
-          value={interviewerCode}
-          onChange={(e) => setInterviewerCode(e.target.value)}
-          className="text-lg"
-          disabled={loading || isRunning}
-        />
+        <>
+          <Label htmlFor="interviewer-code">Interviewer Code</Label>
+          <Input
+            id="interviewer-code"
+            placeholder="Enter your code"
+            value={interviewerCode}
+            onChange={(e) => setInterviewerCode(e.target.value)}
+            className="text-lg"
+            disabled={loading || isRunning}
+          />
+        </>
       )}
     </div>
   );

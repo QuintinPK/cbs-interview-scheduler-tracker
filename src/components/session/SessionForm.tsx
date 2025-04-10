@@ -58,11 +58,12 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveInterview
   } = useInterviewActions(activeSession?.id || null);
 
+  // Check for active interview when session is active
   useEffect(() => {
     if (activeSession?.id) {
       fetchActiveInterview(activeSession.id);
     }
-  }, [activeSession, fetchActiveInterview]);
+  }, [activeSession]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -125,6 +126,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: `Started at ${new Date().toLocaleTimeString()}`,
         });
       } else {
+        // If there's an active interview, don't allow stopping the session
         if (activeInterview) {
           toast({
             title: "Error",
@@ -151,6 +153,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           
         if (updateError) throw updateError;
         
+        // Use endSession instead of resetting everything
         endSession();
         
         toast({
@@ -227,6 +230,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           loading={loading}
           interviewerCode={interviewerCode}
           onClick={handleStartStop}
+          // Disable the stop button if there's an active interview
           disabled={isRunning && !!activeInterview}
         />
       </div>
