@@ -2,16 +2,17 @@
 import { Session } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
+import { useCallback } from "react";
 
 export const useSessionActions = (
   sessions: Session[], 
-  setSessions: (sessions: Session[]) => void,
+  setSessions: React.Dispatch<React.SetStateAction<Session[]>>,
   filteredSessions: Session[],
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
   toast: any
 ) => {
   
-  const stopSession = async (session: Session) => {
+  const stopSession = useCallback(async (session: Session) => {
     try {
       setLoading(true);
       
@@ -47,9 +48,9 @@ export const useSessionActions = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, toast]);
   
-  const updateSession = async (sessionId: string, updateData: Partial<Session>) => {
+  const updateSession = useCallback(async (sessionId: string, updateData: Partial<Session>) => {
     try {
       setLoading(true);
       
@@ -77,9 +78,9 @@ export const useSessionActions = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, toast]);
   
-  const deleteSession = async (sessionId: string) => {
+  const deleteSession = useCallback(async (sessionId: string) => {
     try {
       setLoading(true);
       
@@ -91,8 +92,7 @@ export const useSessionActions = (
       if (error) throw error;
       
       // Update sessions state by creating a new array without the deleted session
-      const updatedSessions = sessions.filter(s => s.id !== sessionId);
-      setSessions(updatedSessions);
+      setSessions(prevSessions => prevSessions.filter(s => s.id !== sessionId));
       
       toast({
         title: "Session Deleted",
@@ -111,7 +111,7 @@ export const useSessionActions = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [setSessions, setLoading, toast]);
   
   return {
     stopSession,
