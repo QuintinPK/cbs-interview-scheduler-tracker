@@ -3,13 +3,10 @@ import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
 import { useActiveSession } from "@/hooks/useActiveSession";
-import { useSyncManager } from "@/hooks/useSyncManager";
 import { supabase } from "@/integrations/supabase/client";
 import { formatTime } from "@/lib/utils";
-import { DollarSign, WifiOff, Database } from "lucide-react";
+import { DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const Index = () => {
   const {
@@ -26,18 +23,8 @@ const Index = () => {
     isPrimaryUser,
     setIsPrimaryUser,
     switchUser,
-    endSession,
-    isOfflineSession,
-    setIsOfflineSession,
-    interviewerId,
-    isOnline
+    endSession
   } = useActiveSession();
-
-  const { 
-    pendingCount, 
-    syncPendingSessions, 
-    isSyncing 
-  } = useSyncManager();
 
   const [totalHours, setTotalHours] = useState<number>(0);
   const [hourlyRate, setHourlyRate] = useState<number>(25);
@@ -47,8 +34,6 @@ const Index = () => {
   // Fetch the hourly rate
   useEffect(() => {
     const fetchHourlyRate = async () => {
-      if (!isOnline) return; // Skip if offline
-      
       try {
         setError(null);
         console.log("Fetching hourly rate");
@@ -81,12 +66,12 @@ const Index = () => {
     };
     
     fetchHourlyRate();
-  }, [isOnline]);
+  }, []);
   
   // Fetch total hours for the current interviewer
   useEffect(() => {
     const fetchTotalHours = async () => {
-      if (!interviewerCode || !isOnline) return;
+      if (!interviewerCode) return;
       
       try {
         setIsLoadingHours(true);
@@ -143,7 +128,7 @@ const Index = () => {
     };
     
     fetchTotalHours();
-  }, [interviewerCode, isOnline]);
+  }, [interviewerCode]);
   
   return (
     <MainLayout>
@@ -151,26 +136,6 @@ const Index = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Portal</h1>
           <p className="text-muted-foreground">Track your working hours</p>
-          {!isOnline && (
-            <Badge variant="outline" className="mt-2 bg-amber-100 text-amber-800 border-amber-300">
-              <WifiOff className="h-3 w-3 mr-1" />
-              Offline Mode
-            </Badge>
-          )}
-          {isOnline && pendingCount > 0 && (
-            <div className="mt-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="border-blue-300 text-blue-700"
-                onClick={syncPendingSessions}
-                disabled={isSyncing}
-              >
-                <Database className="h-3 w-3 mr-1" />
-                Sync {pendingCount} Pending Session{pendingCount > 1 ? 's' : ''}
-              </Button>
-            </div>
-          )}
         </div>
         
         {error && (
@@ -193,10 +158,6 @@ const Index = () => {
           isPrimaryUser={isPrimaryUser}
           switchUser={switchUser}
           endSession={endSession}
-          isOfflineSession={isOfflineSession}
-          setIsOfflineSession={setIsOfflineSession}
-          interviewerId={interviewerId}
-          isOnline={isOnline}
         />
         
         {interviewerCode && (
@@ -205,18 +166,10 @@ const Index = () => {
               <div className="flex items-center mb-2">
                 <DollarSign className="h-5 w-5 mr-2 text-cbs" />
                 <h3 className="font-medium text-cbs">Total Earnings</h3>
-                {!isOnline && (
-                  <span className="ml-auto text-xs text-amber-600">
-                    <WifiOff className="h-3 w-3 inline mr-1" />
-                    Offline
-                  </span>
-                )}
               </div>
               
               <p className="text-xl font-bold mb-2">
-                {isLoadingHours ? "Calculating..." : 
-                 !isOnline ? "Available when online" :
-                 `$${(totalHours * hourlyRate).toFixed(2)}`}
+                {isLoadingHours ? "Calculating..." : `$${(totalHours * hourlyRate).toFixed(2)}`}
               </p>
               
               <p className="text-xs text-gray-500 mt-2">
@@ -229,7 +182,6 @@ const Index = () => {
         
         <p className="mt-6 text-sm text-gray-500">
           {isRunning ? "Press the button to end your session" : "Press the button to start your session"}
-          {!isOnline && " (offline mode)"}
         </p>
       </div>
     </MainLayout>

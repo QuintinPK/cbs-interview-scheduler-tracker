@@ -20,7 +20,6 @@ export interface Session {
   end_longitude: number | null;
   end_address: string | null;
   is_active: boolean;
-  client_id?: string; // Added for offline tracking
 }
 
 export interface Location {
