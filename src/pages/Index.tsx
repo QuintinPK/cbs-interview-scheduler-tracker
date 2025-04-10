@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -5,7 +6,6 @@ import { useActiveSession } from "@/hooks/useActiveSession";
 import { supabase } from "@/integrations/supabase/client";
 import { DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Interview } from "@/types";
 
 const Index = () => {
   const {
@@ -20,7 +20,6 @@ const Index = () => {
     activeSession,
     setActiveSession,
     isPrimaryUser,
-    setIsPrimaryUser,
     switchUser,
     endSession
   } = useActiveSession();

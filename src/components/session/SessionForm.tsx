@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,7 +62,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     if (activeSession?.id) {
       fetchActiveInterview(activeSession.id);
     }
-  }, [activeSession]);
+  }, [activeSession, fetchActiveInterview]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {

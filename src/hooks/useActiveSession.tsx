@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,27 +18,20 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
-    const loadSavedInterviewerCode = () => {
-      const savedCode = localStorage.getItem("interviewerCode");
-      if (savedCode && !interviewerCode) {
-        setInterviewerCode(savedCode);
-        setIsPrimaryUser(true);
-      }
-    };
-    
-    loadSavedInterviewerCode();
-  }, [interviewerCode]);
+    const savedCode = localStorage.getItem("interviewerCode");
+    if (savedCode) {
+      setInterviewerCode(savedCode);
+      setIsPrimaryUser(true);
+    }
+  }, []);
 
   // Save interviewer code to localStorage when it changes
   useEffect(() => {
-    const saveInterviewerCode = () => {
-      if (interviewerCode && isPrimaryUser) {
-        localStorage.setItem("interviewerCode", interviewerCode);
-      }
-    };
-    
-    saveInterviewerCode();
-  }, [interviewerCode, isPrimaryUser]);
+    if (interviewerCode && !isRunning) {
+      localStorage.setItem("interviewerCode", interviewerCode);
+      setIsPrimaryUser(true);
+    }
+  }, [interviewerCode, isRunning]);
 
   // Check if there's an active session for this interviewer on code change
   useEffect(() => {
@@ -112,21 +106,17 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setStartLocation(undefined);
   };
 
-  // Function to switch user
+  // Function to switch user (clear the current interviewer code)
   const switchUser = () => {
-    // Clear the interviewer code from localStorage
     localStorage.removeItem("interviewerCode");
-    
-    // Reset all state
     setInterviewerCode("");
     setIsPrimaryUser(false);
     resetSessionState();
   };
 
-  // Function to end session while preserving the primary user status
+  // Function to end session without clearing interviewer code
   const endSession = () => {
     resetSessionState();
-    // We keep the interviewer code and primary user status
   };
 
   return {
