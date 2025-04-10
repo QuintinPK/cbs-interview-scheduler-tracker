@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback, memo } from "react";
+import React, { useState, useMemo } from "react";
 import { format, parseISO, eachDayOfInterval, startOfWeek, endOfWeek, differenceInHours } from "date-fns";
 import { Pencil, Trash2, AlertCircle } from "lucide-react";
 import { Schedule, Session } from "@/types";
@@ -15,179 +15,16 @@ interface ScheduleGridProps {
   onDeleteSchedule: (schedule: Schedule) => void;
 }
 
-// Memoize each day cell to prevent unnecessary re-renders
-const DayCell = memo(({ 
-  day, 
-  dayIndex, 
-  hour, 
-  daySchedules, 
-  daySessions,
-  showRealised,
-  onEditSchedule,
-  onDeleteSchedule
-}: {
-  day: Date;
-  dayIndex: number;
-  hour: number;
-  daySchedules: Schedule[];
-  daySessions: Session[];
-  showRealised: boolean;
-  onEditSchedule: (schedule: Schedule) => void;
-  onDeleteSchedule: (schedule: Schedule) => void;
-}) => {
-  // Helper to check if there's a substantial mismatch between scheduled and realised time
-  const hasTimeMismatch = useCallback((scheduleStart: Date, scheduleEnd: Date, sessionStart: Date, sessionEnd: Date) => {
-    const scheduledHours = differenceInHours(scheduleEnd, scheduleStart);
-    const realisedHours = differenceInHours(sessionEnd, sessionStart);
-    
-    // Consider a mismatch if less than 50% of scheduled time was worked
-    return realisedHours < (scheduledHours * 0.5);
-  }, []);
-
-  // Filter schedules for this hour
-  const hourSchedules = useMemo(() => daySchedules.filter(schedule => {
-    const start = parseISO(schedule.start_time);
-    const end = parseISO(schedule.end_time);
-    const startHour = start.getHours();
-    const endHour = end.getHours();
-    return hour >= startHour && hour < endHour;
-  }), [daySchedules, hour]);
+// Simple helper function to check time mismatch
+const hasTimeMismatch = (scheduleStart: Date, scheduleEnd: Date, sessionStart: Date, sessionEnd: Date) => {
+  const scheduledHours = differenceInHours(scheduleEnd, scheduleStart);
+  const realisedHours = differenceInHours(sessionEnd, sessionStart);
   
-  // Filter sessions for this hour, but only if showRealised is true
-  const hourSessions = useMemo(() => {
-    if (!showRealised) return [];
-    return daySessions.filter(session => {
-      if (!session.end_time) return false;
-      const start = parseISO(session.start_time);
-      const end = parseISO(session.end_time);
-      const startHour = start.getHours();
-      const endHour = end.getHours();
-      return hour >= startHour && hour < endHour;
-    });
-  }, [daySessions, hour, showRealised]);
+  // Consider a mismatch if less than 50% of scheduled time was worked
+  return realisedHours < (scheduledHours * 0.5);
+};
 
-  const isCurrentDay = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-
-  return (
-    <div 
-      key={`${day.getTime()}-${hour}-${dayIndex}`}
-      className={`p-2 min-h-[80px] relative ${isCurrentDay ? "bg-cbs/5" : ""}`}
-    >
-      {/* Scheduled blocks */}
-      {hourSchedules.map((schedule) => {
-        const start = parseISO(schedule.start_time);
-        const end = parseISO(schedule.end_time);
-        
-        // Find matching sessions for this schedule to check for mismatches
-        const matchingSessions = hourSessions.filter(session => {
-          const sessionDate = parseISO(session.start_time);
-          return sessionDate.getDate() === start.getDate() &&
-                sessionDate.getMonth() === start.getMonth() &&
-                sessionDate.getFullYear() === start.getFullYear();
-        });
-          
-        return (
-          <div 
-            key={`schedule-${schedule.id}-${hour}`}
-            className={`absolute inset-x-1 p-1 rounded-md text-xs ${
-              schedule.status === "completed" 
-                ? "bg-green-100 border border-green-300"
-                : schedule.status === "cancelled"
-                  ? "bg-gray-100 border border-gray-300 opacity-60"
-                  : "bg-cbs-light/20 border border-cbs-light/40"
-            } ${showRealised && matchingSessions.length > 0 ? 'left-1 right-1/2 mr-1' : 'inset-x-1'}`}
-            style={{
-              top: "4px",
-              minHeight: "72px"
-            }}
-          >
-            <div className="font-medium">
-              {format(start, "HH:mm")} - {format(end, "HH:mm")}
-            </div>
-            <div className="mt-1 flex justify-between">
-              <span className="text-xs">{schedule.status}</span>
-              <div className="flex space-x-1">
-                <button 
-                  onClick={() => onEditSchedule(schedule)}
-                  className="text-cbs hover:text-cbs-light"
-                >
-                  <Pencil size={10} />
-                </button>
-                <button 
-                  onClick={() => onDeleteSchedule(schedule)}
-                  className="text-destructive hover:text-destructive/70"
-                >
-                  <Trash2 size={10} />
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-      
-      {/* Realised blocks (actual sessions) */}
-      {showRealised && hourSessions.map((session) => {
-        if (!session.end_time) return null;
-        
-        const start = parseISO(session.start_time);
-        const end = parseISO(session.end_time);
-        
-        // Find matching schedule to check for mismatches
-        const matchingSchedule = hourSchedules.find(schedule => {
-          const scheduleDate = parseISO(schedule.start_time);
-          return scheduleDate.getDate() === start.getDate() &&
-                scheduleDate.getMonth() === start.getMonth() &&
-                scheduleDate.getFullYear() === start.getFullYear();
-        });
-        
-        const hasMismatch = matchingSchedule ? 
-          hasTimeMismatch(
-            parseISO(matchingSchedule.start_time), 
-            parseISO(matchingSchedule.end_time), 
-            start, 
-            end
-          ) : false;
-          
-        return (
-          <TooltipProvider key={`session-${session.id}-${hour}`}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div 
-                  className={`absolute p-1 rounded-md text-xs ${
-                    matchingSchedule ? 'left-1/2 right-1 ml-1' : 'inset-x-1'
-                  } bg-gray-100 border border-gray-300`}
-                  style={{
-                    top: "4px",
-                    minHeight: "72px"
-                  }}
-                >
-                  <div className="font-medium">
-                    {format(start, "HH:mm")} - {format(end, "HH:mm")}
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-xs">realised</span>
-                    {hasMismatch && (
-                      <AlertCircle size={12} className="text-orange-500" />
-                    )}
-                  </div>
-                </div>
-              </TooltipTrigger>
-              {hasMismatch && (
-                <TooltipContent>
-                  <p>Worked less than scheduled</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-        );
-      })}
-    </div>
-  );
-});
-
-DayCell.displayName = "DayCell";
-
-export const ScheduleGrid = memo(({
+export const ScheduleGrid = ({
   currentWeekStart,
   schedules,
   sessions,
@@ -196,7 +33,7 @@ export const ScheduleGrid = memo(({
 }: ScheduleGridProps) => {
   const [showRealised, setShowRealised] = useState(true);
   
-  // Use useMemo for derived data to prevent unnecessary recalculations
+  // Pre-calculate all data as much as possible to avoid recalculations during rendering
   const weekDays = useMemo(() => {
     return eachDayOfInterval({
       start: currentWeekStart,
@@ -206,39 +43,123 @@ export const ScheduleGrid = memo(({
   
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 8), []);
   
-  // Pre-calculate schedules and sessions for each day to avoid recalculating in each hour cell
-  const schedulesByDay = useMemo(() => {
-    return weekDays.map(day => {
-      return schedules.filter(schedule => {
-        const scheduleDate = parseISO(schedule.start_time);
-        return (
-          scheduleDate.getDate() === day.getDate() &&
-          scheduleDate.getMonth() === day.getMonth() &&
-          scheduleDate.getFullYear() === day.getFullYear()
-        );
+  // Process all schedules and sessions data ahead of time
+  const processedData = useMemo(() => {
+    // Create grid data structure
+    const grid = weekDays.map(day => {
+      const dayStr = format(day, "yyyy-MM-dd");
+      const isCurrentDay = dayStr === format(new Date(), "yyyy-MM-dd");
+      
+      // Get schedules for this day
+      const daySchedules = schedules.filter(schedule => {
+        const scheduleDate = format(parseISO(schedule.start_time), "yyyy-MM-dd");
+        return scheduleDate === dayStr;
       });
-    });
-  }, [weekDays, schedules]);
-
-  const sessionsByDay = useMemo(() => {
-    return weekDays.map(day => {
-      return sessions.filter(session => {
-        if (!session.start_time) return false;
-        const sessionDate = parseISO(session.start_time);
-        return (
-          sessionDate.getDate() === day.getDate() &&
-          sessionDate.getMonth() === day.getMonth() &&
-          sessionDate.getFullYear() === day.getFullYear() &&
-          session.end_time // Only include completed sessions
-        );
+      
+      // Get sessions for this day
+      const daySessions = sessions.filter(session => {
+        if (!session.start_time || !session.end_time) return false;
+        const sessionDate = format(parseISO(session.start_time), "yyyy-MM-dd");
+        return sessionDate === dayStr;
       });
+      
+      // Process hour cells for this day
+      const hourCells = hours.map(hour => {
+        // Get schedules for this hour
+        const hourSchedules = daySchedules.filter(schedule => {
+          const start = parseISO(schedule.start_time);
+          const end = parseISO(schedule.end_time);
+          const startHour = start.getHours();
+          const endHour = end.getHours();
+          return hour >= startHour && hour < endHour;
+        });
+        
+        // Get sessions for this hour
+        const hourSessions = daySessions.filter(session => {
+          const start = parseISO(session.start_time);
+          const end = parseISO(session.end_time);
+          const startHour = start.getHours();
+          const endHour = end.getHours();
+          return hour >= startHour && hour < endHour;
+        });
+        
+        // Process schedule items with any matching sessions
+        const scheduleItems = hourSchedules.map(schedule => {
+          const start = parseISO(schedule.start_time);
+          const end = parseISO(schedule.end_time);
+          
+          // Find matching sessions for this schedule
+          const matchingSessions = hourSessions.filter(session => {
+            const sessionStart = parseISO(session.start_time);
+            return (
+              sessionStart.getDate() === start.getDate() &&
+              sessionStart.getMonth() === start.getMonth() &&
+              sessionStart.getFullYear() === start.getFullYear()
+            );
+          });
+          
+          return {
+            schedule,
+            start,
+            end,
+            hasMatches: matchingSessions.length > 0
+          };
+        });
+        
+        // Process session items with mismatch detection
+        const sessionItems = hourSessions.map(session => {
+          const start = parseISO(session.start_time);
+          const end = parseISO(session.end_time as string);
+          
+          // Find matching schedule to check for mismatches
+          const matchingSchedule = hourSchedules.find(schedule => {
+            const scheduleStart = parseISO(schedule.start_time);
+            return (
+              scheduleStart.getDate() === start.getDate() &&
+              scheduleStart.getMonth() === start.getMonth() &&
+              scheduleStart.getFullYear() === start.getFullYear()
+            );
+          });
+          
+          let hasMismatch = false;
+          
+          if (matchingSchedule) {
+            const scheduleStart = parseISO(matchingSchedule.start_time);
+            const scheduleEnd = parseISO(matchingSchedule.end_time);
+            hasMismatch = hasTimeMismatch(scheduleStart, scheduleEnd, start, end);
+          }
+          
+          return {
+            session,
+            start,
+            end,
+            hasMismatch,
+            hasMatchingSchedule: !!matchingSchedule
+          };
+        });
+        
+        return {
+          hour,
+          scheduleItems,
+          sessionItems
+        };
+      });
+      
+      return {
+        day,
+        dayStr,
+        isCurrentDay,
+        hourCells
+      };
     });
-  }, [weekDays, sessions]);
-
-  // Memoize the toggle handler
-  const handleToggleRealised = useCallback((checked: boolean) => {
+    
+    return grid;
+  }, [weekDays, hours, schedules, sessions]);
+  
+  // Handle showing/hiding realised sessions
+  const handleToggleRealised = (checked: boolean) => {
     setShowRealised(checked);
-  }, []);
+  };
 
   return (
     <div className="space-y-4">
@@ -277,18 +198,84 @@ export const ScheduleGrid = memo(({
                   {hour}:00
                 </div>
                 
-                {weekDays.map((day, dayIndex) => (
-                  <DayCell 
-                    key={`${day.toISOString()}-${hour}`}
-                    day={day}
-                    dayIndex={dayIndex}
-                    hour={hour}
-                    daySchedules={schedulesByDay[dayIndex]}
-                    daySessions={sessionsByDay[dayIndex]}
-                    showRealised={showRealised}
-                    onEditSchedule={onEditSchedule}
-                    onDeleteSchedule={onDeleteSchedule}
-                  />
+                {processedData.map((dayData, dayIndex) => (
+                  <div 
+                    key={`${dayData.dayStr}-${hour}`}
+                    className={`p-2 min-h-[80px] relative ${dayData.isCurrentDay ? "bg-cbs/5" : ""}`}
+                  >
+                    {/* Render scheduled blocks */}
+                    {dayData.hourCells[hours.indexOf(hour)].scheduleItems.map((item, index) => (
+                      <div 
+                        key={`schedule-${item.schedule.id}-${hour}-${index}`}
+                        className={`absolute inset-x-1 p-1 rounded-md text-xs ${
+                          item.schedule.status === "completed" 
+                            ? "bg-green-100 border border-green-300"
+                            : item.schedule.status === "cancelled"
+                              ? "bg-gray-100 border border-gray-300 opacity-60"
+                              : "bg-cbs-light/20 border border-cbs-light/40"
+                        } ${showRealised && item.hasMatches ? 'left-1 right-1/2 mr-1' : 'inset-x-1'}`}
+                        style={{
+                          top: "4px",
+                          minHeight: "72px"
+                        }}
+                      >
+                        <div className="font-medium">
+                          {format(item.start, "HH:mm")} - {format(item.end, "HH:mm")}
+                        </div>
+                        <div className="mt-1 flex justify-between">
+                          <span className="text-xs">{item.schedule.status}</span>
+                          <div className="flex space-x-1">
+                            <button 
+                              onClick={() => onEditSchedule(item.schedule)}
+                              className="text-cbs hover:text-cbs-light"
+                            >
+                              <Pencil size={10} />
+                            </button>
+                            <button 
+                              onClick={() => onDeleteSchedule(item.schedule)}
+                              className="text-destructive hover:text-destructive/70"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Render realised session blocks */}
+                    {showRealised && dayData.hourCells[hours.indexOf(hour)].sessionItems.map((item, index) => (
+                      <TooltipProvider key={`session-${item.session.id}-${hour}-${index}`}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div 
+                              className={`absolute p-1 rounded-md text-xs ${
+                                item.hasMatchingSchedule ? 'left-1/2 right-1 ml-1' : 'inset-x-1'
+                              } bg-gray-100 border border-gray-300`}
+                              style={{
+                                top: "4px",
+                                minHeight: "72px"
+                              }}
+                            >
+                              <div className="font-medium">
+                                {format(item.start, "HH:mm")} - {format(item.end, "HH:mm")}
+                              </div>
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-xs">realised</span>
+                                {item.hasMismatch && (
+                                  <AlertCircle size={12} className="text-orange-500" />
+                                )}
+                              </div>
+                            </div>
+                          </TooltipTrigger>
+                          {item.hasMismatch && (
+                            <TooltipContent>
+                              <p>Worked less than scheduled</p>
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </div>
                 ))}
               </div>
             ))}
@@ -297,6 +284,4 @@ export const ScheduleGrid = memo(({
       </div>
     </div>
   );
-});
-
-ScheduleGrid.displayName = "ScheduleGrid";
+};

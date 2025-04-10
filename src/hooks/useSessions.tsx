@@ -13,22 +13,25 @@ export const useSessions = (
   endDate?: string
 ) => {
   const { toast } = useToast();
-  const { sessions, interviewers, loading: fetchLoading } = useDataFetching();
+  const { sessions: allSessions, interviewers, loading: fetchLoading } = useDataFetching();
   const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
   
   // Initialize with sessions specific to the interviewer if ID is provided
   useEffect(() => {
     if (interviewerId) {
-      const interviewerSessions = sessions.filter(
+      const interviewerSessions = allSessions.filter(
         session => session.interviewer_id === interviewerId
       );
+      setSessions(interviewerSessions);
       setFilteredSessions(interviewerSessions);
     } else {
-      setFilteredSessions(sessions);
+      setSessions(allSessions);
+      setFilteredSessions(allSessions);
     }
     setLoading(fetchLoading);
-  }, [sessions, interviewerId, fetchLoading]);
+  }, [allSessions, interviewerId, fetchLoading]);
   
   // Initialize session filters
   const {
@@ -39,7 +42,7 @@ export const useSessions = (
     setDateFilter,
     applyFilters: applySessionFilters,
     resetFilters: resetSessionFilters
-  } = useSessionFilters(filteredSessions);
+  } = useSessionFilters(sessions);
   
   // Apply filters whenever filter results change
   useEffect(() => {
@@ -53,17 +56,7 @@ export const useSessions = (
     deleteSession 
   } = useSessionActions(
     sessions, 
-    // We need to update both the filtered and original sessions
-    (updatedSessions) => {
-      if (interviewerId) {
-        const interviewerSessions = updatedSessions.filter(
-          session => session.interviewer_id === interviewerId
-        );
-        setFilteredSessions(interviewerSessions);
-      } else {
-        setFilteredSessions(updatedSessions);
-      }
-    },
+    setSessions,
     filteredSessions,
     setLoading,
     toast
