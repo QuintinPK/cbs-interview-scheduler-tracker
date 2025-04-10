@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Session } from "@/types";
+import { Session, Interviewer } from "@/types";
 import { startOfDay, endOfDay } from "date-fns";
 
 export const useSessionFilters = (sessions: Session[]) => {
@@ -13,7 +13,7 @@ export const useSessionFilters = (sessions: Session[]) => {
     setFilteredSessions(sessions);
   }, [sessions]);
   
-  const applyFilters = (interviewers: any[] = []) => {
+  const applyFilters = (interviewers: Interviewer[] = []) => {
     let filtered = [...sessions];
     
     if (interviewerCodeFilter) {
