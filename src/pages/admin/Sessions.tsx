@@ -1,6 +1,7 @@
+
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { Session } from "@/types";
+import { Session, Interview } from "@/types";
 import { exportToCSV, calculateDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,7 @@ import SessionFilters from "@/components/session/SessionFilters";
 import SessionList from "@/components/session/SessionList";
 import { useSessions } from "@/hooks/useSessions";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Sessions = () => {
   const { toast } = useToast();
@@ -54,6 +56,28 @@ const Sessions = () => {
     latitude: "",
     longitude: "",
   });
+  
+  const getSessionInterviews = async (sessionId: string): Promise<Interview[]> => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('interviews')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('start_time', { ascending: false });
+        
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching interviews for session:", error);
+      toast({
+        title: "Error",
+        description: "Could not fetch interview data",
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
   
   const handleEdit = (session: Session) => {
     setSelectedSession(session);
@@ -182,6 +206,7 @@ const Sessions = () => {
           sessions={filteredSessions}
           loading={loading}
           getInterviewerCode={getInterviewerCode}
+          getSessionInterviews={getSessionInterviews}
           onEdit={handleEdit}
           onStop={handleStopSession}
           onDelete={handleDelete}
