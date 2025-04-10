@@ -36,7 +36,16 @@ const ProjectRenameCard = () => {
           if (typeof data.value === 'string') {
             title = data.value;
           } else if (typeof data.value === 'object') {
-            title = data.value.title || "CBS Interviewer Tracker";
+            // Safely extract the title from the object
+            if (Array.isArray(data.value)) {
+              // Handle array case
+              title = "CBS Interviewer Tracker"; // Default title for array case
+            } else {
+              // Handle object case
+              // Use type assertion to tell TypeScript this is an object with string keys
+              const valueObject = data.value as { [key: string]: any };
+              title = valueObject.title || "CBS Interviewer Tracker";
+            }
           }
           
           setProjectTitle(title);
