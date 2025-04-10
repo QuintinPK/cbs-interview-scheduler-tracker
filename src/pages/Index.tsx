@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -32,7 +31,6 @@ const Index = () => {
   const [error, setError] = useState<string | null>(null);
   const [interviewsCount, setInterviewsCount] = useState<number>(0);
   
-  // Fetch the hourly rate
   useEffect(() => {
     const fetchHourlyRate = async () => {
       try {
@@ -69,7 +67,6 @@ const Index = () => {
     fetchHourlyRate();
   }, []);
   
-  // Fetch total hours and interviews for the current interviewer
   useEffect(() => {
     const fetchInterviewerData = async () => {
       if (!interviewerCode) return;
@@ -78,7 +75,6 @@ const Index = () => {
         setIsLoadingHours(true);
         setError(null);
         
-        // Get the interviewer ID first
         const { data: interviewers, error: interviewerError } = await supabase
           .from('interviewers')
           .select('id')
@@ -95,7 +91,6 @@ const Index = () => {
         
         const interviewerId = interviewers[0].id;
         
-        // Fetch all completed sessions for this interviewer
         const { data: sessions, error: sessionsError } = await supabase
           .from('sessions')
           .select('id, start_time, end_time')
@@ -108,7 +103,6 @@ const Index = () => {
           throw sessionsError;
         }
         
-        // Calculate total hours
         let totalMinutes = 0;
         
         if (sessions && sessions.length > 0) {
@@ -118,11 +112,9 @@ const Index = () => {
             totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
           });
           
-          // Fetch interviews count
           const sessionIds = sessions.map(s => s.id);
           
           if (sessionIds.length > 0) {
-            // Use any to bypass type checking temporarily
             const { count, error: countError } = await (supabase as any)
               .from('interviews')
               .select('id', { count: 'exact' })
@@ -137,7 +129,6 @@ const Index = () => {
           }
         }
         
-        // Convert minutes to hours
         setTotalHours(totalMinutes / 60);
       } catch (error) {
         console.error("Error fetching interviewer data:", error);
