@@ -4,9 +4,9 @@ import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
 import { useActiveSession } from "@/hooks/useActiveSession";
 import { supabase } from "@/integrations/supabase/client";
-import { formatTime } from "@/lib/utils";
 import { DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Interview } from "@/types";
 
 const Index = () => {
   const {
@@ -30,6 +30,7 @@ const Index = () => {
   const [hourlyRate, setHourlyRate] = useState<number>(25);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [interviewsCount, setInterviewsCount] = useState<number>(0);
   
   // Fetch the hourly rate
   useEffect(() => {
@@ -68,9 +69,9 @@ const Index = () => {
     fetchHourlyRate();
   }, []);
   
-  // Fetch total hours for the current interviewer
+  // Fetch total hours and interviews for the current interviewer
   useEffect(() => {
-    const fetchTotalHours = async () => {
+    const fetchInterviewerData = async () => {
       if (!interviewerCode) return;
       
       try {
@@ -97,7 +98,7 @@ const Index = () => {
         // Fetch all completed sessions for this interviewer
         const { data: sessions, error: sessionsError } = await supabase
           .from('sessions')
-          .select('start_time, end_time')
+          .select('id, start_time, end_time')
           .eq('interviewer_id', interviewerId)
           .not('end_time', 'is', null);
           
@@ -116,18 +117,32 @@ const Index = () => {
             const end = new Date(session.end_time);
             totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
           });
+          
+          // Fetch interviews count
+          const sessionIds = sessions.map(s => s.id);
+          const { count, error: countError } = await supabase
+            .from('interviews')
+            .select('id', { count: 'exact' })
+            .in('session_id', sessionIds)
+            .not('result', 'is', null);
+            
+          if (countError) {
+            console.error("Error counting interviews:", countError);
+          } else {
+            setInterviewsCount(count || 0);
+          }
         }
         
         // Convert minutes to hours
         setTotalHours(totalMinutes / 60);
       } catch (error) {
-        console.error("Error fetching total hours:", error);
+        console.error("Error fetching interviewer data:", error);
       } finally {
         setIsLoadingHours(false);
       }
     };
     
-    fetchTotalHours();
+    fetchInterviewerData();
   }, [interviewerCode]);
   
   return (
@@ -172,7 +187,19 @@ const Index = () => {
                 {isLoadingHours ? "Calculating..." : `$${(totalHours * hourlyRate).toFixed(2)}`}
               </p>
               
-              <p className="text-xs text-gray-500 mt-2">
+              <div className="grid grid-cols-2 gap-4 mt-4 text-center">
+                <div className="p-2 bg-white rounded border border-gray-200">
+                  <p className="text-sm text-gray-500">Total Hours</p>
+                  <p className="font-semibold">{totalHours.toFixed(1)}</p>
+                </div>
+                
+                <div className="p-2 bg-white rounded border border-gray-200">
+                  <p className="text-sm text-gray-500">Interviews</p>
+                  <p className="font-semibold">{interviewsCount}</p>
+                </div>
+              </div>
+              
+              <p className="text-xs text-gray-500 mt-4">
                 The displayed earnings are based on the total number of hours tracked and are intended as an indicative total base estimate only. 
                 Adjustments may still be made. Any previous payments are not reflected, and response/non-response bonuses are excluded.
               </p>

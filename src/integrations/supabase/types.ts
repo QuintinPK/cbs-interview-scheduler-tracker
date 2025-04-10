@@ -63,6 +63,62 @@ export type Database = {
         }
         Relationships: []
       }
+      interviews: {
+        Row: {
+          created_at: string
+          end_address: string | null
+          end_latitude: number | null
+          end_longitude: number | null
+          end_time: string | null
+          id: string
+          is_active: boolean
+          result: string | null
+          session_id: string
+          start_address: string | null
+          start_latitude: number | null
+          start_longitude: number | null
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          end_address?: string | null
+          end_latitude?: number | null
+          end_longitude?: number | null
+          end_time?: string | null
+          id?: string
+          is_active?: boolean
+          result?: string | null
+          session_id: string
+          start_address?: string | null
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string
+        }
+        Update: {
+          created_at?: string
+          end_address?: string | null
+          end_latitude?: number | null
+          end_longitude?: number | null
+          end_time?: string | null
+          id?: string
+          is_active?: boolean
+          result?: string | null
+          session_id?: string
+          start_address?: string | null
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviews_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedules: {
         Row: {
           created_at: string

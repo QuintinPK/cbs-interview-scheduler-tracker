@@ -1,13 +1,17 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
-import { Session, Location } from "@/types";
+import { Session, Location, Interview } from "@/types";
 import CurrentSessionTime from "./CurrentSessionTime";
 import InterviewerCodeInput from "./InterviewerCodeInput";
 import SessionButton from "./SessionButton";
 import ActiveSessionInfo from "./ActiveSessionInfo";
+import InterviewButton from "../interview/InterviewButton";
+import ActiveInterviewInfo from "../interview/ActiveInterviewInfo";
+import InterviewResultDialog from "../interview/InterviewResultDialog";
+import { useInterviewActions } from "@/hooks/useInterviewActions";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -42,6 +46,24 @@ const SessionForm: React.FC<SessionFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  
+  const {
+    activeInterview,
+    isInterviewLoading,
+    showResultDialog,
+    startInterview,
+    stopInterview,
+    setInterviewResult,
+    cancelResultDialog,
+    fetchActiveInterview
+  } = useInterviewActions(activeSession?.id || null);
+
+  // Check for active interview when session is active
+  useEffect(() => {
+    if (activeSession?.id) {
+      fetchActiveInterview(activeSession.id);
+    }
+  }, [activeSession]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -104,6 +126,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: `Started at ${new Date().toLocaleTimeString()}`,
         });
       } else {
+        // If there's an active interview, don't allow stopping the session
+        if (activeInterview) {
+          toast({
+            title: "Error",
+            description: "Please stop the active interview before ending your session",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         const currentLocation = await getCurrentLocation();
         
         if (!activeSession) return;
@@ -141,6 +173,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   };
 
+  const handleInterviewAction = async () => {
+    if (activeInterview) {
+      await stopInterview();
+    } else {
+      await startInterview();
+    }
+  };
+
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
       <InterviewerCodeInput
@@ -160,11 +200,46 @@ const SessionForm: React.FC<SessionFormProps> = ({
         startLocation={startLocation}
       />
       
-      <SessionButton
-        isRunning={isRunning}
-        loading={loading}
-        interviewerCode={interviewerCode}
-        onClick={handleStartStop}
+      {isRunning && activeInterview && (
+        <ActiveInterviewInfo 
+          activeInterview={activeInterview} 
+          startLocation={
+            activeInterview.start_latitude && activeInterview.start_longitude
+              ? {
+                  latitude: activeInterview.start_latitude,
+                  longitude: activeInterview.start_longitude,
+                  address: activeInterview.start_address || undefined
+                }
+              : undefined
+          }
+        />
+      )}
+      
+      <div className="flex flex-col gap-4">
+        {isRunning && (
+          <InterviewButton
+            isInterviewActive={!!activeInterview}
+            loading={isInterviewLoading}
+            onClick={handleInterviewAction}
+            disabled={loading}
+          />
+        )}
+        
+        <SessionButton
+          isRunning={isRunning}
+          loading={loading}
+          interviewerCode={interviewerCode}
+          onClick={handleStartStop}
+          // Disable the stop button if there's an active interview
+          disabled={isRunning && !!activeInterview}
+        />
+      </div>
+      
+      <InterviewResultDialog
+        isOpen={showResultDialog}
+        onClose={cancelResultDialog}
+        onSelectResult={setInterviewResult}
+        isSubmitting={isInterviewLoading}
       />
     </div>
   );
