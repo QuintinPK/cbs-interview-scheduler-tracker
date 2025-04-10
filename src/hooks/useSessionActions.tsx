@@ -90,8 +90,9 @@ export const useSessionActions = (
         
       if (error) throw error;
       
-      // Update sessions state by filtering out the deleted session
-      setSessions(sessions.filter(s => s.id !== sessionId));
+      // Update sessions state by creating a new array without the deleted session
+      const updatedSessions = sessions.filter(s => s.id !== sessionId);
+      setSessions(updatedSessions);
       
       toast({
         title: "Session Deleted",
