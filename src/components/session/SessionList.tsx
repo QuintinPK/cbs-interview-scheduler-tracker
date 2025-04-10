@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Table, 
   TableBody, 
@@ -20,6 +20,7 @@ interface SessionListProps {
   loading: boolean;
   getInterviewerCode: (interviewerId: string) => string;
   getSessionInterviews: (sessionId: string) => Promise<Interview[]>;
+  getSessionInterviewsCount: (sessionId: string) => Promise<number>;
   onEdit: (session: Session) => void;
   onStop: (session: Session) => void;
   onDelete: (session: Session) => void;
@@ -30,13 +31,59 @@ const SessionList: React.FC<SessionListProps> = ({
   loading,
   getInterviewerCode,
   getSessionInterviews,
+  getSessionInterviewsCount,
   onEdit,
   onStop,
   onDelete
 }) => {
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
   const [sessionInterviews, setSessionInterviews] = useState<Record<string, Interview[]>>({});
+  const [interviewCounts, setInterviewCounts] = useState<Record<string, number>>({});
   const [loadingInterviews, setLoadingInterviews] = useState<Record<string, boolean>>({});
+  const [loadingCounts, setLoadingCounts] = useState<Record<string, boolean>>({});
+
+  // Load interview counts for all sessions on initial render
+  useEffect(() => {
+    const loadAllInterviewCounts = async () => {
+      const newLoadingCounts = { ...loadingCounts };
+      
+      for (const session of sessions) {
+        if (interviewCounts[session.id] === undefined) {
+          newLoadingCounts[session.id] = true;
+        }
+      }
+      
+      setLoadingCounts(newLoadingCounts);
+      
+      const countsPromises = sessions.map(async (session) => {
+        if (interviewCounts[session.id] === undefined) {
+          try {
+            const count = await getSessionInterviewsCount(session.id);
+            return { sessionId: session.id, count };
+          } catch (error) {
+            console.error("Error fetching interview count:", error);
+            return { sessionId: session.id, count: 0 };
+          }
+        }
+        return { sessionId: session.id, count: interviewCounts[session.id] };
+      });
+      
+      const results = await Promise.all(countsPromises);
+      
+      const newCounts = { ...interviewCounts };
+      results.forEach(({ sessionId, count }) => {
+        newCounts[sessionId] = count;
+        newLoadingCounts[sessionId] = false;
+      });
+      
+      setInterviewCounts(newCounts);
+      setLoadingCounts(newLoadingCounts);
+    };
+    
+    if (sessions.length > 0) {
+      loadAllInterviewCounts();
+    }
+  }, [sessions]);
 
   const toggleSessionExpanded = async (sessionId: string) => {
     const newExpandedSessions = { ...expandedSessions };
@@ -57,11 +104,24 @@ const SessionList: React.FC<SessionListProps> = ({
     }
   };
 
-  const getInterviewsCount = (sessionId: string) => {
-    if (sessionInterviews[sessionId]) {
-      return sessionInterviews[sessionId].length;
+  const refreshInterviews = async (sessionId: string) => {
+    if (!sessionInterviews[sessionId]) return;
+    
+    setLoadingInterviews({ ...loadingInterviews, [sessionId]: true });
+    try {
+      const interviews = await getSessionInterviews(sessionId);
+      setSessionInterviews({ ...sessionInterviews, [sessionId]: interviews });
+      
+      // Also update count
+      setInterviewCounts({ 
+        ...interviewCounts, 
+        [sessionId]: interviews.length 
+      });
+    } catch (error) {
+      console.error("Error refreshing interviews:", error);
+    } finally {
+      setLoadingInterviews({ ...loadingInterviews, [sessionId]: false });
     }
-    return 0;
   };
 
   return (
@@ -144,19 +204,19 @@ const SessionList: React.FC<SessionListProps> = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      {sessionInterviews[session.id] ? (
-                        <Badge variant="purple" className="flex items-center space-x-1">
-                          <MessageCircle className="h-3 w-3 mr-1" />
-                          <span>{getInterviewsCount(session.id)}</span>
-                        </Badge>
-                      ) : (
-                        <div 
-                          className="flex items-center text-gray-400 cursor-pointer hover:text-gray-600"
+                      {loadingCounts[session.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : interviewCounts[session.id] > 0 ? (
+                        <Badge 
+                          variant="purple" 
+                          className="flex items-center space-x-1 cursor-pointer"
                           onClick={() => toggleSessionExpanded(session.id)}
                         >
-                          <MessageCircle className="h-4 w-4 mr-1" />
-                          <span>Check</span>
-                        </div>
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          <span>{interviewCounts[session.id]}</span>
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No interviews</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -205,7 +265,10 @@ const SessionList: React.FC<SessionListProps> = ({
                               <span className="ml-2 text-gray-500">Loading interviews...</span>
                             </div>
                           ) : sessionInterviews[session.id]?.length ? (
-                            <InterviewsList interviews={sessionInterviews[session.id]} />
+                            <InterviewsList 
+                              interviews={sessionInterviews[session.id]} 
+                              refreshInterviews={() => refreshInterviews(session.id)}
+                            />
                           ) : (
                             <p className="text-gray-500 text-center py-4">No interviews for this session</p>
                           )}

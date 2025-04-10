@@ -79,6 +79,22 @@ const Sessions = () => {
     }
   };
   
+  const getSessionInterviewsCount = async (sessionId: string): Promise<number> => {
+    try {
+      const { count, error } = await (supabase as any)
+        .from('interviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('session_id', sessionId);
+        
+      if (error) throw error;
+      
+      return count || 0;
+    } catch (error) {
+      console.error("Error fetching interview count for session:", error);
+      return 0;
+    }
+  };
+  
   const handleEdit = (session: Session) => {
     setSelectedSession(session);
     
@@ -207,6 +223,7 @@ const Sessions = () => {
           loading={loading}
           getInterviewerCode={getInterviewerCode}
           getSessionInterviews={getSessionInterviews}
+          getSessionInterviewsCount={getSessionInterviewsCount}
           onEdit={handleEdit}
           onStop={handleStopSession}
           onDelete={handleDelete}
