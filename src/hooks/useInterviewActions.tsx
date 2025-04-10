@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Interview } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +26,9 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       const currentLocation = await getCurrentLocation();
       
-      const { data, error } = await supabase
+      // Use any to bypass type checking temporarily since the database schema has changed
+      // but the TypeScript definitions haven't been regenerated yet
+      const { data, error } = await (supabase as any)
         .from('interviews')
         .insert([{
           session_id: sessionId,
@@ -39,14 +42,15 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       if (error) throw error;
       
-      setActiveInterview(data);
+      // Type assertion to convert 'any' to Interview
+      setActiveInterview(data as Interview);
       
       toast({
         title: "Interview Started",
         description: `Interview started at ${new Date().toLocaleTimeString()}`,
       });
       
-      return data;
+      return data as Interview;
     } catch (error) {
       console.error("Error starting interview:", error);
       toast({
@@ -77,7 +81,7 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       // We'll update the end time and location, but keep is_active as true
       // until the result is selected
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('interviews')
         .update({
           end_time: new Date().toISOString(),
@@ -110,7 +114,7 @@ export const useInterviewActions = (sessionId: string | null) => {
     try {
       setIsInterviewLoading(true);
       
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('interviews')
         .update({
           result: result,
@@ -147,7 +151,7 @@ export const useInterviewActions = (sessionId: string | null) => {
     if (!sessionId) return;
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('interviews')
         .select('*')
         .eq('session_id', sessionId)
