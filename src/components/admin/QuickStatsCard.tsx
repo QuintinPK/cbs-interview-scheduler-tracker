@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -51,7 +50,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   
   // Calculate average session length this week
   const avgSessionLength = thisWeekSessions.length > 0 
-    ? totalHoursThisWeek / thisWeekSessions.length 
+    ? (totalHoursThisWeek / thisWeekSessions.length) 
     : 0;
   
   // Calculate average sessions per interviewer this week
@@ -68,31 +67,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     ? (thisWeekSessions.length / activeInterviewersThisWeek.size).toFixed(1)
     : "0";
   
-  const calculateAvgSessionsPerInterviewer = () => {
-    if (loading || !sessions.length || !interviewers.length) return 0;
-    
-    // Get start of current week (Sunday)
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    // Filter sessions for current week
-    const thisWeekSessions = sessions.filter(session => {
-      const sessionDate = new Date(session.start_time);
-      return sessionDate >= startOfWeek;
-    });
-    
-    // Get unique interviewer IDs with sessions this week
-    const interviewersWithSessions = new Set(
-      thisWeekSessions.map(session => session.interviewer_id)
-    );
-    
-    if (interviewersWithSessions.size === 0) return 0;
-    
-    return (thisWeekSessions.length / interviewersWithSessions.size).toFixed(1);
-  };
-  
+  // Get a human-readable average session length
   const calculateAvgSessionLength = () => {
     if (loading || !sessions.length) return "0m";
     
@@ -132,10 +107,8 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     { label: "Active Sessions", value: activeSessions },
     { label: "Sessions Today", value: sessionsToday },
     { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) },
-    { label: "Avg Session Length (h)", value: avgSessionLength.toFixed(1) },
     { label: "Avg Sessions per Interviewer (Week)", value: avgSessionsPerInterviewer },
-    { label: "Average Session Length (Week)", value: calculateAvgSessionLength() },
-    { label: "Avg Sessions Per Interviewer (Week)", value: calculateAvgSessionsPerInterviewer() }
+    { label: "Average Session Length (Week)", value: calculateAvgSessionLength() }
   ];
   
   return (
@@ -147,7 +120,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
         {loading ? (
           <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {statsItems.map((item, index) => (
               <div key={index} className="bg-gray-50 p-4 rounded-md">
                 <p className="text-sm text-muted-foreground">{item.label}</p>

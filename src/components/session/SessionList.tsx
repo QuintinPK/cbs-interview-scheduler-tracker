@@ -161,17 +161,20 @@ const SessionList: React.FC<SessionListProps> = ({
                 <React.Fragment key={session.id}>
                   <TableRow className={expandedSessions[session.id] ? "bg-gray-50" : ""}>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleSessionExpanded(session.id)}
-                      >
-                        {expandedSessions[session.id] ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
+                      {/* Only show expand button if there are interviews */}
+                      {interviewCounts[session.id] > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => toggleSessionExpanded(session.id)}
+                        >
+                          {expandedSessions[session.id] ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
                     <TableCell>{formatDateTime(session.start_time)}</TableCell>
@@ -255,7 +258,7 @@ const SessionList: React.FC<SessionListProps> = ({
                       </div>
                     </TableCell>
                   </TableRow>
-                  {expandedSessions[session.id] && (
+                  {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
                     <TableRow>
                       <TableCell colSpan={9} className="p-0 border-t-0">
                         <div className="bg-gray-50 pl-12 pr-4 py-4">

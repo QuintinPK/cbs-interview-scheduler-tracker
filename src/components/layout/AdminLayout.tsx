@@ -26,7 +26,6 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
-    { path: "/admin/settings", label: "Settings", icon: <Settings className="h-5 w-5" /> },
   ];
   
   return (
@@ -61,6 +60,22 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <span>{item.label}</span>
               </Link>
             ))}
+            
+            {/* Settings link moved above logout */}
+            <Link
+              to="/admin/settings"
+              className={cn(
+                "flex items-center gap-2 p-2 rounded-md",
+                location.pathname === "/admin/settings"
+                  ? "bg-white/20 font-semibold"
+                  : "hover:bg-white/10"
+              )}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Settings className="h-5 w-5" />
+              <span>Settings</span>
+            </Link>
+            
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 p-2 rounded-md w-full text-left hover:bg-white/10"
@@ -68,6 +83,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <LogOut className="h-5 w-5" />
               <span>Logout</span>
             </button>
+            
             <Link
               to="/"
               className="flex items-center gap-2 p-2 rounded-md hover:bg-white/10"
@@ -107,6 +123,20 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </nav>
             
             <div className="pt-4 border-t border-white/20 space-y-1">
+              {/* Settings link moved above logout */}
+              <Link
+                to="/admin/settings"
+                className={cn(
+                  "flex items-center gap-2 p-2 rounded-md",
+                  location.pathname === "/admin/settings"
+                    ? "bg-white/20 font-semibold"
+                    : "hover:bg-white/10"
+                )}
+              >
+                <Settings className="h-5 w-5" />
+                <span>Settings</span>
+              </Link>
+              
               <Button
                 variant="ghost"
                 className="flex items-center gap-2 w-full justify-start text-white hover:bg-white/10 hover:text-white p-2 h-auto font-normal"
@@ -115,6 +145,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <LogOut className="h-5 w-5" />
                 <span>Logout</span>
               </Button>
+              
               <Link
                 to="/"
                 className="flex items-center gap-2 p-2 rounded-md hover:bg-white/10"
