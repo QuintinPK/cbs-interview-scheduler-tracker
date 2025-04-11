@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -185,7 +186,26 @@ serve(async (req) => {
       case "getHourlyRate":
         console.log("Fetching current hourly rate");
         
-        // Get the current hourly rate
+        // First try to get the rate from the combined rates object
+        const { data: combinedRatesData, error: combinedRatesError } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'rates')
+          .maybeSingle();
+          
+        if (!combinedRatesError && combinedRatesData && combinedRatesData.value && 
+            typeof combinedRatesData.value === 'object' && 
+            typeof combinedRatesData.value.hourlyRate === 'number') {
+          console.log("Found hourly rate in combined rates:", combinedRatesData.value.hourlyRate);
+          result = { 
+            success: true,
+            hourlyRate: combinedRatesData.value.hourlyRate
+          };
+          break;
+        }
+        
+        // Fall back to legacy hourly_rate if needed
+        console.log("Falling back to legacy hourly_rate");
         const { data: rateData, error: rateError } = await supabase
           .from('app_settings')
           .select('value')
@@ -194,7 +214,7 @@ serve(async (req) => {
         
         if (rateError) {
           console.error("Error fetching hourly rate:", rateError);
-          throw rateError;
+          // Don't throw error, just use default
         }
         
         console.log("Raw hourly rate data from database:", rateData);
