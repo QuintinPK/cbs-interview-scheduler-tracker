@@ -4,7 +4,6 @@ import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
 import { useActiveSession } from "@/hooks/useActiveSession";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Interview } from "@/types";
 
@@ -27,47 +26,9 @@ const Index = () => {
   } = useActiveSession();
 
   const [totalHours, setTotalHours] = useState<number>(0);
-  const [hourlyRate, setHourlyRate] = useState<number>(25);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [interviewsCount, setInterviewsCount] = useState<number>(0);
-  
-  // Fetch the hourly rate
-  useEffect(() => {
-    const fetchHourlyRate = async () => {
-      try {
-        setError(null);
-        console.log("Fetching hourly rate");
-        
-        const { data: response, error } = await supabase.functions.invoke('admin-functions', {
-          body: {
-            action: "getHourlyRate"
-          }
-        });
-        
-        if (error) {
-          console.error("Error fetching hourly rate:", error);
-          setError("Could not load hourly rate");
-          return;
-        }
-        
-        console.log("Hourly rate response:", response);
-        
-        if (response && response.data && response.data.hourlyRate !== undefined) {
-          const rate = Number(response.data.hourlyRate);
-          if (!isNaN(rate)) {
-            console.log("Setting hourly rate to:", rate);
-            setHourlyRate(rate);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching hourly rate:", error);
-        setError("Could not load hourly rate");
-      }
-    };
-    
-    fetchHourlyRate();
-  }, []);
   
   // Fetch total hours and interviews for the current interviewer
   useEffect(() => {
@@ -182,31 +143,17 @@ const Index = () => {
         {interviewerCode && (
           <div className="w-full space-y-6 mt-6">
             <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="flex items-center mb-2">
-                <DollarSign className="h-5 w-5 mr-2 text-cbs" />
-                <h3 className="font-medium text-cbs">Total Earnings</h3>
-              </div>
-              
-              <p className="text-xl font-bold mb-2">
-                {isLoadingHours ? "Calculating..." : `$${(totalHours * hourlyRate).toFixed(2)}`}
-              </p>
-              
               <div className="grid grid-cols-2 gap-4 mt-4 text-center">
                 <div className="p-2 bg-white rounded border border-gray-200">
                   <p className="text-sm text-gray-500">Total Hours</p>
-                  <p className="font-semibold">{totalHours.toFixed(1)}</p>
+                  <p className="font-semibold">{isLoadingHours ? "..." : totalHours.toFixed(1)}</p>
                 </div>
                 
                 <div className="p-2 bg-white rounded border border-gray-200">
                   <p className="text-sm text-gray-500">Interviews</p>
-                  <p className="font-semibold">{interviewsCount}</p>
+                  <p className="font-semibold">{isLoadingHours ? "..." : interviewsCount}</p>
                 </div>
               </div>
-              
-              <p className="text-xs text-gray-500 mt-4">
-                The displayed earnings are based on the total number of hours tracked and are intended as an indicative total base estimate only. 
-                Adjustments may still be made. Any previous payments are not reflected, and response/non-response bonuses are excluded.
-              </p>
             </div>
           </div>
         )}

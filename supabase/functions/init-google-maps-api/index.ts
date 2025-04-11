@@ -19,8 +19,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // The initial API key to store
-    const initialApiKey = "AIzaSyDqaVNewgLlSNaCKbJEPedBgXwgOZB720c";
+    // The updated API key to store
+    const initialApiKey = "AIzaSyD7QTtsaW2EzYuPdVj6cW11ZeuLespL9cY";
     
     // Check if the API key already exists
     const { data: existingKey, error: checkError } = await supabase
