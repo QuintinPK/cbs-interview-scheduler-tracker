@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { MapPin, MessageCircle, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
@@ -160,14 +161,15 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                   <TableHead>End Time</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Location</TableHead>
+                  <TableHead>Start Location</TableHead>
+                  <TableHead>End Location</TableHead>
                   <TableHead>Interviews</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sessions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                       No sessions recorded
                     </TableCell>
                   </TableRow>
@@ -223,6 +225,19 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                           )}
                         </TableCell>
                         <TableCell>
+                          {session.end_latitude && session.end_longitude ? (
+                            <button 
+                              className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                              onClick={() => handleCoordinateClick(session.end_latitude, session.end_longitude)}
+                            >
+                              <MapPin className="h-4 w-4 mr-1 text-muted-foreground" />
+                              {session.end_latitude.toFixed(4)}, {session.end_longitude.toFixed(4)}
+                            </button>
+                          ) : (
+                            'N/A'
+                          )}
+                        </TableCell>
+                        <TableCell>
                           {loadingCounts[session.id] ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : interviewCounts[session.id] > 0 ? (
@@ -241,7 +256,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                       </TableRow>
                       {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
                         <TableRow>
-                          <TableCell colSpan={7} className="p-0 border-t-0">
+                          <TableCell colSpan={8} className="p-0 border-t-0">
                             <div className="bg-gray-50 pl-12 pr-4 py-4">
                               {loadingInterviews[session.id] ? (
                                 <div className="flex justify-center items-center py-4">
