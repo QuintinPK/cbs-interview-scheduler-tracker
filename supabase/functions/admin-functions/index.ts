@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -28,6 +27,117 @@ serve(async (req) => {
     
     // Handle different admin actions
     switch (action) {
+      case "updateRates":
+        // Store all rates as a JSONB object
+        const { hourlyRate, responseRate, nonResponseRate, showResponseRates } = data;
+        
+        if (
+          hourlyRate === undefined || 
+          responseRate === undefined || 
+          nonResponseRate === undefined || 
+          showResponseRates === undefined
+        ) {
+          throw new Error("Missing required rate values");
+        }
+        
+        const numericHourlyRate = Number(hourlyRate);
+        const numericResponseRate = Number(responseRate);
+        const numericNonResponseRate = Number(nonResponseRate);
+        
+        if (
+          isNaN(numericHourlyRate) || 
+          isNaN(numericResponseRate) || 
+          isNaN(numericNonResponseRate)
+        ) {
+          throw new Error("Invalid rate values");
+        }
+        
+        console.log(`Updating rates: hourly=${numericHourlyRate}, response=${numericResponseRate}, non-response=${numericNonResponseRate}, showResponseRates=${showResponseRates}`);
+        
+        // Store all rates in a single app_settings record
+        const { error: updateError } = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'rates',
+            value: {
+              hourlyRate: numericHourlyRate,
+              responseRate: numericResponseRate,
+              nonResponseRate: numericNonResponseRate,
+              showResponseRates: showResponseRates
+            },
+            updated_at: new Date(),
+            updated_by: 'admin'
+          }, { onConflict: 'key' });
+          
+        if (updateError) {
+          console.error("Error updating rates:", updateError);
+          throw updateError;
+        }
+        
+        console.log("Rates updated successfully");
+        result = { success: true };
+        break;
+        
+      case "getRates":
+        console.log("Fetching current rates");
+        
+        // Get the current rates
+        const { data: ratesData, error: ratesError } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'rates')
+          .maybeSingle();
+        
+        if (ratesError) {
+          console.error("Error fetching rates:", ratesError);
+          throw ratesError;
+        }
+        
+        console.log("Raw rates data from database:", ratesData);
+        
+        // Extract rate values or use defaults
+        let rates = {
+          hourlyRate: 25,
+          responseRate: 5,
+          nonResponseRate: 2,
+          showResponseRates: false
+        };
+        
+        if (ratesData && ratesData.value) {
+          try {
+            if (typeof ratesData.value === 'object') {
+              // Extract values from JSONB object
+              rates = {
+                hourlyRate: typeof ratesData.value.hourlyRate === 'number' ? ratesData.value.hourlyRate : 25,
+                responseRate: typeof ratesData.value.responseRate === 'number' ? ratesData.value.responseRate : 5,
+                nonResponseRate: typeof ratesData.value.nonResponseRate === 'number' ? ratesData.value.nonResponseRate : 2,
+                showResponseRates: !!ratesData.value.showResponseRates
+              };
+            }
+          } catch (error) {
+            console.error("Error parsing rates:", error);
+          }
+        } else {
+          // If no rates exist yet, create default rates
+          console.log("No rates found in database, creating defaults");
+          const { error: createError } = await supabase
+            .from('app_settings')
+            .upsert({
+              key: 'rates',
+              value: rates,
+              updated_at: new Date(),
+              updated_by: 'admin'
+            }, { onConflict: 'key' });
+            
+          if (createError) {
+            console.error("Error creating default rates:", createError);
+          }
+        }
+        
+        console.log("Returning rates:", rates);
+        result = { success: true, data: rates };
+        break;
+        
       case "updateHourlyRate":
         // Store hourly rate as a numeric value
         const numericRate = Number(data.rate);
@@ -39,12 +149,12 @@ serve(async (req) => {
         
         try {
           // Call the database function to update hourly rate
-          const { data: updateResult, error: updateError } = await supabase
+          const { data: updateResult, error: updateHourlyRateError } = await supabase
             .rpc('admin_update_hourly_rate', { rate: numericRate });
           
-          if (updateError) {
-            console.error("Error calling admin_update_hourly_rate function:", updateError);
-            throw updateError;
+          if (updateHourlyRateError) {
+            console.error("Error calling admin_update_hourly_rate function:", updateHourlyRateError);
+            throw updateHourlyRateError;
           }
           
           console.log("Hourly rate updated successfully using RPC function:", updateResult);
