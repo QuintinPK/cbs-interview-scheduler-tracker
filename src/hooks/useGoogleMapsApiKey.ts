@@ -32,7 +32,7 @@ export function useGoogleMapsApiKey() {
         }
       } catch (err: any) {
         console.error("Error fetching Google Maps API key:", err);
-        setError("Failed to fetch Google Maps API key");
+        setError(err.message || "Failed to fetch Google Maps API key");
         toast({
           title: "Error",
           description: "Failed to fetch Google Maps API key",
@@ -74,7 +74,7 @@ export function useGoogleMapsApiKey() {
       }
     } catch (err: any) {
       console.error("Error updating Google Maps API key:", err);
-      setError("Failed to update Google Maps API key");
+      setError(err.message || "Failed to update Google Maps API key");
       toast({
         title: "Error",
         description: "Failed to update Google Maps API key",

@@ -8,7 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MapPin, ExternalLink } from "lucide-react";
+import { MapPin, ExternalLink, AlertTriangle } from "lucide-react";
 import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
 
 interface CoordinatePopupProps {
@@ -22,7 +22,7 @@ const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
   onClose,
   coordinate,
 }) => {
-  const { apiKey, loading } = useGoogleMapsApiKey();
+  const { apiKey, loading, error } = useGoogleMapsApiKey();
   
   if (!coordinate) return null;
 
@@ -56,7 +56,26 @@ const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
               <div className="w-full h-full flex items-center justify-center">
                 <p className="text-sm text-muted-foreground">Loading map...</p>
               </div>
-            ) : apiKey ? (
+            ) : error ? (
+              <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+                <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+                <p className="text-sm text-muted-foreground">Error loading map: {error}</p>
+              </div>
+            ) : !apiKey ? (
+              <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+                <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+                <p className="text-sm text-muted-foreground">Map API key not configured</p>
+                <p className="text-xs text-muted-foreground mt-1">Please configure a Google Maps API key in Settings</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => window.open("/admin/settings", "_blank", "noopener,noreferrer")}
+                >
+                  Go to Settings
+                </Button>
+              </div>
+            ) : (
               <iframe
                 src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${lat},${lng}&zoom=15`}
                 width="100%"
@@ -66,10 +85,6 @@ const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               ></iframe>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <p className="text-sm text-muted-foreground">Map API key not configured</p>
-              </div>
             )}
           </div>
         </div>
