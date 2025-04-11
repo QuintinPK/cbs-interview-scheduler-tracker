@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { 
   Table, 
@@ -160,11 +159,12 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-1/5">Start Time</TableHead>
-                <TableHead className="w-1/5">End Time</TableHead>
+                <TableHead className="w-1/6">Start Time</TableHead>
+                <TableHead className="w-1/6">End Time</TableHead>
                 <TableHead className="w-1/6">Duration</TableHead>
-                <TableHead className="w-1/6">Location</TableHead>
-                <TableHead className="w-1/6">Result</TableHead>
+                <TableHead className="w-1/6">Start Location</TableHead>
+                <TableHead className="w-1/6">End Location</TableHead>
+                <TableHead className="w-1/8">Result</TableHead>
                 <TableHead className="w-1/12">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -202,6 +202,22 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
                         <MapPin className="h-3 w-3 mr-1 text-gray-500" />
                         <span className="text-xs truncate">
                           {interview.start_latitude.toFixed(4)}, {interview.start_longitude.toFixed(4)}
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="text-xs truncate">N/A</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {interview.end_latitude && interview.end_longitude ? (
+                      <button 
+                        className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        onClick={() => handleCoordinateClick(interview.end_latitude, interview.end_longitude)}
+                        title={interview.end_address || ""}
+                      >
+                        <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                        <span className="text-xs truncate">
+                          {interview.end_latitude.toFixed(4)}, {interview.end_longitude.toFixed(4)}
                         </span>
                       </button>
                     ) : (
