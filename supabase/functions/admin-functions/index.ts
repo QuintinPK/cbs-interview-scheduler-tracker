@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -245,20 +246,18 @@ serve(async (req) => {
         
       case "updateGoogleMapsApiKey":
         // Validate input data
-        const { apiKey } = data;
-        
-        if (!apiKey) {
+        if (!data || !data.apiKey) {
           throw new Error("Missing API key");
         }
         
-        console.log(`Updating Google Maps API key: ${apiKey}`);
+        console.log(`Updating Google Maps API key: ${data.apiKey}`);
         
         // Store the API key in app_settings
         const { error: apiKeyUpdateError } = await supabase
           .from('app_settings')
           .upsert({
             key: 'google_maps_api_key',
-            value: { key: apiKey },
+            value: { key: data.apiKey },
             updated_at: new Date(),
             updated_by: 'admin'
           }, { onConflict: 'key' });
@@ -288,12 +287,12 @@ serve(async (req) => {
         }
         
         // Extract API key or use default (empty string)
-        let apiKey = '';
+        let googleMapsApiKey = '';
         
         if (apiKeyData && apiKeyData.value) {
           try {
             if (typeof apiKeyData.value === 'object' && apiKeyData.value.key) {
-              apiKey = apiKeyData.value.key;
+              googleMapsApiKey = apiKeyData.value.key;
             }
           } catch (error) {
             console.error("Error parsing Google Maps API key:", error);
@@ -301,7 +300,7 @@ serve(async (req) => {
         }
         
         console.log("Returning Google Maps API key");
-        result = { success: true, data: { apiKey } };
+        result = { success: true, data: { apiKey: googleMapsApiKey } };
         break;
         
       default:

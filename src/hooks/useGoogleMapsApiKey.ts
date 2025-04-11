@@ -30,7 +30,7 @@ export function useGoogleMapsApiKey() {
           setApiKey("");
           console.warn("No Google Maps API key found in database");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching Google Maps API key:", err);
         setError("Failed to fetch Google Maps API key");
         toast({
@@ -72,7 +72,7 @@ export function useGoogleMapsApiKey() {
       } else {
         throw new Error("Failed to update Google Maps API key");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating Google Maps API key:", err);
       setError("Failed to update Google Maps API key");
       toast({
