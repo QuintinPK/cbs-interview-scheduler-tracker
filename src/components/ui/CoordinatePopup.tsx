@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MapPin, ExternalLink } from "lucide-react";
+import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
 
 interface CoordinatePopupProps {
   isOpen: boolean;
@@ -21,6 +22,8 @@ const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
   onClose,
   coordinate,
 }) => {
+  const { apiKey, loading } = useGoogleMapsApiKey();
+  
   if (!coordinate) return null;
 
   const { lat, lng } = coordinate;
@@ -49,15 +52,25 @@ const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
           </div>
           
           <div className="aspect-video bg-gray-100 rounded-md overflow-hidden mb-4">
-            <iframe
-              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDqaVNewgLlSNaCKbJEPedBgXwgOZB720c&q=${lat},${lng}&zoom=15`}
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              allowFullScreen={false}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            ></iframe>
+            {loading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">Loading map...</p>
+              </div>
+            ) : apiKey ? (
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${lat},${lng}&zoom=15`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              ></iframe>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <p className="text-sm text-muted-foreground">Map API key not configured</p>
+              </div>
+            )}
           </div>
         </div>
         

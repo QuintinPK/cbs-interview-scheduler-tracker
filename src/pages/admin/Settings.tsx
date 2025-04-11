@@ -2,11 +2,11 @@
 import React from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
 import { Heading, HeadingDescription } from "@/components/ui/heading";
 import ChangePasswordCard from "@/components/admin/settings/ChangePasswordCard";
 import ProjectRenameCard from "@/components/admin/settings/ProjectRenameCard";
 import DeleteDataCard from "@/components/admin/settings/DeleteDataCard";
+import GoogleMapsApiCard from "@/components/admin/settings/GoogleMapsApiCard";
 
 const Settings = () => {
   return (
@@ -23,6 +23,7 @@ const Settings = () => {
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
+            <TabsTrigger value="integrations">Integrations</TabsTrigger>
             <TabsTrigger value="data">Data Management</TabsTrigger>
           </TabsList>
 
@@ -32,6 +33,10 @@ const Settings = () => {
 
           <TabsContent value="security" className="space-y-4">
             <ChangePasswordCard />
+          </TabsContent>
+          
+          <TabsContent value="integrations" className="space-y-4">
+            <GoogleMapsApiCard />
           </TabsContent>
 
           <TabsContent value="data" className="space-y-4">

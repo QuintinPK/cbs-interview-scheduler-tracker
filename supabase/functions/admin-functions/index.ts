@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -242,6 +241,67 @@ serve(async (req) => {
         
         console.log("All interviewer data deleted successfully");
         result = { success: true };
+        break;
+        
+      case "updateGoogleMapsApiKey":
+        // Validate input data
+        const { apiKey } = data;
+        
+        if (!apiKey) {
+          throw new Error("Missing API key");
+        }
+        
+        console.log(`Updating Google Maps API key: ${apiKey}`);
+        
+        // Store the API key in app_settings
+        const { error: apiKeyUpdateError } = await supabase
+          .from('app_settings')
+          .upsert({
+            key: 'google_maps_api_key',
+            value: { key: apiKey },
+            updated_at: new Date(),
+            updated_by: 'admin'
+          }, { onConflict: 'key' });
+          
+        if (apiKeyUpdateError) {
+          console.error("Error updating Google Maps API key:", apiKeyUpdateError);
+          throw apiKeyUpdateError;
+        }
+        
+        console.log("Google Maps API key updated successfully");
+        result = { success: true };
+        break;
+        
+      case "getGoogleMapsApiKey":
+        console.log("Fetching Google Maps API key");
+        
+        // Get the API key
+        const { data: apiKeyData, error: apiKeyError } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'google_maps_api_key')
+          .maybeSingle();
+        
+        if (apiKeyError) {
+          console.error("Error fetching Google Maps API key:", apiKeyError);
+          throw apiKeyError;
+        }
+        
+        // Extract API key or use default (empty string)
+        let apiKey = '';
+        
+        if (apiKeyData && apiKeyData.value) {
+          try {
+            if (typeof apiKeyData.value === 'object' && apiKeyData.value.key) {
+              apiKey = apiKeyData.value.key;
+            }
+          } catch (error) {
+            console.error("Error parsing Google Maps API key:", error);
+          }
+        }
+        
+        console.log("Returning Google Maps API key");
+        result = { success: true, data: { apiKey } };
         break;
         
       default:
