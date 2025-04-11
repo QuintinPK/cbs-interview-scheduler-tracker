@@ -75,7 +75,6 @@ const HourlyRateCard: React.FC<HourlyRateCardProps> = ({
 
   const handleToggleResponseRates = (checked: boolean) => {
     setShowRatesLocal(checked);
-    onToggleResponseRates(checked);
   };
 
   const updateRates = async () => {
@@ -89,7 +88,7 @@ const HourlyRateCard: React.FC<HourlyRateCardProps> = ({
       });
       
       // Call edge function to update rates
-      const { data, error } = await supabase.functions.invoke('admin-functions', {
+      const response = await supabase.functions.invoke('admin-functions', {
         body: {
           action: "updateRates",
           data: {
@@ -101,21 +100,21 @@ const HourlyRateCard: React.FC<HourlyRateCardProps> = ({
         }
       });
       
-      if (error) {
-        console.error("Edge function error:", error);
+      if (response.error) {
+        console.error("Edge function error:", response.error);
         toast({
           title: "Error",
-          description: "Failed to update rates: " + error.message,
+          description: "Failed to update rates: " + response.error.message,
           variant: "destructive",
         });
         return;
       }
 
-      console.log("Rates update response:", data);
-      if (!data?.success) {
+      console.log("Rates update response:", response.data);
+      if (!response.data?.success) {
         toast({
           title: "Error",
-          description: "Failed to update rates: Edge Function returned a non-2xx status code",
+          description: "Failed to update rates: Edge Function returned a non-success status",
           variant: "destructive",
         });
         return;
@@ -127,10 +126,13 @@ const HourlyRateCard: React.FC<HourlyRateCardProps> = ({
       });
       setIsEditing(false);
       
-      // Update parent component with new rates and recalculate costs
+      // Update parent component with new rates
       onRateChange(rateValue);
       onResponseRateChange(responseRateValue);
       onNonResponseRateChange(nonResponseRateValue);
+      onToggleResponseRates(showRatesLocal);
+      
+      // Recalculate costs
       recalculateCosts();
     } catch (error) {
       console.error("Error updating rates:", error);

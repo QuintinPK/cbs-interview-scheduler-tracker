@@ -29,7 +29,7 @@ serve(async (req) => {
     // Handle different admin actions
     switch (action) {
       case "updateRates":
-        // Store all rates as a JSONB object
+        // Validate input data
         const { hourlyRate, responseRate, nonResponseRate, showResponseRates } = data;
         
         if (
@@ -137,148 +137,6 @@ serve(async (req) => {
         
         console.log("Returning rates:", rates);
         result = { success: true, data: rates };
-        break;
-        
-      case "updateHourlyRate":
-        // Store hourly rate as a numeric value
-        const numericRate = Number(data.rate);
-        if (isNaN(numericRate)) {
-          throw new Error("Invalid rate value");
-        }
-        
-        console.log(`Updating hourly rate to: ${numericRate}`);
-        
-        try {
-          // Call the database function to update hourly rate
-          const { data: updateResult, error: updateHourlyRateError } = await supabase
-            .rpc('admin_update_hourly_rate', { rate: numericRate });
-          
-          if (updateHourlyRateError) {
-            console.error("Error calling admin_update_hourly_rate function:", updateHourlyRateError);
-            throw updateHourlyRateError;
-          }
-          
-          console.log("Hourly rate updated successfully using RPC function:", updateResult);
-          result = { success: true };
-        } catch (rpcError) {
-          console.error("RPC error details:", rpcError);
-          
-          // Fallback: Direct database update if RPC fails
-          console.log("Using fallback method for updating hourly rate");
-          const { error: directUpdateError } = await supabase
-            .from('app_settings')
-            .upsert({
-              key: 'hourly_rate',
-              value: numericRate,
-              updated_at: new Date(),
-              updated_by: 'admin'
-            }, { onConflict: 'key' });
-            
-          if (directUpdateError) {
-            console.error("Error with direct update:", directUpdateError);
-            throw directUpdateError;
-          }
-          
-          result = { success: true };
-        }
-        break;
-        
-      case "getHourlyRate":
-        console.log("Fetching current hourly rate");
-        
-        // First try to get the rate from the combined rates object
-        const { data: combinedRatesData, error: combinedRatesError } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'rates')
-          .maybeSingle();
-          
-        if (!combinedRatesError && combinedRatesData && combinedRatesData.value && 
-            typeof combinedRatesData.value === 'object' && 
-            typeof combinedRatesData.value.hourlyRate === 'number') {
-          console.log("Found hourly rate in combined rates:", combinedRatesData.value.hourlyRate);
-          result = { 
-            success: true,
-            hourlyRate: combinedRatesData.value.hourlyRate
-          };
-          break;
-        }
-        
-        // Fall back to legacy hourly_rate if needed
-        console.log("Falling back to legacy hourly_rate");
-        const { data: rateData, error: rateError } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'hourly_rate')
-          .maybeSingle();
-        
-        if (rateError) {
-          console.error("Error fetching hourly rate:", rateError);
-          // Don't throw error, just use default
-        }
-        
-        console.log("Raw hourly rate data from database:", rateData);
-        
-        // Extract and parse the hourly rate value
-        let hourlyRate = 25; // Default
-        if (rateData && rateData.value) {
-          try {
-            // Handle different possible formats of the stored value
-            if (typeof rateData.value === 'number') {
-              hourlyRate = rateData.value;
-            } else if (typeof rateData.value === 'string') {
-              hourlyRate = parseFloat(rateData.value);
-            } else if (typeof rateData.value === 'object') {
-              // Try to extract the numeric value from JSONB
-              const valueText = JSON.stringify(rateData.value);
-              console.log("Value as string:", valueText);
-              
-              // Try several methods to extract the value
-              if (rateData.value.hasOwnProperty('value')) {
-                hourlyRate = Number(rateData.value.value);
-              } else if (valueText.match(/^\d+(\.\d+)?$/)) {
-                hourlyRate = Number(valueText);
-              } else {
-                // Try to parse as a numeric value directly
-                const parsed = Number(rateData.value);
-                if (!isNaN(parsed)) {
-                  hourlyRate = parsed;
-                }
-              }
-            }
-          } catch (error) {
-            console.error("Error parsing hourly rate:", error);
-          }
-        }
-        
-        if (isNaN(hourlyRate)) {
-          console.log("Parsed value is NaN, using default rate");
-          hourlyRate = 25;
-        }
-        
-        console.log("Retrieved hourly rate (after parsing):", hourlyRate);
-        
-        result = { 
-          success: true,
-          hourlyRate: hourlyRate
-        };
-        break;
-        
-      case "updatePassword":
-        // Update admin password hash
-        console.log("Updating password hash");
-        
-        // Call the database function to update password
-        const { data: passwordResult, error: passwordError } = await supabase
-          .rpc('admin_update_password', { password_hash: data.passwordHash });
-        
-        if (passwordError) {
-          console.error("Error calling admin_update_password function:", passwordError);
-          throw passwordError;
-        }
-        
-        console.log("Password updated successfully using RPC function");
-        result = { success: true };
         break;
         
       case "updateProjectTitle":
@@ -391,7 +249,7 @@ serve(async (req) => {
     }
     
     console.log("Operation completed successfully", result);
-    return new Response(JSON.stringify({ success: true, data: result }), {
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

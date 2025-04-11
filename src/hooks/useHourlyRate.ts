@@ -18,22 +18,23 @@ export const useHourlyRate = () => {
       setError(null);
       console.log("Fetching rates from edge function");
       
-      const { data: response, error } = await supabase.functions.invoke('admin-functions', {
+      const response = await supabase.functions.invoke('admin-functions', {
         body: {
           action: "getRates"
         }
       });
 
-      if (error) {
-        console.error("Error fetching rates:", error);
+      if (response.error) {
+        console.error("Error fetching rates:", response.error);
         setError("Failed to fetch rates from server");
-        throw error;
+        throw response.error;
       }
       
-      console.log("Retrieved rates response:", response);
+      const data = response.data;
+      console.log("Retrieved rates response:", data);
       
-      if (response && response.data) {
-        const { hourlyRate: rate, responseRate: respRate, nonResponseRate: nonRespRate, showResponseRates: showRates } = response.data;
+      if (data && data.data) {
+        const { hourlyRate: rate, responseRate: respRate, nonResponseRate: nonRespRate, showResponseRates: showRates } = data.data;
         
         if (rate !== undefined && !isNaN(Number(rate))) {
           console.log("Setting hourly rate to:", Number(rate));
