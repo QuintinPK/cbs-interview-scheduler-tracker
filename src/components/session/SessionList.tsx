@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -10,10 +9,11 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle } from "lucide-react";
+import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle, MapPin } from "lucide-react";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
 import { Session, Interview } from "@/types";
 import InterviewsList from "./InterviewsList";
+import CoordinatePopup from "../ui/CoordinatePopup";
 
 interface SessionListProps {
   sessions: Session[];
@@ -41,8 +41,9 @@ const SessionList: React.FC<SessionListProps> = ({
   const [interviewCounts, setInterviewCounts] = useState<Record<string, number>>({});
   const [loadingInterviews, setLoadingInterviews] = useState<Record<string, boolean>>({});
   const [loadingCounts, setLoadingCounts] = useState<Record<string, boolean>>({});
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
+  const [isMapOpen, setIsMapOpen] = useState(false);
 
-  // Load interview counts for all sessions on initial render
   useEffect(() => {
     const loadAllInterviewCounts = async () => {
       const newLoadingCounts = { ...loadingCounts };
@@ -90,7 +91,6 @@ const SessionList: React.FC<SessionListProps> = ({
     newExpandedSessions[sessionId] = !expandedSessions[sessionId];
     setExpandedSessions(newExpandedSessions);
 
-    // If expanding and we don't have the interviews yet, fetch them
     if (newExpandedSessions[sessionId] && !sessionInterviews[sessionId]) {
       setLoadingInterviews({ ...loadingInterviews, [sessionId]: true });
       try {
@@ -112,7 +112,6 @@ const SessionList: React.FC<SessionListProps> = ({
       const interviews = await getSessionInterviews(sessionId);
       setSessionInterviews({ ...sessionInterviews, [sessionId]: interviews });
       
-      // Also update count
       setInterviewCounts({ 
         ...interviewCounts, 
         [sessionId]: interviews.length 
@@ -124,168 +123,190 @@ const SessionList: React.FC<SessionListProps> = ({
     }
   };
 
+  const handleCoordinateClick = (lat: number | null, lng: number | null) => {
+    if (lat !== null && lng !== null) {
+      setSelectedCoordinate({ lat, lng });
+      setIsMapOpen(true);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10"></TableHead>
-              <TableHead>Interviewer Code</TableHead>
-              <TableHead>Start Date/Time</TableHead>
-              <TableHead>End Date/Time</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Start Location</TableHead>
-              <TableHead>End Location</TableHead>
-              <TableHead>Interviews</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+    <>
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10">
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-cbs" />
-                  </div>
-                </TableCell>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Interviewer Code</TableHead>
+                <TableHead>Start Date/Time</TableHead>
+                <TableHead>End Date/Time</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Start Location</TableHead>
+                <TableHead>End Location</TableHead>
+                <TableHead>Interviews</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ) : sessions.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
-                  No sessions found
-                </TableCell>
-              </TableRow>
-            ) : (
-              sessions.map((session) => (
-                <React.Fragment key={session.id}>
-                  <TableRow className={expandedSessions[session.id] ? "bg-gray-50" : ""}>
-                    <TableCell>
-                      {/* Only show expand button if there are interviews */}
-                      {interviewCounts[session.id] > 0 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => toggleSessionExpanded(session.id)}
-                        >
-                          {expandedSessions[session.id] ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
-                    <TableCell>{formatDateTime(session.start_time)}</TableCell>
-                    <TableCell>
-                      {session.end_time ? formatDateTime(session.end_time) : (
-                        <Badge variant="warning">
-                          Active
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {session.end_time ? calculateDuration(session.start_time, session.end_time) : "Ongoing"}
-                    </TableCell>
-                    <TableCell>
-                      {session.start_latitude && session.start_longitude ? (
-                        <span className="text-xs">
-                          {session.start_latitude.toFixed(4)}, {session.start_longitude.toFixed(4)}
-                        </span>
-                      ) : (
-                        "N/A"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {session.end_latitude && session.end_longitude ? (
-                        <span className="text-xs">
-                          {session.end_latitude.toFixed(4)}, {session.end_longitude.toFixed(4)}
-                        </span>
-                      ) : (
-                        "N/A"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {loadingCounts[session.id] ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : interviewCounts[session.id] > 0 ? (
-                        <Badge 
-                          variant="purple" 
-                          className="flex items-center space-x-1 cursor-pointer"
-                          onClick={() => toggleSessionExpanded(session.id)}
-                        >
-                          <MessageCircle className="h-3 w-3 mr-1" />
-                          <span>{interviewCounts[session.id]}</span>
-                        </Badge>
-                      ) : (
-                        <span className="text-gray-400 text-sm">No interviews</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(session)}
-                          title="Edit"
-                          disabled={loading}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        
-                        {session.is_active && (
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-10">
+                    <div className="flex justify-center items-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-cbs" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : sessions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                    No sessions found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sessions.map((session) => (
+                  <React.Fragment key={session.id}>
+                    <TableRow className={expandedSessions[session.id] ? "bg-gray-50" : ""}>
+                      <TableCell>
+                        {interviewCounts[session.id] > 0 && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => onStop(session)}
-                            title="Stop Session"
-                            disabled={loading}
+                            onClick={() => toggleSessionExpanded(session.id)}
                           >
-                            <StopCircle className="h-4 w-4" />
+                            {expandedSessions[session.id] ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
                           </Button>
                         )}
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDelete(session)}
-                          title="Delete"
-                          disabled={loading}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
-                    <TableRow>
-                      <TableCell colSpan={9} className="p-0 border-t-0">
-                        <div className="bg-gray-50 pl-12 pr-4 py-4">
-                          {loadingInterviews[session.id] ? (
-                            <div className="flex justify-center items-center py-4">
-                              <Loader2 className="h-6 w-6 animate-spin text-cbs" />
-                              <span className="ml-2 text-gray-500">Loading interviews...</span>
-                            </div>
-                          ) : sessionInterviews[session.id]?.length ? (
-                            <InterviewsList 
-                              interviews={sessionInterviews[session.id]} 
-                              refreshInterviews={() => refreshInterviews(session.id)}
-                            />
-                          ) : (
-                            <p className="text-gray-500 text-center py-4">No interviews for this session</p>
+                      </TableCell>
+                      <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
+                      <TableCell>{formatDateTime(session.start_time)}</TableCell>
+                      <TableCell>
+                        {session.end_time ? formatDateTime(session.end_time) : (
+                          <Badge variant="warning">
+                            Active
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.end_time ? calculateDuration(session.start_time, session.end_time) : "Ongoing"}
+                      </TableCell>
+                      <TableCell>
+                        {session.start_latitude && session.start_longitude ? (
+                          <button 
+                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={() => handleCoordinateClick(session.start_latitude, session.start_longitude)}
+                          >
+                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                            {session.start_latitude.toFixed(4)}, {session.start_longitude.toFixed(4)}
+                          </button>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.end_latitude && session.end_longitude ? (
+                          <button 
+                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={() => handleCoordinateClick(session.end_latitude, session.end_longitude)}
+                          >
+                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                            {session.end_latitude.toFixed(4)}, {session.end_longitude.toFixed(4)}
+                          </button>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {loadingCounts[session.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : interviewCounts[session.id] > 0 ? (
+                          <Badge 
+                            variant="purple" 
+                            className="flex items-center space-x-1 cursor-pointer"
+                            onClick={() => toggleSessionExpanded(session.id)}
+                          >
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            <span>{interviewCounts[session.id]}</span>
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">No interviews</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onEdit(session)}
+                            title="Edit"
+                            disabled={loading}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          
+                          {session.is_active && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onStop(session)}
+                              title="Stop Session"
+                              disabled={loading}
+                            >
+                              <StopCircle className="h-4 w-4" />
+                            </Button>
                           )}
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onDelete(session)}
+                            title="Delete"
+                            disabled={loading}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
-                  )}
-                </React.Fragment>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="p-0 border-t-0">
+                          <div className="bg-gray-50 pl-12 pr-4 py-4">
+                            {loadingInterviews[session.id] ? (
+                              <div className="flex justify-center items-center py-4">
+                                <Loader2 className="h-6 w-6 animate-spin text-cbs" />
+                                <span className="ml-2 text-gray-500">Loading interviews...</span>
+                              </div>
+                            ) : sessionInterviews[session.id]?.length ? (
+                              <InterviewsList 
+                                interviews={sessionInterviews[session.id]} 
+                                refreshInterviews={() => refreshInterviews(session.id)}
+                              />
+                            ) : (
+                              <p className="text-gray-500 text-center py-4">No interviews for this session</p>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+
+      <CoordinatePopup
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)} 
+        coordinate={selectedCoordinate}
+      />
+    </>
   );
 };
 

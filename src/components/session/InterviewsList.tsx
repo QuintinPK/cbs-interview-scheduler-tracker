@@ -30,6 +30,7 @@ import { Interview } from "@/types";
 import { MapPin, Clock, CheckCircle, XCircle, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import CoordinatePopup from "../ui/CoordinatePopup";
 
 interface InterviewsListProps {
   interviews: Interview[];
@@ -46,6 +47,8 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
     result: string | null;
   }>({ result: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
+  const [isMapOpen, setIsMapOpen] = useState(false);
 
   const getResultBadge = (result: string | null) => {
     if (!result) return null;
@@ -76,6 +79,13 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
     setSelectedInterview(interview);
     setEditingInterview({ result: interview.result });
     setEditDialogOpen(true);
+  };
+  
+  const handleCoordinateClick = (lat: number | null, lng: number | null) => {
+    if (lat !== null && lng !== null) {
+      setSelectedCoordinate({ lat, lng });
+      setIsMapOpen(true);
+    }
   };
 
   const confirmDelete = async () => {
@@ -183,12 +193,20 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
                     {interview.end_time ? calculateDuration(interview.start_time, interview.end_time) : "Ongoing"}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center" title={interview.start_address || ""}>
-                      <MapPin className="h-3 w-3 mr-1 text-gray-500" />
-                      <span className="text-xs truncate">
-                        {interview.start_latitude?.toFixed(4)}, {interview.start_longitude?.toFixed(4)}
-                      </span>
-                    </div>
+                    {interview.start_latitude && interview.start_longitude ? (
+                      <button 
+                        className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        onClick={() => handleCoordinateClick(interview.start_latitude, interview.start_longitude)}
+                        title={interview.start_address || ""}
+                      >
+                        <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                        <span className="text-xs truncate">
+                          {interview.start_latitude.toFixed(4)}, {interview.start_longitude.toFixed(4)}
+                        </span>
+                      </button>
+                    ) : (
+                      <span className="text-xs truncate">N/A</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     {interview.is_active ? (
@@ -304,6 +322,12 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <CoordinatePopup
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)} 
+        coordinate={selectedCoordinate}
+      />
     </>
   );
 };
