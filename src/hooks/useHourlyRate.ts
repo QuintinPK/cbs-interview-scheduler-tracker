@@ -6,6 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 export const useHourlyRate = () => {
   const { toast } = useToast();
   const [hourlyRate, setHourlyRate] = useState<number>(25);
+  const [responseRate, setResponseRate] = useState<number>(5);
+  const [nonResponseRate, setNonResponseRate] = useState<number>(2);
+  const [showResponseRates, setShowResponseRates] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,45 +16,68 @@ export const useHourlyRate = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log("Fetching hourly rate from edge function");
+      console.log("Fetching rates from edge function");
       
       const { data: response, error } = await supabase.functions.invoke('admin-functions', {
         body: {
-          action: "getHourlyRate"
+          action: "getRates"
         }
       });
 
       if (error) {
-        console.error("Error fetching hourly rate:", error);
-        setError("Failed to fetch hourly rate from server");
+        console.error("Error fetching rates:", error);
+        setError("Failed to fetch rates from server");
         throw error;
       }
       
-      console.log("Retrieved hourly rate response:", response);
+      console.log("Retrieved rates response:", response);
       
-      if (response && response.data && response.data.hourlyRate !== undefined) {
-        const rate = Number(response.data.hourlyRate);
-        console.log("Parsed rate:", rate);
+      if (response && response.data) {
+        const { hourlyRate: rate, responseRate: respRate, nonResponseRate: nonRespRate, showResponseRates: showRates } = response.data;
         
-        if (!isNaN(rate)) {
-          console.log("Setting hourly rate to:", rate);
-          setHourlyRate(rate);
+        if (rate !== undefined && !isNaN(Number(rate))) {
+          console.log("Setting hourly rate to:", Number(rate));
+          setHourlyRate(Number(rate));
         } else {
-          console.log("Using default hourly rate, couldn't parse number:", response.data.hourlyRate);
+          console.log("Using default hourly rate");
           setHourlyRate(25);
         }
+        
+        if (respRate !== undefined && !isNaN(Number(respRate))) {
+          setResponseRate(Number(respRate));
+        } else {
+          setResponseRate(5);
+        }
+        
+        if (nonRespRate !== undefined && !isNaN(Number(nonRespRate))) {
+          setNonResponseRate(Number(nonRespRate));
+        } else {
+          setNonResponseRate(2);
+        }
+        
+        if (showRates !== undefined) {
+          setShowResponseRates(Boolean(showRates));
+        } else {
+          setShowResponseRates(false);
+        }
       } else {
-        console.log("No hourly rate returned or invalid format, using default");
+        console.log("No rates returned or invalid format, using defaults");
         setHourlyRate(25);
+        setResponseRate(5);
+        setNonResponseRate(2);
+        setShowResponseRates(false);
       }
     } catch (error) {
-      console.error("Error fetching hourly rate:", error);
+      console.error("Error fetching rates:", error);
       // Don't show error toast for navigation issues
       if (!(error instanceof Error && error.message.includes("fetch"))) {
-        setError("Failed to fetch hourly rate from server");
+        setError("Failed to fetch rates from server");
       }
-      // Use default value
+      // Use default values
       setHourlyRate(25);
+      setResponseRate(5);
+      setNonResponseRate(2);
+      setShowResponseRates(false);
     } finally {
       setIsLoading(false);
     }
@@ -64,6 +90,12 @@ export const useHourlyRate = () => {
   return {
     hourlyRate,
     setHourlyRate,
+    responseRate,
+    setResponseRate,
+    nonResponseRate,
+    setNonResponseRate,
+    showResponseRates,
+    setShowResponseRates,
     isLoading,
     error,
     fetchHourlyRate

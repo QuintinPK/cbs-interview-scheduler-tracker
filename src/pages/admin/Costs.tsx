@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDataFetching } from "@/hooks/useDataFetching";
@@ -8,15 +8,52 @@ import { useCostsCalculator } from "@/hooks/useCostsCalculator";
 import HourlyRateCard from "@/components/costs/HourlyRateCard";
 import TotalCostsCard from "@/components/costs/TotalCostsCard";
 import InterviewerCostsTable from "@/components/costs/InterviewerCostsTable";
+import { supabase } from "@/integrations/supabase/client";
+import { Interview } from "@/types";
 
 const Costs = () => {
   const { sessions, interviewers, loading: dataLoading } = useDataFetching();
-  const { hourlyRate, setHourlyRate, isLoading, error, fetchHourlyRate } = useHourlyRate();
+  const [interviews, setInterviews] = React.useState<Interview[]>([]);
+  const [loadingInterviews, setLoadingInterviews] = React.useState(true);
+  
+  const { 
+    hourlyRate, setHourlyRate, 
+    responseRate, setResponseRate,
+    nonResponseRate, setNonResponseRate,
+    showResponseRates, setShowResponseRates,
+    isLoading, error, fetchHourlyRate 
+  } = useHourlyRate();
+  
   const { calculatedCosts, calculateCosts } = useCostsCalculator(
     sessions,
     interviewers,
-    hourlyRate
+    interviews,
+    hourlyRate,
+    responseRate,
+    nonResponseRate,
+    showResponseRates
   );
+
+  useEffect(() => {
+    const fetchInterviews = async () => {
+      try {
+        setLoadingInterviews(true);
+        const { data, error } = await supabase
+          .from('interviews')
+          .select('*');
+          
+        if (error) throw error;
+        
+        setInterviews(data || []);
+      } catch (error) {
+        console.error("Error fetching interviews:", error);
+      } finally {
+        setLoadingInterviews(false);
+      }
+    };
+    
+    fetchInterviews();
+  }, []);
 
   return (
     <AdminLayout>
@@ -33,12 +70,18 @@ const Costs = () => {
         )}
 
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Hourly Rate Card */}
+          {/* Hourly and Response Rates Card */}
           <HourlyRateCard
             hourlyRate={hourlyRate}
+            responseRate={responseRate}
+            nonResponseRate={nonResponseRate}
+            showResponseRates={showResponseRates}
             isLoading={isLoading}
             error={error}
             onRateChange={setHourlyRate}
+            onResponseRateChange={setResponseRate}
+            onNonResponseRateChange={setNonResponseRate}
+            onToggleResponseRates={setShowResponseRates}
             recalculateCosts={calculateCosts}
           />
 
@@ -46,6 +89,9 @@ const Costs = () => {
           <TotalCostsCard
             totalCost={calculatedCosts.totalCost}
             totalHours={calculatedCosts.totalHours}
+            totalResponses={calculatedCosts.totalResponses}
+            totalNonResponses={calculatedCosts.totalNonResponses}
+            showResponseRates={showResponseRates}
             onRecalculate={calculateCosts}
           />
         </div>
@@ -53,8 +99,11 @@ const Costs = () => {
         {/* Costs Per Interviewer */}
         <InterviewerCostsTable
           interviewerCosts={calculatedCosts.interviewerCosts}
-          loading={dataLoading || isLoading}
+          loading={dataLoading || isLoading || loadingInterviews}
           hourlyRate={hourlyRate}
+          responseRate={responseRate}
+          nonResponseRate={nonResponseRate}
+          showResponseRates={showResponseRates}
         />
       </div>
     </AdminLayout>

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -48,11 +49,6 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     0
   );
   
-  // Calculate average session length this week
-  const avgSessionLength = thisWeekSessions.length > 0 
-    ? (totalHoursThisWeek / thisWeekSessions.length) 
-    : 0;
-  
   // Calculate average sessions per interviewer this week
   const activeInterviewersThisWeek = new Set();
   
@@ -67,48 +63,12 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     ? (thisWeekSessions.length / activeInterviewersThisWeek.size).toFixed(1)
     : "0";
   
-  // Get a human-readable average session length
-  const calculateAvgSessionLength = () => {
-    if (loading || !sessions.length) return "0m";
-    
-    // Get start of current week (Sunday)
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    // Filter completed sessions for current week
-    const thisWeekCompletedSessions = sessions.filter(session => {
-      const sessionDate = new Date(session.start_time);
-      return sessionDate >= startOfWeek && session.end_time && !session.is_active;
-    });
-    
-    if (thisWeekCompletedSessions.length === 0) return "0m";
-    
-    // Calculate total minutes
-    let totalMinutes = 0;
-    
-    thisWeekCompletedSessions.forEach(session => {
-      const start = new Date(session.start_time);
-      const end = new Date(session.end_time!);
-      const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
-      totalMinutes += durationMinutes;
-    });
-    
-    const avgMinutes = totalMinutes / thisWeekCompletedSessions.length;
-    const hours = Math.floor(avgMinutes / 60);
-    const minutes = Math.floor(avgMinutes % 60);
-    
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  };
-  
   const statsItems = [
     { label: "Total Interviewers", value: totalInterviewers },
     { label: "Active Sessions", value: activeSessions },
     { label: "Sessions Today", value: sessionsToday },
     { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) },
-    { label: "Avg Sessions per Interviewer (Week)", value: avgSessionsPerInterviewer },
-    { label: "Average Session Length (Week)", value: calculateAvgSessionLength() }
+    { label: "Avg Sessions per Interviewer", value: avgSessionsPerInterviewer }
   ];
   
   return (

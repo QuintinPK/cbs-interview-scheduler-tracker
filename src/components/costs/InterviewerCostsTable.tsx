@@ -7,19 +7,30 @@ interface InterviewerCost {
   id: string;
   name: string;
   hours: number;
-  cost: number;
+  responses?: number;
+  nonResponses?: number;
+  hourlyCost: number;
+  responseCost?: number;
+  nonResponseCost?: number;
+  totalCost: number;
 }
 
 interface InterviewerCostsTableProps {
   interviewerCosts: InterviewerCost[];
   loading: boolean;
   hourlyRate: number;
+  responseRate?: number;
+  nonResponseRate?: number;
+  showResponseRates: boolean;
 }
 
 const InterviewerCostsTable: React.FC<InterviewerCostsTableProps> = ({
   interviewerCosts,
   loading,
-  hourlyRate
+  hourlyRate,
+  responseRate = 0,
+  nonResponseRate = 0,
+  showResponseRates
 }) => {
   return (
     <Card>
@@ -38,7 +49,20 @@ const InterviewerCostsTable: React.FC<InterviewerCostsTableProps> = ({
                 <TableRow>
                   <TableHead>Interviewer</TableHead>
                   <TableHead>Total Hours</TableHead>
-                  <TableHead>Cost (${hourlyRate}/hour)</TableHead>
+                  {showResponseRates && (
+                    <>
+                      <TableHead>Responses</TableHead>
+                      <TableHead>Non-Responses</TableHead>
+                    </>
+                  )}
+                  <TableHead>Hourly Cost (${hourlyRate}/hour)</TableHead>
+                  {showResponseRates && (
+                    <>
+                      <TableHead>Response Bonus (${responseRate}/resp)</TableHead>
+                      <TableHead>Non-Resp Bonus (${nonResponseRate}/non-resp)</TableHead>
+                    </>
+                  )}
+                  <TableHead>Total Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -46,7 +70,20 @@ const InterviewerCostsTable: React.FC<InterviewerCostsTableProps> = ({
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.name}</TableCell>
                     <TableCell>{item.hours.toFixed(2)}</TableCell>
-                    <TableCell>${item.cost.toFixed(2)}</TableCell>
+                    {showResponseRates && (
+                      <>
+                        <TableCell>{item.responses}</TableCell>
+                        <TableCell>{item.nonResponses}</TableCell>
+                      </>
+                    )}
+                    <TableCell>${item.hourlyCost.toFixed(2)}</TableCell>
+                    {showResponseRates && (
+                      <>
+                        <TableCell>${item.responseCost?.toFixed(2)}</TableCell>
+                        <TableCell>${item.nonResponseCost?.toFixed(2)}</TableCell>
+                      </>
+                    )}
+                    <TableCell className="font-bold">${item.totalCost.toFixed(2)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

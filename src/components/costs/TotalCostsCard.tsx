@@ -7,12 +7,18 @@ import { Calculator } from "lucide-react";
 interface TotalCostsCardProps {
   totalCost: number;
   totalHours: number;
+  totalResponses?: number;
+  totalNonResponses?: number;
+  showResponseRates: boolean;
   onRecalculate: () => void;
 }
 
 const TotalCostsCard: React.FC<TotalCostsCardProps> = ({
   totalCost,
   totalHours,
+  totalResponses = 0,
+  totalNonResponses = 0,
+  showResponseRates,
   onRecalculate
 }) => {
   return (
@@ -32,6 +38,20 @@ const TotalCostsCard: React.FC<TotalCostsCardProps> = ({
               <p className="text-lg text-muted-foreground">Total Hours Worked</p>
               <p className="text-3xl font-bold">{totalHours.toFixed(2)} hours</p>
             </div>
+            
+            {showResponseRates && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-primary/5 p-4 rounded-lg">
+                  <p className="text-md text-muted-foreground">Total Responses</p>
+                  <p className="text-2xl font-bold">{totalResponses}</p>
+                </div>
+                
+                <div className="bg-primary/5 p-4 rounded-lg">
+                  <p className="text-md text-muted-foreground">Total Non-Responses</p>
+                  <p className="text-2xl font-bold">{totalNonResponses}</p>
+                </div>
+              </div>
+            )}
           </div>
           
           <Button 

@@ -1,33 +1,48 @@
 
 import { useState, useEffect } from "react";
-import { Session, Interviewer } from "@/types";
+import { Session, Interviewer, Interview } from "@/types";
 
 interface CalculatedCosts {
   interviewerCosts: {
     id: string;
     name: string;
     hours: number;
-    cost: number;
+    responses: number;
+    nonResponses: number;
+    hourlyCost: number;
+    responseCost: number;
+    nonResponseCost: number;
+    totalCost: number;
   }[];
   totalCost: number;
   totalHours: number;
+  totalResponses: number;
+  totalNonResponses: number;
 }
 
 export const useCostsCalculator = (
   sessions: Session[],
   interviewers: Interviewer[],
-  hourlyRate: number
+  interviews: Interview[],
+  hourlyRate: number,
+  responseRate: number = 0,
+  nonResponseRate: number = 0,
+  showResponseRates: boolean = false
 ) => {
   const [calculatedCosts, setCalculatedCosts] = useState<CalculatedCosts>({
     interviewerCosts: [],
     totalCost: 0,
-    totalHours: 0
+    totalHours: 0,
+    totalResponses: 0,
+    totalNonResponses: 0
   });
 
   const calculateCosts = () => {
-    // Create a map to track hours per interviewer
+    // Create maps to track data per interviewer
     const interviewerHours: Map<string, number> = new Map();
     const interviewerNames: Map<string, string> = new Map();
+    const interviewerResponses: Map<string, number> = new Map();
+    const interviewerNonResponses: Map<string, number> = new Map();
 
     // Calculate hours for each interviewer
     sessions.forEach((session) => {
@@ -50,28 +65,67 @@ export const useCostsCalculator = (
       }
     });
 
-    // Calculate costs for each interviewer
-    const interviewerCosts = Array.from(interviewerHours.entries()).map(([id, hours]) => ({
-      id,
-      name: interviewerNames.get(id) || "Unknown",
-      hours,
-      cost: hours * hourlyRate,
-    }));
+    // Calculate responses and non-responses for each interviewer
+    if (showResponseRates) {
+      interviews.forEach((interview) => {
+        if (!interview.is_active && interview.end_time) {
+          const session = sessions.find(s => s.id === interview.session_id);
+          if (session) {
+            const interviewerId = session.interviewer_id;
+            
+            if (interview.result === 'response') {
+              const currentResponses = interviewerResponses.get(interviewerId) || 0;
+              interviewerResponses.set(interviewerId, currentResponses + 1);
+            } else if (interview.result === 'non-response') {
+              const currentNonResponses = interviewerNonResponses.get(interviewerId) || 0;
+              interviewerNonResponses.set(interviewerId, currentNonResponses + 1);
+            }
+          }
+        }
+      });
+    }
 
-    // Calculate total hours and cost
+    // Calculate costs for each interviewer
+    const interviewerCosts = Array.from(interviewerHours.entries()).map(([id, hours]) => {
+      const responses = interviewerResponses.get(id) || 0;
+      const nonResponses = interviewerNonResponses.get(id) || 0;
+      
+      const hourlyCost = hours * hourlyRate;
+      const responseCost = showResponseRates ? responses * responseRate : 0;
+      const nonResponseCost = showResponseRates ? nonResponses * nonResponseRate : 0;
+      const totalCost = hourlyCost + responseCost + nonResponseCost;
+      
+      return {
+        id,
+        name: interviewerNames.get(id) || "Unknown",
+        hours,
+        responses,
+        nonResponses,
+        hourlyCost,
+        responseCost,
+        nonResponseCost,
+        totalCost,
+      };
+    });
+
+    // Calculate totals
     const totalHours = interviewerCosts.reduce((sum, item) => sum + item.hours, 0);
-    const totalCost = interviewerCosts.reduce((sum, item) => sum + item.cost, 0);
+    const totalResponses = interviewerCosts.reduce((sum, item) => sum + item.responses, 0);
+    const totalNonResponses = interviewerCosts.reduce((sum, item) => sum + item.nonResponses, 0);
+    const totalCost = interviewerCosts.reduce((sum, item) => sum + item.totalCost, 0);
 
     setCalculatedCosts({
       interviewerCosts,
       totalCost,
-      totalHours
+      totalHours,
+      totalResponses,
+      totalNonResponses
     });
   };
 
   useEffect(() => {
     calculateCosts();
-  }, [hourlyRate, sessions, interviewers]);
+  }, [hourlyRate, responseRate, nonResponseRate, showResponseRates, sessions, interviewers, interviews]);
 
   return {
     calculatedCosts,
