@@ -50,7 +50,7 @@ const Costs = () => {
           // Ensure result is one of the valid types or null
           result: interview.result === 'response' || interview.result === 'non-response' 
             ? interview.result 
-            : null
+            : interview.result // Keep as string - our type now allows string
         })) as Interview[] || [];
         
         setInterviews(typedInterviews);

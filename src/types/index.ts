@@ -33,7 +33,7 @@ export interface Interview {
   end_latitude: number | null;
   end_longitude: number | null;
   end_address: string | null;
-  result: 'response' | 'non-response' | null | string; // Adding string to the union type to accommodate Supabase data
+  result: 'response' | 'non-response' | null | string; // Including string to accommodate Supabase data
   is_active: boolean;
 }
 
