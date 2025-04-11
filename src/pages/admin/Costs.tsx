@@ -44,7 +44,16 @@ const Costs = () => {
           
         if (error) throw error;
         
-        setInterviews(data || []);
+        // Type assertion to handle the result field compatibility
+        const typedInterviews = data?.map(interview => ({
+          ...interview,
+          // Ensure result is one of the valid types or null
+          result: interview.result === 'response' || interview.result === 'non-response' 
+            ? interview.result 
+            : null
+        })) as Interview[] || [];
+        
+        setInterviews(typedInterviews);
       } catch (error) {
         console.error("Error fetching interviews:", error);
       } finally {
