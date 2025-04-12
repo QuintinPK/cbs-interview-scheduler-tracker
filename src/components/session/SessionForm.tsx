@@ -46,6 +46,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  
+  // If there's an active session, get its project ID
+  useEffect(() => {
+    if (activeSession?.project_id) {
+      setSelectedProjectId(activeSession.project_id);
+    }
+  }, [activeSession]);
   
   const {
     activeInterview,
@@ -70,6 +78,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
       toast({
         title: "Error",
         description: "Please enter your interviewer code",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!isRunning && !selectedProjectId) {
+      toast({
+        title: "Error",
+        description: "Please select a project",
         variant: "destructive",
       });
       return;
@@ -105,6 +122,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           .insert([
             {
               interviewer_id: interviewerId,
+              project_id: selectedProjectId,
               start_latitude: currentLocation?.latitude || null,
               start_longitude: currentLocation?.longitude || null,
               start_address: currentLocation?.address || null,
@@ -177,9 +195,33 @@ const SessionForm: React.FC<SessionFormProps> = ({
     if (activeInterview) {
       await stopInterview();
     } else {
-      await startInterview();
+      await startInterview(selectedProjectId);
     }
   };
+
+  // Get interviewer ID to filter projects
+  const [interviewerId, setInterviewerId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const getInterviewerId = async () => {
+      if (!interviewerCode) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .single();
+          
+        if (error) throw error;
+        setInterviewerId(data.id);
+      } catch (error) {
+        console.error("Error getting interviewer ID:", error);
+      }
+    };
+    
+    getInterviewerId();
+  }, [interviewerCode]);
 
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
@@ -191,6 +233,20 @@ const SessionForm: React.FC<SessionFormProps> = ({
         loading={loading}
         switchUser={switchUser}
       />
+      
+      {!isRunning && interviewerCode && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Select Project
+          </label>
+          <ProjectSelector
+            selectedProjectId={selectedProjectId}
+            onProjectChange={setSelectedProjectId}
+            interviewerId={interviewerId}
+            disabled={isRunning || loading}
+          />
+        </div>
+      )}
       
       <CurrentSessionTime startTime={startTime} isRunning={isRunning} />
       

@@ -1,8 +1,8 @@
 
-import { useState } from "react";
-import { Interview } from "@/types";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
 
 export const useInterviewActions = (sessionId: string | null) => {
@@ -11,11 +11,44 @@ export const useInterviewActions = (sessionId: string | null) => {
   const [isInterviewLoading, setIsInterviewLoading] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   
-  const startInterview = async () => {
+  const fetchActiveInterview = useCallback(async (sessionId: string) => {
+    if (!sessionId) return;
+    
+    try {
+      setIsInterviewLoading(true);
+      
+      const { data, error } = await supabase
+        .from('interviews')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('is_active', true)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+        throw error;
+      }
+      
+      setActiveInterview(data || null);
+    } catch (error) {
+      console.error("Error fetching active interview:", error);
+    } finally {
+      setIsInterviewLoading(false);
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (sessionId) {
+      fetchActiveInterview(sessionId);
+    } else {
+      setActiveInterview(null);
+    }
+  }, [sessionId, fetchActiveInterview]);
+  
+  const startInterview = async (projectId?: string) => {
     if (!sessionId) {
       toast({
         title: "Error",
-        description: "No active session found. Please start a session first.",
+        description: "No active session to attach an interview to",
         variant: "destructive",
       });
       return;
@@ -26,31 +59,41 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       const currentLocation = await getCurrentLocation();
       
-      // Use any to bypass type checking temporarily since the database schema has changed
-      // but the TypeScript definitions haven't been regenerated yet
-      const { data, error } = await (supabase as any)
+      // Get the session's project_id if not provided
+      let interviewProjectId = projectId;
+      if (!interviewProjectId) {
+        const { data: session, error: sessionError } = await supabase
+          .from('sessions')
+          .select('project_id')
+          .eq('id', sessionId)
+          .single();
+        
+        if (sessionError) throw sessionError;
+        interviewProjectId = session?.project_id;
+      }
+      
+      const { data, error } = await supabase
         .from('interviews')
-        .insert([{
-          session_id: sessionId,
-          start_latitude: currentLocation?.latitude || null,
-          start_longitude: currentLocation?.longitude || null,
-          start_address: currentLocation?.address || null,
-          is_active: true
-        }])
+        .insert([
+          {
+            session_id: sessionId,
+            project_id: interviewProjectId,
+            start_latitude: currentLocation?.latitude || null,
+            start_longitude: currentLocation?.longitude || null,
+            start_address: currentLocation?.address || null,
+            is_active: true
+          }
+        ])
         .select()
         .single();
-      
+        
       if (error) throw error;
       
-      // Type assertion to convert 'any' to Interview
-      setActiveInterview(data as Interview);
+      setActiveInterview(data);
       
       toast({
         title: "Interview Started",
-        description: `Interview started at ${new Date().toLocaleTimeString()}`,
       });
-      
-      return data as Interview;
     } catch (error) {
       console.error("Error starting interview:", error);
       toast({
@@ -58,30 +101,21 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not start interview",
         variant: "destructive",
       });
-      return null;
     } finally {
       setIsInterviewLoading(false);
     }
   };
   
   const stopInterview = async () => {
-    if (!activeInterview) {
-      toast({
-        title: "Error",
-        description: "No active interview found",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!activeInterview) return;
     
     try {
       setIsInterviewLoading(true);
       
       const currentLocation = await getCurrentLocation();
       
-      // We'll update the end time and location, but keep is_active as true
-      // until the result is selected
-      const { error } = await (supabase as any)
+      // Update interview with end location but don't set result yet
+      const { error } = await supabase
         .from('interviews')
         .update({
           end_time: new Date().toISOString(),
@@ -90,12 +124,11 @@ export const useInterviewActions = (sessionId: string | null) => {
           end_address: currentLocation?.address || null,
         })
         .eq('id', activeInterview.id);
-      
+        
       if (error) throw error;
       
-      // Show result dialog
+      // Show dialog to select interview result
       setShowResultDialog(true);
-      
     } catch (error) {
       console.error("Error stopping interview:", error);
       toast({
@@ -114,28 +147,28 @@ export const useInterviewActions = (sessionId: string | null) => {
     try {
       setIsInterviewLoading(true);
       
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('interviews')
         .update({
-          result: result,
+          result,
           is_active: false
         })
         .eq('id', activeInterview.id);
-      
+        
       if (error) throw error;
       
-      setShowResultDialog(false);
       setActiveInterview(null);
+      setShowResultDialog(false);
       
       toast({
         title: "Interview Completed",
-        description: `Result recorded: ${result}`,
+        description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}`,
       });
     } catch (error) {
       console.error("Error setting interview result:", error);
       toast({
         title: "Error",
-        description: "Could not save interview result",
+        description: "Could not complete interview",
         variant: "destructive",
       });
     } finally {
@@ -147,33 +180,8 @@ export const useInterviewActions = (sessionId: string | null) => {
     setShowResultDialog(false);
   };
   
-  const fetchActiveInterview = async (sessionId: string) => {
-    if (!sessionId) return;
-    
-    try {
-      const { data, error } = await (supabase as any)
-        .from('interviews')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('is_active', true)
-        .maybeSingle();
-      
-      if (error) throw error;
-      
-      if (data) {
-        setActiveInterview(data as Interview);
-      }
-      
-      return data as Interview | null;
-    } catch (error) {
-      console.error("Error fetching active interview:", error);
-      return null;
-    }
-  };
-  
   return {
     activeInterview,
-    setActiveInterview,
     isInterviewLoading,
     showResultDialog,
     startInterview,

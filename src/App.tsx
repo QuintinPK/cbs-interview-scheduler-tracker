@@ -16,6 +16,7 @@ import InterviewerDashboard from "./pages/admin/InterviewerDashboard";
 import Scheduling from "./pages/admin/Scheduling";
 import Costs from "./pages/admin/Costs";
 import Settings from "./pages/admin/Settings";
+import Projects from "./pages/admin/Projects"; // Add the new Projects page
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <InterviewerDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/projects" 
+        element={
+          <ProtectedRoute>
+            <Projects />
           </ProtectedRoute>
         } 
       />
