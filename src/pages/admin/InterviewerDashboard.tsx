@@ -2,18 +2,18 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
-import InterviewerHeader from "@/components/interviewer-dashboard/InterviewerHeader";
-import InterviewerQuickStats from "@/components/interviewer-dashboard/InterviewerQuickStats";
-import ContactInformation from "@/components/interviewer-dashboard/ContactInformation";
-import ActivitySummary from "@/components/interviewer-dashboard/ActivitySummary";
-import SessionHistory from "@/components/interviewer-dashboard/SessionHistory";
+import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
+import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
+import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
+import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
+import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
 import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
 import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
-import { Interviewer } from "@/types";
+import { Interviewer, Session } from "@/types";
 import { format } from "date-fns";
 
 const InterviewerDashboard = () => {
@@ -25,9 +25,21 @@ const InterviewerDashboard = () => {
   const [endDate, setEndDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   
   // Use hooks to fetch data related to this interviewer
-  const { metrics, loading: metricsLoading } = useInterviewerMetrics();
-  const { sessions, loading: sessionsLoading } = useInterviewerSessions(id);
-  const { hours, loading: hoursLoading } = useInterviewerWorkHours(id, startDate, endDate);
+  const { 
+    daysSinceLastActive,
+    avgDaysPerWeek,
+    daysWorkedInMonth,
+    sessionsInPlanTime,
+    avgSessionDuration,
+    earliestStartTime,
+    latestEndTime,
+    sessions
+  } = useInterviewerMetrics(id);
+  
+  const sessionsData = sessions || [];
+  const activeSessions = sessionsData.filter(session => session.is_active);
+  
+  const { totalActiveTime, totalActiveSeconds } = useInterviewerWorkHours(id, startDate, endDate);
   
   useEffect(() => {
     if (interviewers.length > 0 && id) {
@@ -75,36 +87,40 @@ const InterviewerDashboard = () => {
           
           <InterviewerHeader 
             interviewer={interviewer} 
-            totalSessions={sessions.length} 
-            totalHours={hours.totalHours || 0}
+            loading={false}
           />
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
             <InterviewerQuickStats 
-              totalSessions={sessions.length}
-              completedInterviews={metrics.completedInterviews}
-              averageSessionTime={metrics.averageSessionDuration}
-              loading={sessionsLoading || metricsLoading}
+              interviewer={interviewer}
+              totalTime={totalActiveTime}
+              hasActiveSessions={activeSessions.length > 0}
             />
             
             <ActivitySummary 
-              sessions={sessions} 
-              metrics={metrics}
-              loading={sessionsLoading || metricsLoading} 
+              sessions={sessionsData} 
+              daysSinceLastActive={daysSinceLastActive || 0}
+              avgDaysPerWeek={avgDaysPerWeek}
+              daysWorkedInMonth={daysWorkedInMonth}
+              sessionsInPlanTime={sessionsInPlanTime}
+              avgSessionDuration={avgSessionDuration}
+              earliestStartTime={earliestStartTime ? new Date(earliestStartTime) : null}
+              latestEndTime={latestEndTime ? new Date(latestEndTime) : null}
+              activeSessions={activeSessions}
             />
             
             <SessionHistory 
-              sessions={sessions} 
-              loading={sessionsLoading} 
+              sessions={sessionsData} 
+              dateRange={undefined}
+              setDateRange={() => {}}
             />
           </div>
           
           <div className="space-y-6">
             <ContactInformation 
               interviewer={interviewer} 
-              loading={false} 
             />
             
             {/* Additional cards can be added here */}
