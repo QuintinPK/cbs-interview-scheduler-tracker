@@ -20,7 +20,18 @@ export const useInterviewers = () => {
         
       if (error) throw error;
       
-      setInterviewers(data || []);
+      // Ensure data conforms to the Interviewer interface
+      const typedInterviewers: Interviewer[] = data?.map(interviewer => ({
+        id: interviewer.id,
+        code: interviewer.code,
+        first_name: interviewer.first_name,
+        last_name: interviewer.last_name,
+        phone: interviewer.phone,
+        email: interviewer.email,
+        island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
+      })) || [];
+      
+      setInterviewers(typedInterviewers);
     } catch (error) {
       console.error("Error loading interviewers:", error);
       toast({

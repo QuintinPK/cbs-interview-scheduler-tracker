@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -12,8 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { PlusCircle, Loader2, Search, Calendar, MapPin, Users, ArrowLeft } from "lucide-react";
-import { format, parse } from "date-fns";
+import { PlusCircle, Loader2, Search, ArrowLeft } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,13 +62,23 @@ const Projects = () => {
           
         if (error) throw error;
         
-        setSelectedInterviewer(data);
+        const typedInterviewer: Interviewer = {
+          id: data.id,
+          code: data.code,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          phone: data.phone,
+          email: data.email,
+          island: data.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
+        };
+        
+        setSelectedInterviewer(typedInterviewer);
         
         const projects = await getInterviewerProjects(interviewerId);
         setInterviewerProjects(projects);
         
-        if (data.island) {
-          setSelectedIsland(data.island);
+        if (typedInterviewer.island) {
+          setSelectedIsland(typedInterviewer.island);
         }
       } catch (error) {
         console.error("Error fetching interviewer details:", error);
