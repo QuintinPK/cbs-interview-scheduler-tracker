@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Session } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,8 +29,14 @@ const SessionTotals: React.FC<SessionTotalsProps> = ({
     return acc;
   }, 0);
 
-  const averageDuration = totalSessions > 0 ? totalDurationMilliseconds / completedSessions : 0;
-  const formattedAverageDuration = formatDuration(new Date(averageDuration).toISOString(), new Date(0).toISOString());
+  const averageDuration = totalSessions > 0 && completedSessions > 0 
+    ? totalDurationMilliseconds / completedSessions 
+    : 0;
+  
+  // Calculate hours and minutes for average duration
+  const avgHours = Math.floor(averageDuration / (1000 * 60 * 60));
+  const avgMinutes = Math.floor((averageDuration % (1000 * 60 * 60)) / (1000 * 60));
+  const formattedAverageDuration = `${avgHours}h ${avgMinutes}m`;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
