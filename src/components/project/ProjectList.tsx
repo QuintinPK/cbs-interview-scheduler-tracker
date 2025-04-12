@@ -64,8 +64,8 @@ const ProjectList: React.FC<ProjectListProps> = ({
                   <TableCell>
                     <Badge variant={
                       project.island === 'Bonaire' ? 'default' : 
-                      project.island === 'Saba' ? 'blue' : 
-                      'green'
+                      project.island === 'Saba' ? 'info' : 
+                      'purple'
                     }>
                       {project.island}
                     </Badge>
