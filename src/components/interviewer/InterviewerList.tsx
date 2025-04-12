@@ -1,7 +1,5 @@
 
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { Interviewer } from "@/types";
 import { 
   Table, 
   TableBody, 
@@ -10,8 +8,10 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
-import { Pencil, Calendar, Trash2, Loader2, BarChart, Mail, Phone } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Calendar, BarChart, Users, Loader2 } from "lucide-react";
+import { Interviewer } from "@/types";
 
 interface InterviewerListProps {
   interviewers: Interviewer[];
@@ -20,6 +20,7 @@ interface InterviewerListProps {
   onDelete: (interviewer: Interviewer) => void;
   onSchedule: (interviewer: Interviewer) => void;
   onViewDashboard: (interviewer: Interviewer) => void;
+  onManageProjects?: (interviewer: Interviewer) => void;
 }
 
 const InterviewerList: React.FC<InterviewerListProps> = ({
@@ -28,25 +29,20 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   onEdit,
   onDelete,
   onSchedule,
-  onViewDashboard
+  onViewDashboard,
+  onManageProjects
 }) => {
-  const formatPhoneNumber = (phone: string) => {
-    // Remove any non-digit character
-    const cleaned = phone.replace(/\D/g, '');
-    return cleaned;
-  };
-  
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="bg-slate-50">
-              <TableHead className="font-semibold">Code</TableHead>
-              <TableHead className="font-semibold">Name</TableHead>
-              <TableHead className="font-semibold">Contact</TableHead>
-              <TableHead className="font-semibold">Email</TableHead>
-              <TableHead className="font-semibold">Actions</TableHead>
+            <TableRow>
+              <TableHead>Code</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Island</TableHead>
+              <TableHead>Contact</TableHead>
+              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -66,64 +62,39 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               </TableRow>
             ) : (
               interviewers.map((interviewer) => (
-                <TableRow key={interviewer.id} className="hover:bg-slate-50">
+                <TableRow key={interviewer.id}>
                   <TableCell className="font-medium">{interviewer.code}</TableCell>
+                  <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
                   <TableCell>
-                    <button 
-                      onClick={() => onViewDashboard(interviewer)} 
-                      className="text-left hover:text-cbs hover:underline transition-colors font-medium"
-                    >
-                      {`${interviewer.first_name} ${interviewer.last_name}`}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    {interviewer.phone ? (
-                      <a 
-                        href={`https://wa.me/${formatPhoneNumber(interviewer.phone)}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-green-600 hover:text-green-800 transition-colors"
-                      >
-                        <Phone className="h-4 w-4 mr-1" />
-                        <span className="hover:underline">{interviewer.phone}</span>
-                      </a>
+                    {interviewer.island ? (
+                      <Badge variant={
+                        interviewer.island === 'Bonaire' ? 'default' : 
+                        interviewer.island === 'Saba' ? 'info' : 
+                        'purple'
+                      }>
+                        {interviewer.island}
+                      </Badge>
                     ) : (
-                      <span className="text-muted-foreground">-</span>
+                      <span className="text-muted-foreground text-sm">Not assigned</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {interviewer.email ? (
-                      <a 
-                        href={`mailto:${interviewer.email}`}
-                        className="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        <Mail className="h-4 w-4 mr-1" />
-                        <span className="hover:underline">{interviewer.email}</span>
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
+                    <div className="space-y-1">
+                      {interviewer.phone && (
+                        <div className="text-sm">{interviewer.phone}</div>
+                      )}
+                      {interviewer.email && (
+                        <div className="text-sm text-muted-foreground">{interviewer.email}</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onViewDashboard(interviewer)}
-                        title="Dashboard"
-                        disabled={loading}
-                        className="hover:bg-cbs/10 hover:text-cbs"
-                      >
-                        <BarChart className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
                         onClick={() => onEdit(interviewer)}
-                        title="Edit"
-                        disabled={loading}
-                        className="hover:bg-blue-100 hover:text-blue-600"
+                        title="Edit Interviewer"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -132,9 +103,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                         variant="ghost"
                         size="icon"
                         onClick={() => onSchedule(interviewer)}
-                        title="Schedule"
-                        disabled={loading}
-                        className="hover:bg-green-100 hover:text-green-600"
+                        title="Schedule Interviewer"
                       >
                         <Calendar className="h-4 w-4" />
                       </Button>
@@ -142,10 +111,28 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => onViewDashboard(interviewer)}
+                        title="View Dashboard"
+                      >
+                        <BarChart className="h-4 w-4" />
+                      </Button>
+                      
+                      {onManageProjects && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onManageProjects(interviewer)}
+                          title="Manage Projects"
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => onDelete(interviewer)}
-                        title="Delete"
-                        disabled={loading}
-                        className="hover:bg-red-100"
+                        title="Delete Interviewer"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>

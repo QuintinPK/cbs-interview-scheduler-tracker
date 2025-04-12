@@ -33,6 +33,7 @@ const Interviewers = () => {
     last_name: "",
     phone: "",
     email: "",
+    island: undefined as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined,
   });
   
   const filteredInterviewers = interviewers.filter((interviewer) => {
@@ -41,7 +42,8 @@ const Interviewers = () => {
       interviewer.code.toLowerCase().includes(query) ||
       interviewer.first_name.toLowerCase().includes(query) ||
       interviewer.last_name.toLowerCase().includes(query) ||
-      (interviewer.email && interviewer.email.toLowerCase().includes(query))
+      (interviewer.email && interviewer.email.toLowerCase().includes(query)) ||
+      (interviewer.island && interviewer.island.toLowerCase().includes(query))
     );
   });
   
@@ -50,6 +52,13 @@ const Interviewers = () => {
     setFormData({
       ...formData,
       [name]: value,
+    });
+  };
+  
+  const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => {
+    setFormData({
+      ...formData,
+      island,
     });
   };
   
@@ -62,6 +71,7 @@ const Interviewers = () => {
       last_name: "",
       phone: "",
       email: "",
+      island: undefined,
     });
     setShowAddEditDialog(true);
   };
@@ -75,6 +85,7 @@ const Interviewers = () => {
       last_name: interviewer.last_name,
       phone: interviewer.phone || "",
       email: interviewer.email || "",
+      island: interviewer.island,
     });
     setShowAddEditDialog(true);
   };
@@ -100,6 +111,7 @@ const Interviewers = () => {
       
       setShowAddEditDialog(false);
     } catch (error) {
+      console.error("Error saving interviewer:", error);
     } finally {
       setSubmitting(false);
     }
@@ -113,6 +125,7 @@ const Interviewers = () => {
       await deleteInterviewer(selectedInterviewer.id);
       setShowDeleteDialog(false);
     } catch (error) {
+      console.error("Error deleting interviewer:", error);
     } finally {
       setSubmitting(false);
     }
@@ -124,6 +137,10 @@ const Interviewers = () => {
   
   const handleViewDashboard = (interviewer: Interviewer) => {
     navigate(`/admin/interviewer/${interviewer.id}`);
+  };
+  
+  const handleProjects = (interviewer: Interviewer) => {
+    navigate(`/admin/projects?interviewer=${interviewer.id}`);
   };
   
   return (
@@ -153,7 +170,7 @@ const Interviewers = () => {
           <div className="max-w-md relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search by name, code, or email..."
+              placeholder="Search by name, code, island, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={loading}
@@ -173,6 +190,7 @@ const Interviewers = () => {
           onDelete={handleDelete}
           onSchedule={handleSchedule}
           onViewDashboard={handleViewDashboard}
+          onManageProjects={handleProjects}
         />
       </div>
       
@@ -185,6 +203,7 @@ const Interviewers = () => {
           <InterviewerForm
             formData={formData}
             handleInputChange={handleInputChange}
+            handleIslandChange={handleIslandChange}
             handleSubmit={handleSubmit}
             isEditing={isEditing}
             loading={submitting}

@@ -6,13 +6,13 @@ export interface Interviewer {
   last_name: string;
   phone: string;
   email: string;
-  island?: 'Bonaire' | 'Saba' | 'Sint Eustatius'; // Add island field
+  island?: 'Bonaire' | 'Saba' | 'Sint Eustatius';
 }
 
 export interface Session {
   id: string;
   interviewer_id: string;
-  project_id?: string; // Add project_id to track which project a session belongs to
+  project_id?: string;
   start_time: string;
   end_time: string | null;
   start_latitude: number | null;
@@ -27,7 +27,7 @@ export interface Session {
 export interface Interview {
   id: string;
   session_id: string;
-  project_id?: string; // Add project_id to track which project an interview belongs to
+  project_id?: string;
   start_time: string;
   end_time: string | null;
   start_latitude: number | null;
@@ -36,7 +36,7 @@ export interface Interview {
   end_latitude: number | null;
   end_longitude: number | null;
   end_address: string | null;
-  result: 'response' | 'non-response' | null | string; // Including string to accommodate Supabase data
+  result: 'response' | 'non-response' | null | string;
   is_active: boolean;
 }
 
@@ -49,14 +49,13 @@ export interface Location {
 export interface Schedule {
   id: string;
   interviewer_id: string;
-  project_id?: string; // Add project_id to track which project a schedule belongs to
+  project_id?: string;
   start_time: string;
   end_time: string;
   status: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
 }
 
-// Add new Project interface
 export interface Project {
   id: string;
   name: string;
@@ -65,7 +64,6 @@ export interface Project {
   island: 'Bonaire' | 'Saba' | 'Sint Eustatius';
 }
 
-// Add interface for the project-interviewer relationship
 export interface ProjectInterviewer {
   id: string;
   project_id: string;

@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -11,17 +10,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { PlusCircle, Loader2, Search, Calendar, MapPin, Users } from "lucide-react";
+import { PlusCircle, Loader2, Search, Calendar, MapPin, Users, ArrowLeft } from "lucide-react";
 import { format, parse } from "date-fns";
 import { useProjects } from "@/hooks/useProjects";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import IslandSelector from "@/components/ui/IslandSelector";
 import ProjectList from "@/components/project/ProjectList";
 import ProjectForm from "@/components/project/ProjectForm";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const Projects = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const interviewerId = searchParams.get('interviewer');
+  
   const { projects, loading, addProject, updateProject, deleteProject, 
-    getProjectInterviewers, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
+    getProjectInterviewers, assignInterviewerToProject, removeInterviewerFromProject, getInterviewerProjects } = useProjects();
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,6 +38,8 @@ const Projects = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [projectInterviewers, setProjectInterviewers] = useState<Interviewer[]>([]);
+  const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
+  const [interviewerProjects, setInterviewerProjects] = useState<Project[]>([]);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -41,11 +48,49 @@ const Projects = () => {
     island: "Bonaire" as 'Bonaire' | 'Saba' | 'Sint Eustatius'
   });
   
+  useEffect(() => {
+    const fetchInterviewerDetails = async () => {
+      if (!interviewerId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('*')
+          .eq('id', interviewerId)
+          .single();
+          
+        if (error) throw error;
+        
+        setSelectedInterviewer(data);
+        
+        const projects = await getInterviewerProjects(interviewerId);
+        setInterviewerProjects(projects);
+        
+        if (data.island) {
+          setSelectedIsland(data.island);
+        }
+      } catch (error) {
+        console.error("Error fetching interviewer details:", error);
+      }
+    };
+    
+    fetchInterviewerDetails();
+  }, [interviewerId]);
+  
   const filteredProjects = projects.filter((project) => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = project.name.toLowerCase().includes(query) || 
                           project.island.toLowerCase().includes(query);
     const matchesIsland = !selectedIsland || project.island === selectedIsland;
+    
+    if (selectedInterviewer) {
+      if (interviewerProjects.length > 0) {
+        return matchesSearch && matchesIsland && interviewerProjects.some(p => p.id === project.id);
+      } else {
+        return matchesSearch && matchesIsland && (!selectedInterviewer.island || project.island === selectedInterviewer.island);
+      }
+    }
+    
     return matchesSearch && matchesIsland;
   });
   
@@ -83,7 +128,7 @@ const Projects = () => {
       name: "",
       start_date: format(today, 'yyyy-MM-dd'),
       end_date: format(today, 'yyyy-MM-dd'),
-      island: "Bonaire"
+      island: selectedIsland || "Bonaire"
     });
     setShowAddEditDialog(true);
   };
@@ -128,7 +173,11 @@ const Projects = () => {
       if (isEditing && selectedProject) {
         await updateProject(selectedProject.id, formData);
       } else {
-        await addProject(formData);
+        const newProject = await addProject(formData);
+        
+        if (selectedInterviewer && newProject) {
+          await assignInterviewerToProject(newProject.id, selectedInterviewer.id);
+        }
       }
       
       setShowAddEditDialog(false);
@@ -160,7 +209,6 @@ const Projects = () => {
       setSubmitting(true);
       await assignInterviewerToProject(selectedProject.id, interviewerId);
       
-      // Refresh the list of interviewers for this project
       const updatedInterviewers = await getProjectInterviewers(selectedProject.id);
       setProjectInterviewers(updatedInterviewers);
     } catch (error) {
@@ -177,7 +225,6 @@ const Projects = () => {
       setSubmitting(true);
       await removeInterviewerFromProject(selectedProject.id, interviewerId);
       
-      // Refresh the list of interviewers for this project
       const updatedInterviewers = await getProjectInterviewers(selectedProject.id);
       setProjectInterviewers(updatedInterviewers);
     } catch (error) {
@@ -192,12 +239,36 @@ const Projects = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cbs to-cbs-light bg-clip-text text-transparent">
-              Project Management
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage fieldwork projects across islands
-            </p>
+            {selectedInterviewer ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="p-0 h-auto" 
+                    onClick={() => navigate('/admin/interviewers')}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Back to Interviewers
+                  </Button>
+                </div>
+                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cbs to-cbs-light bg-clip-text text-transparent">
+                  Projects for {selectedInterviewer.first_name} {selectedInterviewer.last_name}
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Manage project assignments for this interviewer
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cbs to-cbs-light bg-clip-text text-transparent">
+                  Project Management
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Manage fieldwork projects across islands
+                </p>
+              </>
+            )}
           </div>
           
           <Button
@@ -206,7 +277,7 @@ const Projects = () => {
             disabled={loading}
           >
             <PlusCircle size={16} />
-            Add New Project
+            {selectedInterviewer ? "Add New Project for Interviewer" : "Add New Project"}
           </Button>
         </div>
         
@@ -228,13 +299,16 @@ const Projects = () => {
                 selectedIsland={selectedIsland}
                 onIslandChange={handleFilterIslandChange}
                 placeholder="All Islands"
-                disabled={loading}
+                disabled={loading || (!!selectedInterviewer && !!selectedInterviewer.island)}
               />
             </div>
           </div>
           
           <div className="mt-2 text-sm text-muted-foreground">
             {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} found
+            {selectedInterviewer && (
+              <> for {selectedInterviewer.first_name} {selectedInterviewer.last_name}</>
+            )}
           </div>
         </div>
         
@@ -331,6 +405,15 @@ const Projects = () => {
                     <div>
                       <p className="font-medium">{interviewer.first_name} {interviewer.last_name}</p>
                       <p className="text-sm text-muted-foreground">{interviewer.code}</p>
+                      {interviewer.island && (
+                        <Badge variant={
+                          interviewer.island === 'Bonaire' ? 'default' : 
+                          interviewer.island === 'Saba' ? 'info' : 
+                          'purple'
+                        } className="mt-1">
+                          {interviewer.island}
+                        </Badge>
+                      )}
                     </div>
                     <Button 
                       variant="ghost" 
@@ -351,11 +434,21 @@ const Projects = () => {
             <div className="border rounded-md divide-y max-h-60 overflow-y-auto">
               {interviewers
                 .filter(interviewer => !projectInterviewers.some(pi => pi.id === interviewer.id))
+                .filter(interviewer => !selectedProject || !interviewer.island || interviewer.island === selectedProject.island)
                 .map(interviewer => (
                   <div key={interviewer.id} className="flex items-center justify-between p-3">
                     <div>
                       <p className="font-medium">{interviewer.first_name} {interviewer.last_name}</p>
                       <p className="text-sm text-muted-foreground">{interviewer.code}</p>
+                      {interviewer.island && (
+                        <Badge variant={
+                          interviewer.island === 'Bonaire' ? 'default' : 
+                          interviewer.island === 'Saba' ? 'info' : 
+                          'purple'
+                        } className="mt-1">
+                          {interviewer.island}
+                        </Badge>
+                      )}
                     </div>
                     <Button 
                       variant="ghost" 
