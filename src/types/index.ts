@@ -11,6 +11,7 @@ export interface Interviewer {
 export interface Session {
   id: string;
   interviewer_id: string;
+  project_id: string | null;
   start_time: string;
   end_time: string | null;
   start_latitude: number | null;
@@ -25,6 +26,7 @@ export interface Session {
 export interface Interview {
   id: string;
   session_id: string;
+  project_id: string | null;
   start_time: string;
   end_time: string | null;
   start_latitude: number | null;
@@ -46,8 +48,27 @@ export interface Location {
 export interface Schedule {
   id: string;
   interviewer_id: string;
+  project_id: string | null;
   start_time: string;
   end_time: string;
   status: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
+}
+
+export type Island = 'Bonaire' | 'Saba' | 'Sint Eustatius';
+
+export interface Project {
+  id: string;
+  name: string;
+  island: Island;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+}
+
+export interface ProjectInterviewer {
+  id: string;
+  project_id: string;
+  interviewer_id: string;
+  created_at: string;
 }

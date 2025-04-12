@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Interview } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +10,7 @@ export const useInterviewActions = (sessionId: string | null) => {
   const [isInterviewLoading, setIsInterviewLoading] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   
-  const startInterview = async () => {
+  const startInterview = async (projectId: string | null = null) => {
     if (!sessionId) {
       toast({
         title: "Error",
@@ -32,6 +31,7 @@ export const useInterviewActions = (sessionId: string | null) => {
         .from('interviews')
         .insert([{
           session_id: sessionId,
+          project_id: projectId,
           start_latitude: currentLocation?.latitude || null,
           start_longitude: currentLocation?.longitude || null,
           start_address: currentLocation?.address || null,

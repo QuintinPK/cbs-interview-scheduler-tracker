@@ -72,6 +72,7 @@ export type Database = {
           end_time: string | null
           id: string
           is_active: boolean
+          project_id: string | null
           result: string | null
           session_id: string
           start_address: string | null
@@ -87,6 +88,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           is_active?: boolean
+          project_id?: string | null
           result?: string | null
           session_id: string
           start_address?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           end_time?: string | null
           id?: string
           is_active?: boolean
+          project_id?: string | null
           result?: string | null
           session_id?: string
           start_address?: string | null
@@ -111,6 +114,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "interviews_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "interviews_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
@@ -119,6 +129,69 @@ export type Database = {
           },
         ]
       }
+      project_interviewers: {
+        Row: {
+          created_at: string
+          id: string
+          interviewer_id: string
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interviewer_id: string
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interviewer_id?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_interviewers_interviewer_id_fkey"
+            columns: ["interviewer_id"]
+            isOneToOne: false
+            referencedRelation: "interviewers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_interviewers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          island: Database["public"]["Enums"]["island"]
+          name: string
+          start_date: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          island: Database["public"]["Enums"]["island"]
+          name: string
+          start_date: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          island?: Database["public"]["Enums"]["island"]
+          name?: string
+          start_date?: string
+        }
+        Relationships: []
+      }
       schedules: {
         Row: {
           created_at: string
@@ -126,6 +199,7 @@ export type Database = {
           id: string
           interviewer_id: string
           notes: string | null
+          project_id: string | null
           start_time: string
           status: string
         }
@@ -135,6 +209,7 @@ export type Database = {
           id?: string
           interviewer_id: string
           notes?: string | null
+          project_id?: string | null
           start_time: string
           status?: string
         }
@@ -144,6 +219,7 @@ export type Database = {
           id?: string
           interviewer_id?: string
           notes?: string | null
+          project_id?: string | null
           start_time?: string
           status?: string
         }
@@ -153,6 +229,13 @@ export type Database = {
             columns: ["interviewer_id"]
             isOneToOne: false
             referencedRelation: "interviewers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedules_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -167,6 +250,7 @@ export type Database = {
           id: string
           interviewer_id: string
           is_active: boolean
+          project_id: string | null
           start_address: string | null
           start_latitude: number | null
           start_longitude: number | null
@@ -181,6 +265,7 @@ export type Database = {
           id?: string
           interviewer_id: string
           is_active?: boolean
+          project_id?: string | null
           start_address?: string | null
           start_latitude?: number | null
           start_longitude?: number | null
@@ -195,6 +280,7 @@ export type Database = {
           id?: string
           interviewer_id?: string
           is_active?: boolean
+          project_id?: string | null
           start_address?: string | null
           start_latitude?: number | null
           start_longitude?: number | null
@@ -208,6 +294,13 @@ export type Database = {
             referencedRelation: "interviewers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -218,7 +311,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      island: "Bonaire" | "Saba" | "Sint Eustatius"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -333,6 +426,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      island: ["Bonaire", "Saba", "Sint Eustatius"],
+    },
   },
 } as const

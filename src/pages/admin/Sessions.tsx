@@ -1,7 +1,7 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { Session, Interview } from "@/types";
+import { Session, Interview, Island, Project } from "@/types";
 import { exportToCSV, calculateDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,7 @@ import SessionList from "@/components/session/SessionList";
 import { useSessions } from "@/hooks/useSessions";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useProjects } from "@/hooks/useProjects";
 
 const Sessions = () => {
   const { toast } = useToast();
@@ -37,6 +38,10 @@ const Sessions = () => {
     setInterviewerCodeFilter,
     dateFilter,
     setDateFilter,
+    islandFilter,
+    setIslandFilter,
+    projectFilter,
+    setProjectFilter,
     getInterviewerCode,
     applyFilters,
     resetFilters,
@@ -44,6 +49,8 @@ const Sessions = () => {
     updateSession,
     deleteSession
   } = useSessions();
+  
+  const { projects, loading: projectsLoading } = useProjects(islandFilter);
   
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -171,9 +178,27 @@ const Sessions = () => {
     }
   };
   
+  const getProjectName = (projectId: string | null): string => {
+    if (!projectId) return "N/A";
+    const project = projects.find(p => p.id === projectId);
+    return project ? project.name : "Unknown Project";
+  };
+  
+  const getProjectIsland = (projectId: string | null): Island | null => {
+    if (!projectId) return null;
+    const project = projects.find(p => p.id === projectId);
+    return project ? project.island : null;
+  };
+  
+  const handleApplyFilters = () => {
+    applyFilters([], projects);
+  };
+  
   const handleExport = () => {
     const exportData = filteredSessions.map(session => ({
       InterviewerCode: getInterviewerCode(session.interviewer_id),
+      Project: session.project_id ? getProjectName(session.project_id) : 'N/A',
+      Island: session.project_id ? getProjectIsland(session.project_id) || 'N/A' : 'N/A',
       StartTime: formatDateTime(session.start_time),
       EndTime: session.end_time ? formatDateTime(session.end_time) : 'Active',
       Duration: session.end_time ? calculateDuration(session.start_time, session.end_time) : 'Ongoing',
@@ -212,7 +237,11 @@ const Sessions = () => {
           setInterviewerCodeFilter={setInterviewerCodeFilter}
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
-          applyFilters={applyFilters}
+          islandFilter={islandFilter}
+          setIslandFilter={setIslandFilter}
+          projectFilter={projectFilter}
+          setProjectFilter={setProjectFilter}
+          applyFilters={handleApplyFilters}
           resetFilters={resetFilters}
           loading={loading}
         />
@@ -222,6 +251,8 @@ const Sessions = () => {
           sessions={filteredSessions}
           loading={loading}
           getInterviewerCode={getInterviewerCode}
+          getProjectName={getProjectName}
+          getProjectIsland={getProjectIsland}
           getSessionInterviews={getSessionInterviews}
           getSessionInterviewsCount={getSessionInterviewsCount}
           onEdit={handleEdit}
@@ -245,6 +276,16 @@ const Sessions = () => {
                 disabled 
               />
             </div>
+            
+            {selectedSession?.project_id && (
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <Input 
+                  value={getProjectName(selectedSession.project_id)} 
+                  disabled 
+                />
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label>Start Date/Time</Label>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -9,9 +10,9 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle, MapPin } from "lucide-react";
+import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle, MapPin, Building } from "lucide-react";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
-import { Session, Interview } from "@/types";
+import { Session, Interview, Island } from "@/types";
 import InterviewsList from "./InterviewsList";
 import CoordinatePopup from "../ui/CoordinatePopup";
 
@@ -19,6 +20,8 @@ interface SessionListProps {
   sessions: Session[];
   loading: boolean;
   getInterviewerCode: (interviewerId: string) => string;
+  getProjectName?: (projectId: string | null) => string;
+  getProjectIsland?: (projectId: string | null) => Island | null;
   getSessionInterviews: (sessionId: string) => Promise<Interview[]>;
   getSessionInterviewsCount: (sessionId: string) => Promise<number>;
   onEdit: (session: Session) => void;
@@ -30,6 +33,8 @@ const SessionList: React.FC<SessionListProps> = ({
   sessions,
   loading,
   getInterviewerCode,
+  getProjectName = () => "N/A",
+  getProjectIsland = () => null,
   getSessionInterviews,
   getSessionInterviewsCount,
   onEdit,
@@ -139,6 +144,8 @@ const SessionList: React.FC<SessionListProps> = ({
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Interviewer Code</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead>Island</TableHead>
                 <TableHead>Start Date/Time</TableHead>
                 <TableHead>End Date/Time</TableHead>
                 <TableHead>Duration</TableHead>
@@ -151,7 +158,7 @@ const SessionList: React.FC<SessionListProps> = ({
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10">
+                  <TableCell colSpan={11} className="text-center py-10">
                     <div className="flex justify-center items-center">
                       <Loader2 className="h-8 w-8 animate-spin text-cbs" />
                     </div>
@@ -159,7 +166,7 @@ const SessionList: React.FC<SessionListProps> = ({
                 </TableRow>
               ) : sessions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-6 text-muted-foreground">
                     No sessions found
                   </TableCell>
                 </TableRow>
@@ -183,6 +190,26 @@ const SessionList: React.FC<SessionListProps> = ({
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
+                      <TableCell>
+                        {session.project_id ? (
+                          <div className="flex items-center">
+                            <Building className="h-3 w-3 mr-1 text-gray-500" />
+                            <span>{getProjectName(session.project_id)}</span>
+                          </div>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.project_id && getProjectIsland(session.project_id) ? (
+                          <Badge variant="outline" className="flex items-center w-fit">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {getProjectIsland(session.project_id)}
+                          </Badge>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
                       <TableCell>{formatDateTime(session.start_time)}</TableCell>
                       <TableCell>
                         {session.end_time ? formatDateTime(session.end_time) : (
@@ -274,7 +301,7 @@ const SessionList: React.FC<SessionListProps> = ({
                     </TableRow>
                     {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="p-0 border-t-0">
+                        <TableCell colSpan={11} className="p-0 border-t-0">
                           <div className="bg-gray-50 pl-12 pr-4 py-4">
                             {loadingInterviews[session.id] ? (
                               <div className="flex justify-center items-center py-4">
