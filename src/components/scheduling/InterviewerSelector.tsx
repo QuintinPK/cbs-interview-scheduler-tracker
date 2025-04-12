@@ -1,75 +1,93 @@
 
 import React from "react";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Interviewer } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InterviewerSelectorProps {
   interviewers: Interviewer[];
-  selectedInterviewerCode: string;
-  onInterviewerChange: (code: string) => void;
+  selectedInterviewer?: Interviewer;
+  selectedInterviewerCode?: string;
+  onSelectInterviewer?: (interviewer: Interviewer) => void;
+  onInterviewerChange?: (code: string) => void;
+  loading?: boolean;
   scheduledHours?: number;
   workedHours?: number;
 }
 
-export const InterviewerSelector = ({
+export const InterviewerSelector: React.FC<InterviewerSelectorProps> = ({
   interviewers,
+  selectedInterviewer,
   selectedInterviewerCode,
+  onSelectInterviewer,
   onInterviewerChange,
+  loading = false,
   scheduledHours,
   workedHours,
-}: InterviewerSelectorProps) => {
+}) => {
+  const handleInterviewerClick = (interviewer: Interviewer) => {
+    if (onSelectInterviewer) {
+      onSelectInterviewer(interviewer);
+    }
+    if (onInterviewerChange) {
+      onInterviewerChange(interviewer.code);
+    }
+  };
+
   return (
-    <Card className="bg-white">
-      <CardContent className="pt-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="flex-1">
-            <Label htmlFor="interviewer-select">Select Interviewer</Label>
-            <Select
-              value={selectedInterviewerCode}
-              onValueChange={onInterviewerChange}
-            >
-              <SelectTrigger id="interviewer-select" className="mt-1">
-                <SelectValue placeholder="Select an interviewer" />
-              </SelectTrigger>
-              <SelectContent>
-                {interviewers.map((interviewer) => (
-                  <SelectItem key={interviewer.id} value={interviewer.code}>
-                    {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <Card className="h-full">
+      <CardContent className="p-4">
+        <h3 className="font-medium mb-4">Interviewers</h3>
+        {loading ? (
+          <div className="flex justify-center py-4">
+            <div className="animate-spin h-5 w-5 border-2 border-cbs border-t-transparent rounded-full" />
           </div>
-          
-          {selectedInterviewerCode && scheduledHours !== undefined && workedHours !== undefined && (
-            <div className="bg-gray-50 p-4 rounded-lg flex flex-col md:flex-row gap-4">
-              <div className="text-center">
+        ) : (
+          <ScrollArea className="h-[600px] pr-4">
+            <div className="space-y-2">
+              {interviewers.map((interviewer) => (
+                <div
+                  key={interviewer.id}
+                  className={`p-3 rounded-md cursor-pointer ${
+                    selectedInterviewer?.id === interviewer.id ||
+                    (selectedInterviewerCode && selectedInterviewerCode === interviewer.code)
+                      ? "bg-cbs/10 border-l-4 border-cbs"
+                      : "bg-gray-50 hover:bg-gray-100"
+                  }`}
+                  onClick={() => handleInterviewerClick(interviewer)}
+                >
+                  <div className="font-semibold">{interviewer.code}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {interviewer.first_name} {interviewer.last_name}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
+        
+        {selectedInterviewer && scheduledHours !== undefined && workedHours !== undefined && (
+          <div className="mt-6 bg-gray-50 p-4 rounded-lg">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
                 <div className="text-sm font-medium text-gray-500">Scheduled</div>
-                <div className="text-2xl font-bold text-cbs">{scheduledHours}h</div>
+                <div className="text-xl font-bold text-cbs">{scheduledHours}h</div>
               </div>
-              <div className="text-center">
+              <div>
                 <div className="text-sm font-medium text-gray-500">Actual</div>
-                <div className="text-2xl font-bold text-green-600">{workedHours}h</div>
+                <div className="text-xl font-bold text-green-600">{workedHours}h</div>
               </div>
-              <div className="text-center">
+              <div>
                 <div className="text-sm font-medium text-gray-500">Efficiency</div>
-                <div className="text-2xl font-bold text-indigo-600">
+                <div className="text-xl font-bold text-indigo-600">
                   {scheduledHours > 0 
                     ? Math.round((workedHours / scheduledHours) * 100) 
                     : 0}%
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

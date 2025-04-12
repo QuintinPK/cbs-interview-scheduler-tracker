@@ -3,11 +3,11 @@ import { useState } from "react";
 import { Session } from "@/types";
 import { useInterviewerActivity } from "@/hooks/useInterviewerActivity";
 import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
-import { useScheduleData } from "@/hooks/useScheduleData";
+import { useSchedules } from "@/hooks/useSchedules";
 
 export const useInterviewerMetrics = (interviewerId?: string, sessions: Session[] = []) => {
   // Get schedules data
-  const { schedules } = useScheduleData(interviewerId);
+  const { schedules } = useSchedules(interviewerId);
   
   // Get activity metrics
   const { 

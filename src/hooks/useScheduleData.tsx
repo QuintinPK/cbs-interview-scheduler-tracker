@@ -35,6 +35,7 @@ export const useScheduleData = (
   }, [selectedInterviewer, schedules, weekStart]);
   
   return {
-    schedulesPerDay
+    schedulesPerDay,
+    schedules
   };
 };

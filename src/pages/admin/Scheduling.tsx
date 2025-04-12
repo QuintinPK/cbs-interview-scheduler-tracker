@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { addDays, format, startOfDay, endOfDay, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import { DateRange } from "react-day-picker";
@@ -39,7 +38,6 @@ const Scheduling = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredInterviewers, setFilteredInterviewers] = useState<Interviewer[]>([]);
   
-  // Project selection state
   const [selectedIsland, setSelectedIsland] = useState<Island | null>(null);
   const { projects } = useProjects(selectedIsland);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -316,7 +314,7 @@ const Scheduling = () => {
       <DeleteDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onDelete={handleConfirmDelete}
+        onConfirm={handleConfirmDelete}
         title="Delete Schedule"
         description="Are you sure you want to delete this schedule? This action cannot be undone."
       />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
@@ -10,7 +9,7 @@ import { Loader2 } from "lucide-react";
 interface SessionTotalsProps {
   sessions: Session[];
   loading: boolean;
-  getInterviewerCode: (interviewerId: string) => string;
+  getInterviewerCode?: (interviewerId: string) => string;
 }
 
 interface GroupedSession {
@@ -19,11 +18,14 @@ interface GroupedSession {
   sessionCount: number;
 }
 
-const SessionTotals: React.FC<SessionTotalsProps> = ({ sessions, loading, getInterviewerCode }) => {
+const SessionTotals: React.FC<SessionTotalsProps> = ({ 
+  sessions, 
+  loading, 
+  getInterviewerCode = () => "Unknown" 
+}) => {
   const [activeTab, setActiveTab] = useState("daily");
   const [groupedSessions, setGroupedSessions] = useState<Record<string, GroupedSession>>({});
   
-  // Calculate time period based on active tab
   useEffect(() => {
     if (loading || sessions.length === 0) return;
     
@@ -54,7 +56,6 @@ const SessionTotals: React.FC<SessionTotalsProps> = ({ sessions, loading, getInt
       return sessionDate >= startDate && sessionDate <= endDate;
     });
     
-    // Group by interviewer
     const grouped: Record<string, GroupedSession> = {};
     
     filteredSessions.forEach(session => {

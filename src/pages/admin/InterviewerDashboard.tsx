@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
@@ -79,7 +78,6 @@ const InterviewerDashboard = () => {
     fetchData();
   }, [id]);
   
-  // Apply date filter to sessions
   useEffect(() => {
     if (!dateRange || !dateRange.from) {
       setFilteredSessions(sessions);
@@ -103,7 +101,6 @@ const InterviewerDashboard = () => {
     setFilteredSessions(filtered);
   }, [dateRange, sessions]);
   
-  // Calculate total active time
   const calculateTotalTime = () => {
     if (!sessions.length) return "0h 0m";
     
@@ -123,7 +120,6 @@ const InterviewerDashboard = () => {
     return `${hours}h ${minutes}m`;
   };
   
-  // Active sessions
   const activeSessions = sessions.filter(session => session.is_active);
   
   return (

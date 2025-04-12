@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { CoordinatePopup } from "@/components/ui/CoordinatePopup";
+import CoordinatePopup from "@/components/ui/CoordinatePopup";
 import { Session, Island } from "@/types";
 import { useInterviewers } from "@/hooks/useInterviewers";
 

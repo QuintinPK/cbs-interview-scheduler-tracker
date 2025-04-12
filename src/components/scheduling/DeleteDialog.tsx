@@ -1,62 +1,56 @@
 
 import React from "react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Schedule } from "@/types";
-import { Interviewer } from "@/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface DeleteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedSchedule: Schedule | null;
-  interviewers: Interviewer[];
-  onConfirmDelete: () => Promise<void>;
+  onDelete?: () => Promise<void>;
+  onConfirm?: () => Promise<void>;
+  title: string;
+  description: string;
 }
 
-export const DeleteDialog = ({
+export const DeleteDialog: React.FC<DeleteDialogProps> = ({
   open,
   onOpenChange,
-  selectedSchedule,
-  interviewers,
-  onConfirmDelete,
-}: DeleteDialogProps) => {
-  const interviewer = selectedSchedule 
-    ? interviewers.find(i => i.id === selectedSchedule.interviewer_id) 
-    : null;
+  onDelete,
+  onConfirm,
+  title,
+  description,
+}) => {
+  const handleConfirm = async () => {
+    if (onDelete) {
+      await onDelete();
+    }
+    if (onConfirm) {
+      await onConfirm();
+    }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Confirm Deletion</DialogTitle>
-        </DialogHeader>
-        
-        <div className="py-4">
-          <p>
-            Are you sure you want to delete this schedule for{" "}
-            {interviewer?.first_name}{" "}
-            {interviewer?.last_name}?
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            This action cannot be undone.
-          </p>
-        </div>
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={onConfirmDelete}>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };
