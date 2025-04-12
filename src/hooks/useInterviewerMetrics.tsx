@@ -3,11 +3,11 @@ import { useState } from "react";
 import { Session } from "@/types";
 import { useInterviewerActivity } from "@/hooks/useInterviewerActivity";
 import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
-import { useSchedules } from "@/hooks/useSchedules";
+import { useScheduleData } from "@/hooks/useScheduleData";
 
 export const useInterviewerMetrics = (interviewerId?: string, sessions: Session[] = []) => {
-  // Get schedules data
-  const { schedules } = useSchedules(interviewerId);
+  // Get schedules data with the correct parameters
+  const { schedulesPerDay } = useScheduleData();
   
   // Get activity metrics
   const { 
@@ -22,7 +22,7 @@ export const useInterviewerMetrics = (interviewerId?: string, sessions: Session[
     avgSessionDuration,
     earliestStartTime,
     latestEndTime
-  } = useInterviewerSessions(sessions, schedules);
+  } = useInterviewerSessions(sessions, []);
   
   return {
     daysSinceLastActive,
@@ -32,6 +32,6 @@ export const useInterviewerMetrics = (interviewerId?: string, sessions: Session[
     avgSessionDuration,
     earliestStartTime,
     latestEndTime,
-    schedules
+    schedulesPerDay
   };
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -87,14 +86,14 @@ const Sessions = () => {
 
   const confirmStopSession = async () => {
     if (selectedSession) {
-      await stopSession(selectedSession);
+      await stopSession(selectedSession.id);
       setShowStopDialog(false);
     }
   };
 
   const confirmDeleteSession = async () => {
     if (selectedSession) {
-      await deleteSession(selectedSession);
+      await deleteSession(selectedSession.id);
       setShowDeleteDialog(false);
     }
   };
@@ -326,9 +325,9 @@ const Sessions = () => {
 
       {coordinates && showModal && (
         <CoordinatePopup
-          latitude={coordinates.lat}
-          longitude={coordinates.lng}
-          label={coordinates.label}
+          mapLat={coordinates.lat}
+          mapLng={coordinates.lng}
+          mapLabel={coordinates.label}
           onClose={() => setShowModal(false)}
         />
       )}

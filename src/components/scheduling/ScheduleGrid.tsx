@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash } from "lucide-react";
 
-interface ScheduleGridProps {
+export interface ScheduleGridProps {
   schedules: Schedule[];
   weekStart?: Date;
   loading?: boolean;

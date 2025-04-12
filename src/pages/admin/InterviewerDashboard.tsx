@@ -9,7 +9,6 @@ import { Session, Interviewer } from "@/types";
 import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
 import { useSchedules } from "@/hooks/useSchedules";
 
-// Importing our new components
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
 import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
@@ -17,7 +16,7 @@ import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistor
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 
 const InterviewerDashboard = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: interviewerId } = useParams<{ id: string }>();
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,32 +27,30 @@ const InterviewerDashboard = () => {
   });
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
   
-  // Use our custom metrics hook
-  const metrics = useInterviewerMetrics(id, sessions);
-  const { schedules } = useSchedules(id);
+  const { schedules } = useSchedules(interviewerId);
+  
+  const metrics = useInterviewerMetrics(interviewerId, sessions);
   
   useEffect(() => {
     const fetchData = async () => {
-      if (!id) return;
+      if (!interviewerId) return;
       
       try {
         setLoading(true);
         
-        // Fetch interviewer data
         const { data: interviewerData, error: interviewerError } = await supabase
           .from('interviewers')
           .select('*')
-          .eq('id', id)
+          .eq('id', interviewerId)
           .single();
           
         if (interviewerError) throw interviewerError;
         setInterviewer(interviewerData);
         
-        // Fetch sessions
         const { data: sessionsData, error: sessionsError } = await supabase
           .from('sessions')
           .select('*')
-          .eq('interviewer_id', id)
+          .eq('interviewer_id', interviewerId)
           .order('start_time', { ascending: false });
           
         if (sessionsError) throw sessionsError;
@@ -76,7 +73,7 @@ const InterviewerDashboard = () => {
     };
     
     fetchData();
-  }, [id]);
+  }, [interviewerId]);
   
   useEffect(() => {
     if (!dateRange || !dateRange.from) {
@@ -89,7 +86,6 @@ const InterviewerDashboard = () => {
     const fromDate = new Date(dateRange.from);
     const toDate = dateRange.to ? new Date(dateRange.to) : fromDate;
     
-    // Set time to start of day for from date and end of day for to date
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(23, 59, 59, 999);
     
