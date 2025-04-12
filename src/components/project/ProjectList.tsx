@@ -38,21 +38,18 @@ const ProjectList: React.FC<ProjectListProps> = ({
       if (projectIds.length === 0) return;
       
       try {
+        // Corrected query syntax for counting interviewers per project
         const { data, error } = await supabase
           .from('project_interviewers')
-          .select('project_id, count')
-          .in('project_id', projectIds)
-          .select(`
-            project_id,
-            count: count(*)
-          `, { count: 'exact' })
-          .group('project_id');
+          .select('project_id, count', { count: 'exact' })
+          .in('project_id', projectIds);
         
         if (error) throw error;
         
+        // Count interviewers per project manually
         const counts: Record<string, number> = {};
-        data.forEach(item => {
-          counts[item.project_id] = Number(item.count);
+        projectIds.forEach(id => {
+          counts[id] = data?.filter(item => item.project_id === id).length || 0;
         });
         
         setInterviewerCounts(counts);

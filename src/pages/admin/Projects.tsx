@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +16,7 @@ import { PlusCircle, Loader2, Search, Calendar, MapPin, Users, ArrowLeft } from 
 import { format, parse } from "date-fns";
 import { useProjects } from "@/hooks/useProjects";
 import { useInterviewers } from "@/hooks/useInterviewers";
+import { supabase } from "@/integrations/supabase/client";
 import IslandSelector from "@/components/ui/IslandSelector";
 import ProjectList from "@/components/project/ProjectList";
 import ProjectForm from "@/components/project/ProjectForm";
