@@ -114,8 +114,13 @@ const InterviewerDashboard = () => {
             
             <SessionHistory 
               sessions={sessionsData} 
-              dateRange={undefined}
-              setDateRange={() => {}}
+              dateRange={{ startDate, endDate }}
+              setDateRange={(range) => {
+                if (range) {
+                  setStartDate(range.startDate);
+                  setEndDate(range.endDate);
+                }
+              }}
             />
           </div>
           

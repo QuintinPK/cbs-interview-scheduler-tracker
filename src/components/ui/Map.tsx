@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { Loader } from '@googlemaps/js-api-loader';
+import { useGoogleMapsApiKey } from '@/hooks/useGoogleMapsApiKey';
 
 interface MapProps {
   latitude: number;
@@ -11,43 +11,60 @@ interface MapProps {
 
 const Map: React.FC<MapProps> = ({ latitude, longitude, label }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
+  const map = useRef<google.maps.Map | null>(null);
+  const { apiKey, loading } = useGoogleMapsApiKey();
 
   useEffect(() => {
-    if (!mapContainer.current) return;
+    if (!mapContainer.current || !apiKey || loading) return;
 
-    // Initialize map with a placeholder token - in production, use environment variables
-    mapboxgl.accessToken = 'pk.eyJ1IjoibG92YWJsZSIsImEiOiJjbGt5bXdkcjUwMDg3M25wOWh1MnliN3JuIn0.6ZjkiNY8LxEcR1aCkVGEDQ';
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [longitude, latitude],
-      zoom: 14
-    });
+    const initMap = async () => {
+      const loader = new Loader({
+        apiKey,
+        version: "weekly",
+      });
 
-    // Add navigation controls
-    map.current.addControl(
-      new mapboxgl.NavigationControl(),
-      'top-right'
-    );
+      try {
+        const { Map } = await loader.importLibrary("maps");
+        const position = { lat: latitude, lng: longitude };
+        
+        // Initialize the map
+        map.current = new Map(mapContainer.current, {
+          center: position,
+          zoom: 14,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
 
-    // Add marker with popup
-    new mapboxgl.Marker({ color: '#3770FF' })
-      .setLngLat([longitude, latitude])
-      .setPopup(
-        new mapboxgl.Popup({ offset: 25 })
-          .setHTML(`<h3 class="font-medium">${label || 'Location'}</h3>`)
-      )
-      .addTo(map.current);
+        // Add marker
+        new google.maps.Marker({
+          position,
+          map: map.current,
+          title: label || 'Location',
+        });
+      } catch (error) {
+        console.error("Error loading Google Maps:", error);
+      }
+    };
+
+    initMap();
 
     // Cleanup
     return () => {
-      if (map.current) {
-        map.current.remove();
-      }
+      // No explicit cleanup needed for Google Maps
     };
-  }, [latitude, longitude, label]);
+  }, [latitude, longitude, label, apiKey, loading]);
+
+  if (loading || !apiKey) {
+    return (
+      <div className="flex items-center justify-center h-full w-full bg-gray-100 rounded-md">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-cbs border-t-transparent rounded-full mx-auto mb-2"></div>
+          <p className="text-sm text-gray-500">Loading map...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full">
