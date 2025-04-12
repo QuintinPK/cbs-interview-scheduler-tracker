@@ -31,7 +31,7 @@ const IslandSelector = ({
       {label && <Label>{label}</Label>}
       <Select
         value={selectedIsland || ""}
-        onValueChange={(value) => onIslandChange(value as Island || null)}
+        onValueChange={(value) => onIslandChange(value === "_all" ? null : value as Island)}
         disabled={loading}
       >
         <SelectTrigger className="w-full">

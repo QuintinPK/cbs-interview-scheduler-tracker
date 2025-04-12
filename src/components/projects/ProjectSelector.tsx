@@ -32,7 +32,7 @@ const ProjectSelector = ({
       {label && <Label>{label}</Label>}
       <Select
         value={selectedProjectId || ""}
-        onValueChange={(value) => onProjectChange(value || null)}
+        onValueChange={(value) => onProjectChange(value === "_all" ? null : value)}
         disabled={loading || projects.length === 0}
       >
         <SelectTrigger className="w-full">

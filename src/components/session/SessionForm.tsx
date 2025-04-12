@@ -69,14 +69,12 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveInterview
   } = useInterviewActions(activeSession?.id || null);
 
-  // Check for active interview when session is active
   useEffect(() => {
     if (activeSession?.id) {
       fetchActiveInterview(activeSession.id);
     }
   }, [activeSession]);
 
-  // Fetch the interviewer ID for the given code
   useEffect(() => {
     const fetchInterviewerId = async () => {
       if (!interviewerCode.trim()) return;
@@ -103,7 +101,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchInterviewerId();
   }, [interviewerCode]);
   
-  // Fetch projects this interviewer is assigned to
   useEffect(() => {
     const fetchInterviewerProjects = async () => {
       if (!interviewerId) {
@@ -124,11 +121,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
         const projects = data.map(item => item.projects) as Project[];
         setAvailableProjects(projects);
         
-        // If we have an active session with a project, select it
         if (activeSession?.project_id) {
           setSelectedProjectId(activeSession.project_id);
         } 
-        // Otherwise auto-select the first project if there's only one
         else if (projects.length === 1 && !selectedProjectId) {
           setSelectedProjectId(projects[0].id);
         }
@@ -211,7 +206,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: `Started at ${new Date().toLocaleTimeString()}`,
         });
       } else {
-        // If there's an active interview, don't allow stopping the session
         if (activeInterview) {
           toast({
             title: "Error",
@@ -238,7 +232,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           
         if (updateError) throw updateError;
         
-        // Use endSession instead of resetting everything
         endSession();
         
         toast({
@@ -262,7 +255,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     if (activeInterview) {
       await stopInterview();
     } else {
-      // Pass the project_id to the startInterview function
       await startInterview(activeSession?.project_id || null);
     }
   };
@@ -291,7 +283,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
             </SelectTrigger>
             <SelectContent>
               {availableProjects.length === 0 ? (
-                <SelectItem value="" disabled>
+                <SelectItem value="_no_projects" disabled>
                   No projects assigned
                 </SelectItem>
               ) : (
@@ -357,7 +349,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           loading={loading}
           interviewerCode={interviewerCode}
           onClick={handleStartStop}
-          // Disable the button if no project is selected or if there's an active interview
           disabled={(isRunning && !!activeInterview) || (!isRunning && (!selectedProjectId || availableProjects.length === 0))}
         />
       </div>
