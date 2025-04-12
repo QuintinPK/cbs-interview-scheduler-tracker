@@ -29,7 +29,7 @@ const InterviewerDashboard = () => {
   
   const { schedules } = useSchedules(interviewerId);
   
-  const metrics = useInterviewerMetrics(interviewerId, sessions);
+  const metrics = useInterviewerMetrics(interviewerId);
   
   useEffect(() => {
     const fetchData = async () => {

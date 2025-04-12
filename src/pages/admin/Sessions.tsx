@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -86,6 +87,7 @@ const Sessions = () => {
 
   const confirmStopSession = async () => {
     if (selectedSession) {
+      // Fix: Pass the session ID as a string instead of trying to pass the whole session
       await stopSession(selectedSession.id);
       setShowStopDialog(false);
     }
@@ -93,6 +95,7 @@ const Sessions = () => {
 
   const confirmDeleteSession = async () => {
     if (selectedSession) {
+      // Fix: Pass the session ID as a string instead of trying to pass the whole session
       await deleteSession(selectedSession.id);
       setShowDeleteDialog(false);
     }
