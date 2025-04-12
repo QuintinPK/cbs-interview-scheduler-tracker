@@ -1,67 +1,77 @@
 
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { Schedule } from "@/types";
+import { useState } from "react";
+import { Schedule, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfWeek, endOfWeek, parseISO, differenceInHours } from "date-fns";
+import { useToast } from "./use-toast";
+import { format } from "date-fns";
 
-export const useSchedules = (interviewerId?: string) => {
+export const useSchedules = () => {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [loading, setLoading] = useState(true);
   
-  const loadSchedules = async () => {
+  const fetchSchedules = async (interviewerId?: string, startDate?: string, endDate?: string) => {
     try {
       setLoading(true);
       
       let query = supabase
         .from('schedules')
-        .select('*');
-        
+        .select(`
+          id,
+          interviewer_id,
+          project_id,
+          start_time,
+          end_time,
+          status,
+          notes
+        `);
+      
       if (interviewerId) {
         query = query.eq('interviewer_id', interviewerId);
       }
       
-      const { data, error } = await query.order('start_time');
-        
+      if (startDate && endDate) {
+        query = query
+          .gte('start_time', startDate)
+          .lte('end_time', endDate);
+      }
+      
+      const { data, error } = await query.order('start_time', { ascending: true });
+      
       if (error) throw error;
       
-      // Convert data to proper Schedule objects
-      const formattedSchedules: Schedule[] = (data || []).map(schedule => ({
-        id: schedule.id,
-        interviewer_id: schedule.interviewer_id,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time,
-        status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
-        notes: schedule.notes || undefined
-      }));
-      
-      setSchedules(formattedSchedules);
+      setSchedules(data as Schedule[]);
     } catch (error) {
-      console.error("Error loading schedules:", error);
+      console.error("Error fetching schedules:", error);
       toast({
         title: "Error",
-        description: "Could not load schedules",
+        description: "Could not fetch schedules",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadSchedules();
-  }, [interviewerId]);
-
-  const addSchedule = async (schedule: Omit<Schedule, 'id'>) => {
+  
+  const addSchedule = async (schedule: Omit<Schedule, "id">) => {
     try {
-      const { error } = await supabase
+      setLoading(true);
+      
+      const { data, error } = await supabase
         .from('schedules')
-        .insert([schedule]);
+        .insert([schedule])
+        .select();
         
       if (error) throw error;
       
-      return await loadSchedules();
+      setSchedules(prev => [...prev, data[0] as Schedule]);
+      
+      toast({
+        title: "Success",
+        description: "Schedule added successfully",
+      });
+      
+      return true;
     } catch (error) {
       console.error("Error adding schedule:", error);
       toast({
@@ -69,11 +79,13 @@ export const useSchedules = (interviewerId?: string) => {
         description: "Could not add schedule",
         variant: "destructive",
       });
-      throw error;
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
-
-  const updateSchedule = async (id: string, schedule: Omit<Schedule, 'id'>) => {
+  
+  const updateSchedule = async (id: string, schedule: Omit<Schedule, "id">) => {
     try {
       setLoading(true);
       
@@ -84,12 +96,16 @@ export const useSchedules = (interviewerId?: string) => {
         
       if (error) throw error;
       
+      setSchedules(prev => 
+        prev.map(s => s.id === id ? { ...schedule, id } as Schedule : s)
+      );
+      
       toast({
         title: "Success",
         description: "Schedule updated successfully",
       });
       
-      await loadSchedules();
+      return true;
     } catch (error) {
       console.error("Error updating schedule:", error);
       toast({
@@ -97,12 +113,12 @@ export const useSchedules = (interviewerId?: string) => {
         description: "Could not update schedule",
         variant: "destructive",
       });
-      throw error;
+      return false;
     } finally {
       setLoading(false);
     }
   };
-
+  
   const deleteSchedule = async (id: string) => {
     try {
       setLoading(true);
@@ -114,12 +130,14 @@ export const useSchedules = (interviewerId?: string) => {
         
       if (error) throw error;
       
-      setSchedules(schedules.filter(s => s.id !== id));
+      setSchedules(prev => prev.filter(s => s.id !== id));
       
       toast({
         title: "Success",
         description: "Schedule deleted successfully",
       });
+      
+      return true;
     } catch (error) {
       console.error("Error deleting schedule:", error);
       toast({
@@ -127,41 +145,44 @@ export const useSchedules = (interviewerId?: string) => {
         description: "Could not delete schedule",
         variant: "destructive",
       });
-      throw error;
+      return false;
     } finally {
       setLoading(false);
     }
   };
-
-  const getScheduledHoursForWeek = (weekStart: Date) => {
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    
-    // Filter schedules for the given week that are not cancelled
-    const weekSchedules = schedules.filter(schedule => {
-      const scheduleDate = parseISO(schedule.start_time);
-      return (
-        scheduleDate >= weekStart && 
-        scheduleDate <= weekEnd && 
-        schedule.status !== 'cancelled'
-      );
-    });
-    
-    // Calculate total hours
-    return weekSchedules.reduce((total, schedule) => {
-      const start = parseISO(schedule.start_time);
-      const end = parseISO(schedule.end_time);
-      const hours = differenceInHours(end, start);
-      return total + hours;
-    }, 0);
+  
+  const getScheduleForInterviewer = async (
+    interviewerId: string, 
+    date: Date
+  ): Promise<Schedule[]> => {
+    try {
+      const startDate = format(date, 'yyyy-MM-dd');
+      const endDate = format(date, 'yyyy-MM-dd');
+      
+      const { data, error } = await supabase
+        .from('schedules')
+        .select('*')
+        .eq('interviewer_id', interviewerId)
+        .gte('start_time', `${startDate}T00:00:00`)
+        .lte('start_time', `${endDate}T23:59:59`)
+        .order('start_time');
+        
+      if (error) throw error;
+      
+      return data as Schedule[];
+    } catch (error) {
+      console.error("Error fetching interviewer schedule:", error);
+      return [];
+    }
   };
 
   return {
     schedules,
     loading,
+    fetchSchedules,
     addSchedule,
     updateSchedule,
     deleteSchedule,
-    getScheduledHoursForWeek,
-    refresh: loadSchedules
+    getScheduleForInterviewer
   };
 };

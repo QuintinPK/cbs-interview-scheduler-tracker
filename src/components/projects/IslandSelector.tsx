@@ -38,7 +38,7 @@ const IslandSelector = ({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Islands</SelectItem>
+          <SelectItem value="_all">All Islands</SelectItem>
           {islands.map((island) => (
             <SelectItem key={island} value={island}>
               {island}

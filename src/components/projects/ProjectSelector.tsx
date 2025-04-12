@@ -40,12 +40,12 @@ const ProjectSelector = ({
         </SelectTrigger>
         <SelectContent>
           {projects.length === 0 ? (
-            <SelectItem value="" disabled>
+            <SelectItem value="_none" disabled>
               No projects available
             </SelectItem>
           ) : (
             <>
-              <SelectItem value="">All Projects</SelectItem>
+              <SelectItem value="_all">All Projects</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
                   {project.name}

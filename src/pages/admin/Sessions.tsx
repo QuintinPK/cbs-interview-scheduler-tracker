@@ -1,39 +1,48 @@
 
 import React, { useState, useEffect } from "react";
+import { format, parseISO } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { Session, Interview, Island, Project } from "@/types";
-import { exportToCSV, calculateDuration } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { CalendarIcon, Download, Loader2 } from "lucide-react";
-import { format } from "date-fns";
-import { cn, formatDateTime } from "@/lib/utils";
 import SessionFilters from "@/components/session/SessionFilters";
-import SessionList from "@/components/session/SessionList";
 import { useSessions } from "@/hooks/useSessions";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useProjects } from "@/hooks/useProjects";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Eye, MoreHorizontal, StopCircle, Trash2 } from "lucide-react";
+import SessionTotals from "@/components/session/SessionTotals";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { CoordinatePopup } from "@/components/ui/CoordinatePopup";
+import { Session, Island } from "@/types";
+import { useInterviewers } from "@/hooks/useInterviewers";
 
 const Sessions = () => {
-  const { toast } = useToast();
-  const { 
-    filteredSessions, 
-    loading, 
+  const navigate = useNavigate();
+  const { interviewers } = useInterviewers();
+  const {
+    filteredSessions: sessions,
+    loading,
     interviewerCodeFilter,
     setInterviewerCodeFilter,
     dateFilter,
@@ -46,375 +55,283 @@ const Sessions = () => {
     applyFilters,
     resetFilters,
     stopSession,
-    updateSession,
-    deleteSession
+    deleteSession,
   } = useSessions();
-  
-  const { projects, loading: projectsLoading } = useProjects(islandFilter);
-  
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
+
+  const [showStopDialog, setShowStopDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  
-  const [editEndDate, setEditEndDate] = useState<Date | undefined>(undefined);
-  const [editEndTime, setEditEndTime] = useState("");
-  const [editLocation, setEditLocation] = useState({
-    latitude: "",
-    longitude: "",
-  });
-  
-  const getSessionInterviews = async (sessionId: string): Promise<Interview[]> => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('interviews')
-        .select('*')
-        .eq('session_id', sessionId)
-        .order('start_time', { ascending: false });
-        
-      if (error) throw error;
-      
-      return data || [];
-    } catch (error) {
-      console.error("Error fetching interviews for session:", error);
-      toast({
-        title: "Error",
-        description: "Could not fetch interview data",
-        variant: "destructive",
-      });
-      return [];
-    }
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [coordinates, setCoordinates] = useState<{
+    lat: number;
+    lng: number;
+    label: string;
+  } | null>(null);
+
+  const getInterviewerName = (id: string) => {
+    const interviewer = interviewers.find((i) => i.id === id);
+    return interviewer
+      ? `${interviewer.first_name} ${interviewer.last_name}`
+      : "Unknown";
   };
-  
-  const getSessionInterviewsCount = async (sessionId: string): Promise<number> => {
-    try {
-      const { count, error } = await (supabase as any)
-        .from('interviews')
-        .select('*', { count: 'exact', head: true })
-        .eq('session_id', sessionId);
-        
-      if (error) throw error;
-      
-      return count || 0;
-    } catch (error) {
-      console.error("Error fetching interview count for session:", error);
-      return 0;
-    }
-  };
-  
-  const handleEdit = (session: Session) => {
+
+  const handleStopSession = (session: Session) => {
     setSelectedSession(session);
-    
-    if (session.end_time) {
-      setEditEndDate(new Date(session.end_time));
-      setEditEndTime(format(new Date(session.end_time), "HH:mm"));
-    } else {
-      setEditEndDate(new Date());
-      setEditEndTime(format(new Date(), "HH:mm"));
-    }
-    
-    if (session.end_latitude && session.end_longitude) {
-      setEditLocation({
-        latitude: session.end_latitude.toString(),
-        longitude: session.end_longitude.toString(),
-      });
-    } else {
-      setEditLocation({ latitude: "", longitude: "" });
-    }
-    
-    setShowEditDialog(true);
+    setShowStopDialog(true);
   };
-  
-  const handleDelete = (session: Session) => {
+
+  const handleDeleteSession = (session: Session) => {
     setSelectedSession(session);
     setShowDeleteDialog(true);
   };
-  
-  const handleStopSession = async (session: Session) => {
-    await stopSession(session);
-  };
-  
-  const confirmEdit = async () => {
-    if (!selectedSession || !editEndDate) return;
-    
-    try {
-      setSubmitting(true);
-      
-      const [hours, minutes] = editEndTime.split(':').map(Number);
-      const endDateTime = new Date(editEndDate);
-      endDateTime.setHours(hours, minutes);
-      
-      const success = await updateSession(selectedSession.id, {
-        end_time: endDateTime.toISOString(),
-        end_latitude: editLocation.latitude ? parseFloat(editLocation.latitude) : null,
-        end_longitude: editLocation.longitude ? parseFloat(editLocation.longitude) : null,
-        is_active: false
-      });
-      
-      if (success) {
-        setShowEditDialog(false);
-      }
-    } catch (error) {
-      console.error("Error updating session:", error);
-    } finally {
-      setSubmitting(false);
+
+  const confirmStopSession = async () => {
+    if (selectedSession) {
+      await stopSession(selectedSession);
+      setShowStopDialog(false);
     }
   };
-  
-  const confirmDelete = async () => {
-    if (!selectedSession) return;
-    
-    try {
-      setSubmitting(true);
-      const success = await deleteSession(selectedSession.id);
-      
-      if (success) {
-        setShowDeleteDialog(false);
-      }
-    } catch (error) {
-      console.error("Error deleting session:", error);
-    } finally {
-      setSubmitting(false);
+
+  const confirmDeleteSession = async () => {
+    if (selectedSession) {
+      await deleteSession(selectedSession);
+      setShowDeleteDialog(false);
     }
   };
-  
-  const getProjectName = (projectId: string | null): string => {
-    if (!projectId) return "N/A";
-    const project = projects.find(p => p.id === projectId);
-    return project ? project.name : "Unknown Project";
+
+  const handleViewInterviewer = (interviewerId: string) => {
+    navigate(`/admin/interviewer/${interviewerId}`);
   };
-  
-  const getProjectIsland = (projectId: string | null): Island | null => {
-    if (!projectId) return null;
-    const project = projects.find(p => p.id === projectId);
-    return project ? project.island : null;
+
+  const handleViewCoordinates = (lat: number, lng: number, label: string) => {
+    setCoordinates({ lat, lng, label });
+    setShowModal(true);
   };
-  
-  const handleApplyFilters = () => {
-    applyFilters([], projects);
+
+  const formatDuration = (start: string, end: string | null) => {
+    if (!end) return "In progress";
+
+    const startTime = new Date(start).getTime();
+    const endTime = new Date(end).getTime();
+    const duration = endTime - startTime;
+
+    const hours = Math.floor(duration / (1000 * 60 * 60));
+    const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+
+    return `${hours}h ${minutes}m`;
   };
-  
-  const handleExport = () => {
-    const exportData = filteredSessions.map(session => ({
-      InterviewerCode: getInterviewerCode(session.interviewer_id),
-      Project: session.project_id ? getProjectName(session.project_id) : 'N/A',
-      Island: session.project_id ? getProjectIsland(session.project_id) || 'N/A' : 'N/A',
-      StartTime: formatDateTime(session.start_time),
-      EndTime: session.end_time ? formatDateTime(session.end_time) : 'Active',
-      Duration: session.end_time ? calculateDuration(session.start_time, session.end_time) : 'Ongoing',
-      StartLocation: session.start_latitude && session.start_longitude ? 
-        `${session.start_latitude.toFixed(4)}, ${session.start_longitude.toFixed(4)}` : 'N/A',
-      EndLocation: session.end_latitude && session.end_longitude ? 
-        `${session.end_latitude.toFixed(4)}, ${session.end_longitude.toFixed(4)}` : 'N/A',
-      Status: session.is_active ? 'Active' : 'Completed'
-    }));
-    
-    exportToCSV(exportData);
-    toast({
-      title: "Export Started",
-      description: "Your sessions data is being downloaded as a CSV file.",
-    });
-  };
-  
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold">Session Logs</h1>
-          <Button
-            onClick={handleExport}
-            className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
-            disabled={loading}
-          >
-            <Download size={16} />
-            Export to CSV
-          </Button>
-        </div>
-        
-        {/* Filters */}
+        <h1 className="text-2xl font-bold">Session History</h1>
+
         <SessionFilters
           interviewerCodeFilter={interviewerCodeFilter}
           setInterviewerCodeFilter={setInterviewerCodeFilter}
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
+          applyFilters={applyFilters}
+          resetFilters={resetFilters}
+          loading={loading}
           islandFilter={islandFilter}
           setIslandFilter={setIslandFilter}
           projectFilter={projectFilter}
           setProjectFilter={setProjectFilter}
-          applyFilters={handleApplyFilters}
-          resetFilters={resetFilters}
-          loading={loading}
         />
-        
-        {/* Sessions Table */}
-        <SessionList
-          sessions={filteredSessions}
-          loading={loading}
-          getInterviewerCode={getInterviewerCode}
-          getProjectName={getProjectName}
-          getProjectIsland={getProjectIsland}
-          getSessionInterviews={getSessionInterviews}
-          getSessionInterviewsCount={getSessionInterviewsCount}
-          onEdit={handleEdit}
-          onStop={handleStopSession}
-          onDelete={handleDelete}
-        />
-      </div>
-      
-      {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Session</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Interviewer Code</Label>
-              <Input 
-                value={selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ""} 
-                disabled 
-              />
-            </div>
-            
-            {selectedSession?.project_id && (
-              <div className="space-y-2">
-                <Label>Project</Label>
-                <Input 
-                  value={getProjectName(selectedSession.project_id)} 
-                  disabled 
-                />
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label>Start Date/Time</Label>
-              <Input 
-                value={selectedSession ? formatDateTime(selectedSession.start_time) : ""} 
-                disabled 
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>End Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !editEndDate && "text-muted-foreground"
-                    )}
-                    disabled={submitting}
+
+        <SessionTotals sessions={sessions} loading={loading} />
+
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Interviewer</TableHead>
+                <TableHead>Start Time</TableHead>
+                <TableHead>End Time</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Project</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="h-24 text-center"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {editEndDate ? format(editEndDate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 pointer-events-auto">
-                  <Calendar
-                    mode="single"
-                    selected={editEndDate}
-                    onSelect={setEditEndDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>End Time</Label>
-              <Input
-                type="time"
-                value={editEndTime}
-                onChange={(e) => setEditEndTime(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>End Location (Latitude, Longitude)</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  placeholder="Latitude"
-                  value={editLocation.latitude}
-                  onChange={(e) => setEditLocation({ ...editLocation, latitude: e.target.value })}
-                  disabled={submitting}
-                />
-                <Input
-                  placeholder="Longitude"
-                  value={editLocation.longitude}
-                  onChange={(e) => setEditLocation({ ...editLocation, longitude: e.target.value })}
-                  disabled={submitting}
-                />
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowEditDialog(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={confirmEdit} 
-              className="bg-cbs hover:bg-cbs-light"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
+                    Loading sessions...
+                  </TableCell>
+                </TableRow>
+              ) : sessions.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="h-24 text-center"
+                  >
+                    No sessions found
+                  </TableCell>
+                </TableRow>
               ) : (
-                "Save Changes"
+                sessions.map((session) => (
+                  <TableRow key={session.id}>
+                    <TableCell className="font-medium">
+                      <div>
+                        <span className="font-semibold">
+                          {getInterviewerCode(session.interviewer_id)}
+                        </span>
+                        <p className="text-sm text-muted-foreground">
+                          {getInterviewerName(session.interviewer_id)}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(session.start_time), "PPp")}
+                    </TableCell>
+                    <TableCell>
+                      {session.end_time
+                        ? format(new Date(session.end_time), "PPp")
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {formatDuration(session.start_time, session.end_time)}
+                    </TableCell>
+                    <TableCell>
+                      {session.start_latitude && session.start_longitude ? (
+                        <Button
+                          variant="ghost"
+                          className="p-0 h-auto font-normal text-blue-600 hover:text-blue-800 hover:bg-transparent"
+                          onClick={() =>
+                            handleViewCoordinates(
+                              session.start_latitude as number,
+                              session.start_longitude as number,
+                              "Start Location"
+                            )
+                          }
+                        >
+                          View on map
+                        </Button>
+                      ) : (
+                        "No location"
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          session.is_active ? "default" : "secondary"
+                        }
+                      >
+                        {session.is_active ? "Active" : "Completed"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {session.project_id ? session.project_id : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleViewInterviewer(
+                                  session.interviewer_id
+                                )
+                              }
+                            >
+                              <Eye className="mr-2 h-4 w-4" />
+                              View Interviewer
+                            </DropdownMenuItem>
+                            {session.is_active && (
+                              <DropdownMenuItem
+                                onClick={() => handleStopSession(session)}
+                              >
+                                <StopCircle className="mr-2 h-4 w-4" />
+                                Stop Session
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteSession(session)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <p>Are you sure you want to delete this session for {selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ''}?</p>
-            <p className="text-sm text-muted-foreground mt-2">This action cannot be undone.</p>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={submitting}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      <AlertDialog
+        open={showStopDialog}
+        onOpenChange={setShowStopDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Stop Session</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to stop this session? This will mark it as
+              completed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStopSession}>
+              Stop Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Session</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this session? This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSession}
+              className="bg-red-600 hover:bg-red-700"
             >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={confirmDelete}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {coordinates && showModal && (
+        <CoordinatePopup
+          latitude={coordinates.lat}
+          longitude={coordinates.lng}
+          label={coordinates.label}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </AdminLayout>
   );
 };

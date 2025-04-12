@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Interviewer, Schedule } from "@/types";
+import { Interviewer, Schedule, Project } from "@/types";
 
 interface ScheduleDialogProps {
   open: boolean;
@@ -37,6 +37,9 @@ interface ScheduleDialogProps {
   setEndTime: React.Dispatch<React.SetStateAction<string>>;
   status: "scheduled" | "completed" | "cancelled";
   setStatus: React.Dispatch<React.SetStateAction<"scheduled" | "completed" | "cancelled">>;
+  projects: Project[];
+  selectedProjectId: string | null;
+  setSelectedProjectId: React.Dispatch<React.SetStateAction<string | null>>;
   onSubmit: () => Promise<void>;
 }
 
@@ -56,6 +59,9 @@ export const ScheduleDialog = ({
   setEndTime,
   status,
   setStatus,
+  projects,
+  selectedProjectId,
+  setSelectedProjectId,
   onSubmit,
 }: ScheduleDialogProps) => {
   return (
@@ -79,6 +85,26 @@ export const ScheduleDialog = ({
                 {interviewers.map((interviewer) => (
                   <SelectItem key={interviewer.id} value={interviewer.code}>
                     {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Project</Label>
+            <Select
+              value={selectedProjectId || "_none"}
+              onValueChange={(value) => setSelectedProjectId(value === "_none" ? null : value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">No project</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name} ({project.island})
                   </SelectItem>
                 ))}
               </SelectContent>
