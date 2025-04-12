@@ -1,4 +1,3 @@
-
 export interface Interviewer {
   id: string;
   code: string;
