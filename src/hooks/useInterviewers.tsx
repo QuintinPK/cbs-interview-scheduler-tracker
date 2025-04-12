@@ -26,8 +26,8 @@ export const useInterviewers = () => {
         code: interviewer.code,
         first_name: interviewer.first_name,
         last_name: interviewer.last_name,
-        phone: interviewer.phone,
-        email: interviewer.email,
+        phone: interviewer.phone || "",
+        email: interviewer.email || "",
         island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
       })) || [];
       

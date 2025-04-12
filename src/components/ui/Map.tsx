@@ -62,9 +62,6 @@ const Map: React.FC<MapProps> = ({
   useEffect(() => {
     if (googleMap && latitude && longitude) {
       googleMap.setCenter({ lat: latitude, lng: longitude });
-      
-      // Clear existing markers and add a new one
-      googleMap.setCenter({ lat: latitude, lng: longitude });
     }
   }, [googleMap, latitude, longitude]);
 

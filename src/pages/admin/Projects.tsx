@@ -69,8 +69,8 @@ const Projects = () => {
           code: data.code,
           first_name: data.first_name,
           last_name: data.last_name,
-          phone: data.phone,
-          email: data.email,
+          phone: data.phone || "",
+          email: data.email || "",
           island: data.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
         };
         
