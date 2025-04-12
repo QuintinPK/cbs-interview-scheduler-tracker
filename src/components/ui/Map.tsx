@@ -9,6 +9,12 @@ interface MapProps {
   label?: string;
 }
 
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
+
 const Map: React.FC<MapProps> = ({ latitude, longitude, label }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<google.maps.Map | null>(null);
@@ -24,11 +30,11 @@ const Map: React.FC<MapProps> = ({ latitude, longitude, label }) => {
       });
 
       try {
-        const { Map } = await loader.importLibrary("maps");
+        await loader.load();
         const position = { lat: latitude, lng: longitude };
         
         // Initialize the map
-        map.current = new Map(mapContainer.current, {
+        map.current = new google.maps.Map(mapContainer.current, {
           center: position,
           zoom: 14,
           mapTypeControl: false,
