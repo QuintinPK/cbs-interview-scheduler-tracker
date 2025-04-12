@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -88,7 +87,7 @@ const Projects = () => {
     };
     
     fetchInterviewerDetails();
-  }, [interviewerId]);
+  }, [interviewerId, getInterviewerProjects]);
   
   const filteredProjects = projects.filter((project) => {
     const query = searchQuery.toLowerCase();
