@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -130,7 +129,10 @@ const SessionList: React.FC<SessionListProps> = ({
 
   const handleCoordinateClick = (lat: number | null, lng: number | null) => {
     if (lat !== null && lng !== null) {
-      setSelectedCoordinate({ lat, lng });
+      setSelectedCoordinate({ 
+        lat, 
+        lng 
+      });
       setIsMapOpen(true);
     }
   };
@@ -328,12 +330,14 @@ const SessionList: React.FC<SessionListProps> = ({
         </div>
       </div>
 
-      <CoordinatePopup
-        isOpen={isMapOpen}
-        onClose={() => setIsMapOpen(false)} 
-        coordinate={selectedCoordinate}
-      />
-    </>
+      {isMapOpen && selectedCoordinate && (
+        <CoordinatePopup
+          mapLat={selectedCoordinate.lat}
+          mapLng={selectedCoordinate.lng}
+          mapLabel="Session Location"
+          onClose={() => setIsMapOpen(false)}
+        />
+      </>
   );
 };
 

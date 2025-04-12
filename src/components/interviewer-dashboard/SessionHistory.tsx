@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { MapPin, MessageCircle, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
@@ -136,7 +135,10 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
 
   const handleCoordinateClick = (lat: number | null, lng: number | null) => {
     if (lat !== null && lng !== null) {
-      setSelectedCoordinate({ lat, lng });
+      setSelectedCoordinate({ 
+        lat, 
+        lng 
+      });
       setIsMapOpen(true);
     }
   };
@@ -284,11 +286,14 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
         </CardContent>
       </Card>
       
-      <CoordinatePopup
-        isOpen={isMapOpen}
-        onClose={() => setIsMapOpen(false)} 
-        coordinate={selectedCoordinate}
-      />
+      {isMapOpen && selectedCoordinate && (
+        <CoordinatePopup
+          mapLat={selectedCoordinate.lat}
+          mapLng={selectedCoordinate.lng}
+          mapLabel="Session Location"
+          onClose={() => setIsMapOpen(false)}
+        />
+      )}
     </>
   );
 };
