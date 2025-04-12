@@ -1,46 +1,49 @@
-import React from "react";
-import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
-export interface WeekNavigatorProps {
-  weekStart: Date;
-  weekEnd: Date;
-  onPreviousWeek: () => void;
-  onNextWeek: () => void;
-  onCurrentWeek: () => void;
+import React from "react";
+import { format, startOfWeek, endOfWeek, addDays } from "date-fns";
+import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface WeekNavigatorProps {
+  currentWeekStart: Date;
+  onWeekChange: (newWeekStart: Date) => void;
+  onResetToCurrentWeek: () => void;
 }
 
-export const WeekNavigator: React.FC<WeekNavigatorProps> = ({
-  weekStart,
-  weekEnd,
-  onPreviousWeek,
-  onNextWeek,
-  onCurrentWeek
-}) => {
+export const WeekNavigator = ({
+  currentWeekStart,
+  onWeekChange,
+  onResetToCurrentWeek,
+}: WeekNavigatorProps) => {
+  const prevWeek = () => {
+    onWeekChange(addDays(currentWeekStart, -7));
+  };
+  
+  const nextWeek = () => {
+    onWeekChange(addDays(currentWeekStart, 7));
+  };
+
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div>
-        <Button variant="outline" size="sm" onClick={onPreviousWeek}>
-          <ChevronLeft className="mr-2 h-4 w-4" />
+    <div className="bg-white p-4 rounded-lg shadow-sm border">
+      <div className="flex justify-between items-center">
+        <Button variant="outline" onClick={prevWeek}>
+          <ArrowLeft size={16} className="mr-1" />
           Previous Week
         </Button>
-      </div>
-      
-      <div className="flex flex-col items-center">
-        <h2 className="text-lg font-semibold">
-          {format(weekStart, 'MMMM d')} - {format(weekEnd, 'MMMM d, yyyy')}
-        </h2>
-        <Button variant="ghost" size="sm" onClick={onCurrentWeek}>
-          <Calendar className="mr-2 h-4 w-4" />
-          Current Week
-        </Button>
-      </div>
-      
-      <div>
-        <Button variant="outline" size="sm" onClick={onNextWeek}>
+        
+        <div className="text-center">
+          <h2 className="font-medium text-lg">
+            {format(currentWeekStart, "MMMM d")} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}
+          </h2>
+          <Button variant="link" onClick={onResetToCurrentWeek} className="text-cbs">
+            <Calendar size={14} className="mr-1" />
+            Current Week
+          </Button>
+        </div>
+        
+        <Button variant="outline" onClick={nextWeek}>
           Next Week
-          <ChevronRight className="ml-2 h-4 w-4" />
+          <ArrowRight size={16} className="ml-1" />
         </Button>
       </div>
     </div>

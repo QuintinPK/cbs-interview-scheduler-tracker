@@ -1,54 +1,45 @@
 
 import { useState, useEffect } from "react";
-import { Schedule, Interviewer } from "@/types";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from "date-fns";
+import { Schedule } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
-export const useScheduleData = (
-  selectedInterviewer?: Interviewer,
-  schedules: Schedule[] = [],
-  weekStart: Date = new Date()
-) => {
-  const [schedulesPerDay, setSchedulesPerDay] = useState<{ [key: string]: Schedule[] }>({});
+export const useScheduleData = (interviewerId?: string) => {
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [loading, setLoading] = useState(false);
   
   useEffect(() => {
-    if (!selectedInterviewer && schedules.length === 0) {
-      // Initialize with empty data if no interviewer or schedules
-      const currentWeekStart = startOfWeek(weekStart, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-      const weekDays = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
+    const fetchSchedules = async () => {
+      if (!interviewerId) return;
       
-      const emptySchedules: { [key: string]: Schedule[] } = {};
-      weekDays.forEach(day => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        emptySchedules[dateKey] = [];
-      });
-      
-      setSchedulesPerDay(emptySchedules);
-      return;
-    }
-    
-    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
-    
-    const groupedSchedules: { [key: string]: Schedule[] } = {};
-    
-    weekDays.forEach(day => {
-      const dateKey = format(day, 'yyyy-MM-dd');
-      groupedSchedules[dateKey] = [];
-    });
-    
-    schedules.forEach(schedule => {
-      const scheduleDate = format(new Date(schedule.start_time), 'yyyy-MM-dd');
-      
-      if (groupedSchedules[scheduleDate]) {
-        groupedSchedules[scheduleDate].push(schedule);
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('schedules')
+          .select('*')
+          .eq('interviewer_id', interviewerId);
+          
+        if (error) throw error;
+        
+        // Convert raw data to Schedule type with proper status typing
+        const formattedSchedules: Schedule[] = (data || []).map(schedule => ({
+          id: schedule.id,
+          interviewer_id: schedule.interviewer_id,
+          start_time: schedule.start_time,
+          end_time: schedule.end_time,
+          status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
+          notes: schedule.notes || undefined
+        }));
+        
+        setSchedules(formattedSchedules);
+      } catch (error) {
+        console.error("Error fetching schedules:", error);
+      } finally {
+        setLoading(false);
       }
-    });
+    };
     
-    setSchedulesPerDay(groupedSchedules);
-  }, [selectedInterviewer, schedules, weekStart]);
+    fetchSchedules();
+  }, [interviewerId]);
   
-  return {
-    schedulesPerDay
-  };
+  return { schedules, loading };
 };

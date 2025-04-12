@@ -1,301 +1,325 @@
+
 import React, { useState, useEffect } from "react";
-import { addDays, format, startOfDay, endOfDay, startOfWeek, endOfWeek, parseISO } from "date-fns";
-import { DateRange } from "react-day-picker";
-import AdminLayout from "@/components/layout/AdminLayout";
-import { useInterviewers } from "@/hooks/useInterviewers";
-import { useSchedules } from "@/hooks/useSchedules";
+import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useProjects } from "@/hooks/useProjects";
-import { Interviewer, Schedule } from "@/types";
-import { ScheduleGrid } from "@/components/scheduling/ScheduleGrid";
-import { InterviewerSelector } from "@/components/scheduling/InterviewerSelector";
+import AdminLayout from "@/components/layout/AdminLayout";
+import { Schedule } from "@/types";
+import { Button } from "@/components/ui/button";
+import { DateRange } from "react-day-picker";
+import { format, parseISO, startOfWeek, endOfWeek } from "date-fns";
+import { PlusCircle } from "lucide-react";
+import { useSchedules } from "@/hooks/useSchedules";
+import { useInterviewers } from "@/hooks/useInterviewers";
+import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
+import { useSessions } from "@/hooks/useSessions";
+
+// Import our new component files
 import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
+import { InterviewerSelector } from "@/components/scheduling/InterviewerSelector";
+import { ScheduleGrid } from "@/components/scheduling/ScheduleGrid";
 import { ScheduleDialog } from "@/components/scheduling/ScheduleDialog";
 import { DeleteDialog } from "@/components/scheduling/DeleteDialog";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import IslandSelector from "@/components/projects/IslandSelector";
-import { Island } from "@/types";
 
 const Scheduling = () => {
   const { toast } = useToast();
-  const { interviewers, loading: interviewersLoading } = useInterviewers();
-  const { schedules, fetchSchedules, addSchedule, updateSchedule, deleteSchedule, loading: schedulesLoading } = useSchedules();
-  const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | undefined>(undefined);
-  const [weekStart, setWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [weekEnd, setWeekEnd] = useState<Date>(endOfWeek(new Date(), { weekStartsOn: 1 }));
-  
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [selectedInterviewerCode, setSelectedInterviewerCode] = useState<string>("");
+  const [showAddEditDialog, setShowAddEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
   const [status, setStatus] = useState<"scheduled" | "completed" | "cancelled">("scheduled");
   
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filteredInterviewers, setFilteredInterviewers] = useState<Interviewer[]>([]);
+  // Use the custom hooks to fetch data
+  const { interviewers, loading: interviewersLoading } = useInterviewers();
+  const selectedInterviewer = interviewers.find(i => i.code === selectedInterviewerCode);
   
-  const [selectedIsland, setSelectedIsland] = useState<Island | null>(null);
-  const { projects } = useProjects(selectedIsland);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const { 
+    schedules, 
+    loading: schedulesLoading, 
+    addSchedule, 
+    updateSchedule, 
+    deleteSchedule,
+    getScheduledHoursForWeek
+  } = useSchedules(selectedInterviewer?.id);
+  
+  // Add sessions hook to get realised sessions
+  const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+  const { sessions, loading: sessionsLoading } = useSessions(
+    selectedInterviewer?.id, 
+    format(currentWeekStart, "yyyy-MM-dd"), 
+    format(weekEnd, "yyyy-MM-dd")
+  );
+  
+  // Use the hook to get worked hours
+  const { 
+    workedHours, 
+    loading: workHoursLoading, 
+    calculateWorkHoursForWeek 
+  } = useInterviewerWorkHours(selectedInterviewer?.id);
+  
+  // Calculate scheduled hours for the current week
+  const scheduledHours = selectedInterviewer ? getScheduledHoursForWeek(currentWeekStart) : 0;
+  
+  const loading = interviewersLoading || schedulesLoading || workHoursLoading || sessionsLoading;
   
   useEffect(() => {
-    if (interviewers.length > 0) {
-      setFilteredInterviewers(interviewers);
-      if (!selectedInterviewer) {
-        setSelectedInterviewer(interviewers[0]);
-      }
+    const interviewerFromUrl = searchParams.get("interviewer");
+    if (interviewerFromUrl) {
+      setSelectedInterviewerCode(interviewerFromUrl);
     }
-  }, [interviewers]);
+  }, [searchParams]);
   
-  useEffect(() => {
-    if (searchTerm.trim()) {
-      setFilteredInterviewers(
-        interviewers.filter(
-          (interviewer) =>
-            interviewer.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            `${interviewer.first_name} ${interviewer.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
-    } else {
-      setFilteredInterviewers(interviewers);
-    }
-  }, [searchTerm, interviewers]);
-  
+  // Update worked hours when interviewer or week changes
   useEffect(() => {
     if (selectedInterviewer) {
-      fetchSchedules(
-        selectedInterviewer.id,
-        format(startOfDay(weekStart), "yyyy-MM-dd'T'HH:mm:ss"),
-        format(endOfDay(weekEnd), "yyyy-MM-dd'T'HH:mm:ss")
-      );
+      calculateWorkHoursForWeek(currentWeekStart);
     }
-  }, [selectedInterviewer, weekStart, weekEnd]);
+  }, [selectedInterviewer, currentWeekStart]);
   
-  const handlePreviousWeek = () => {
-    setWeekStart(addDays(weekStart, -7));
-    setWeekEnd(addDays(weekEnd, -7));
-  };
-  
-  const handleNextWeek = () => {
-    setWeekStart(addDays(weekStart, 7));
-    setWeekEnd(addDays(weekEnd, 7));
-  };
-  
-  const handleCurrentWeek = () => {
-    const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    setWeekStart(currentWeekStart);
-    setWeekEnd(endOfWeek(currentWeekStart, { weekStartsOn: 1 }));
-  };
-  
-  const handleAddSchedule = () => {
-    if (!selectedInterviewer) {
+  const handleAddNew = () => {
+    if (!selectedInterviewerCode || !selectedInterviewer) {
       toast({
         title: "Error",
-        description: "Please select an interviewer",
+        description: "Please select an interviewer first",
         variant: "destructive",
       });
       return;
     }
     
-    setDateRange(undefined);
+    setIsEditing(false);
+    setSelectedSchedule(null);
+    setDateRange({
+      from: currentWeekStart,
+      to: currentWeekStart,
+    });
     setStartTime("09:00");
     setEndTime("17:00");
     setStatus("scheduled");
-    setSelectedProjectId(null);
-    setIsAddDialogOpen(true);
+    setShowAddEditDialog(true);
   };
   
-  const handleEditSchedule = (schedule: Schedule) => {
+  const handleEdit = (schedule: Schedule) => {
+    setIsEditing(true);
     setSelectedSchedule(schedule);
+    
+    const startDate = parseISO(schedule.start_time);
+    const endDate = parseISO(schedule.end_time);
+    
     setDateRange({
-      from: parseISO(schedule.start_time),
-      to: parseISO(schedule.end_time),
+      from: startDate,
+      to: startDate,
     });
-    setStartTime(format(parseISO(schedule.start_time), "HH:mm"));
-    setEndTime(format(parseISO(schedule.end_time), "HH:mm"));
-    setStatus(schedule.status as "scheduled" | "completed" | "cancelled");
-    setSelectedProjectId(schedule.project_id);
-    setIsEditDialogOpen(true);
+    
+    setStartTime(format(startDate, "HH:mm"));
+    setEndTime(format(endDate, "HH:mm"));
+    setStatus(schedule.status);
+    
+    setShowAddEditDialog(true);
   };
   
-  const handleDeleteSchedule = (schedule: Schedule) => {
+  const handleDelete = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
-    setIsDeleteDialogOpen(true);
+    setShowDeleteDialog(true);
   };
   
-  const handleAddSubmit = async () => {
-    if (!selectedInterviewer || !dateRange?.from || !dateRange?.to) {
+  const handleSubmit = async () => {
+    if (!dateRange?.from || !startTime || !endTime || !selectedInterviewer) {
       toast({
         title: "Error",
-        description: "Please select an interviewer and date range",
+        description: "Please select dates, times and an interviewer",
         variant: "destructive",
       });
       return;
     }
     
-    const start = new Date(dateRange.from);
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    start.setHours(startHour, startMinute);
+    const [startHours, startMinutes] = startTime.split(":").map(Number);
+    const [endHours, endMinutes] = endTime.split(":").map(Number);
     
-    const end = new Date(dateRange.to);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    end.setHours(endHour, endMinute);
-    
-    const scheduleData: Omit<Schedule, "id"> = {
-      interviewer_id: selectedInterviewer.id,
-      project_id: selectedProjectId,
-      start_time: start.toISOString(),
-      end_time: end.toISOString(),
-      status,
-      notes: "",
-    };
-    
-    const success = await addSchedule(scheduleData);
-    
-    if (success) {
-      setIsAddDialogOpen(false);
-    }
-  };
-  
-  const handleEditSubmit = async () => {
-    if (!selectedInterviewer || !dateRange?.from || !dateRange?.to || !selectedSchedule) {
-      toast({
-        title: "Error",
-        description: "Invalid schedule data",
-        variant: "destructive",
-      });
+    // If we're editing, just update the existing schedule
+    if (isEditing && selectedSchedule) {
+      const startDateTime = new Date(dateRange.from);
+      startDateTime.setHours(startHours, startMinutes);
+      
+      const endDateTime = new Date(dateRange.from);
+      endDateTime.setHours(endHours, endMinutes);
+      
+      const scheduleData = {
+        interviewer_id: selectedInterviewer.id,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        status,
+      };
+      
+      try {
+        await updateSchedule(selectedSchedule.id, scheduleData);
+        setShowAddEditDialog(false);
+      } catch (error) {
+        console.error("Error updating schedule:", error);
+      }
       return;
     }
     
-    const start = new Date(dateRange.from);
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    start.setHours(startHour, startMinute);
-    
-    const end = new Date(dateRange.to);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    end.setHours(endHour, endMinute);
-    
-    const scheduleData: Omit<Schedule, "id"> = {
-      interviewer_id: selectedInterviewer.id,
-      project_id: selectedProjectId,
-      start_time: start.toISOString(),
-      end_time: end.toISOString(),
-      status,
-      notes: selectedSchedule.notes || "",
-    };
-    
-    const success = await updateSchedule(selectedSchedule.id, scheduleData);
-    
-    if (success) {
-      setIsEditDialogOpen(false);
+    // If we're adding a new schedule, handle date range
+    try {
+      // If no end date or if start and end dates are the same, just create one schedule
+      if (!dateRange.to || format(dateRange.from, "yyyy-MM-dd") === format(dateRange.to, "yyyy-MM-dd")) {
+        const startDateTime = new Date(dateRange.from);
+        startDateTime.setHours(startHours, startMinutes);
+        
+        const endDateTime = new Date(dateRange.from);
+        endDateTime.setHours(endHours, endMinutes);
+        
+        const scheduleData = {
+          interviewer_id: selectedInterviewer.id,
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime.toISOString(),
+          status,
+        };
+        
+        await addSchedule(scheduleData);
+      } else {
+        // Import eachDayOfInterval here if not already imported
+        const { eachDayOfInterval, isSameDay } = await import('date-fns');
+        
+        // Create schedules for each day in the range
+        const days = eachDayOfInterval({
+          start: dateRange.from,
+          end: dateRange.to
+        });
+        
+        // Use Promise.all to create all schedules in parallel
+        await Promise.all(days.map(async (day) => {
+          const startDateTime = new Date(day);
+          startDateTime.setHours(startHours, startMinutes);
+          
+          const endDateTime = new Date(day);
+          endDateTime.setHours(endHours, endMinutes);
+          
+          const scheduleData = {
+            interviewer_id: selectedInterviewer.id,
+            start_time: startDateTime.toISOString(),
+            end_time: endDateTime.toISOString(),
+            status,
+          };
+          
+          await addSchedule(scheduleData);
+        }));
+        
+        toast({
+          title: "Success",
+          description: `Created ${days.length} schedules for the selected date range`,
+        });
+      }
+      
+      setShowAddEditDialog(false);
+    } catch (error) {
+      console.error("Error saving schedules:", error);
+      toast({
+        title: "Error",
+        description: "There was a problem creating the schedules",
+        variant: "destructive",
+      });
     }
   };
   
-  const handleConfirmDelete = async () => {
+  const confirmDelete = async () => {
     if (!selectedSchedule) return;
     
-    const success = await deleteSchedule(selectedSchedule.id);
-    
-    if (success) {
-      setIsDeleteDialogOpen(false);
+    try {
+      await deleteSchedule(selectedSchedule.id);
+      setShowDeleteDialog(false);
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
     }
   };
   
+  const resetToCurrentWeek = () => {
+    setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  };
+
+  const handleWeekChange = (newWeekStart: Date) => {
+    setCurrentWeekStart(newWeekStart);
+    // This will trigger the useEffect to recalculate worked hours
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h1 className="text-2xl font-bold">Scheduling</h1>
-          <Button onClick={handleAddSchedule} className="bg-cbs hover:bg-cbs-light">
-            Add Schedule
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold">Scheduling</h1>
+          <Button
+            onClick={handleAddNew}
+            className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
+            disabled={!selectedInterviewerCode}
+          >
+            <PlusCircle size={16} />
+            Add New Schedule
           </Button>
         </div>
         
-        <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <IslandSelector
-                selectedIsland={selectedIsland}
-                onIslandChange={setSelectedIsland}
-                loading={false}
-                placeholder="Filter by island"
-              />
-            </div>
-            <div className="relative">
-              <Input
-                type="text"
-                placeholder="Search interviewers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-            </div>
+        <InterviewerSelector 
+          interviewers={interviewers}
+          selectedInterviewerCode={selectedInterviewerCode}
+          onInterviewerChange={setSelectedInterviewerCode}
+          scheduledHours={selectedInterviewer ? scheduledHours : undefined}
+          workedHours={selectedInterviewer ? workedHours : undefined}
+        />
+        
+        <WeekNavigator 
+          currentWeekStart={currentWeekStart}
+          onWeekChange={handleWeekChange}
+          onResetToCurrentWeek={resetToCurrentWeek}
+        />
+        
+        {loading ? (
+          <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+            <h3 className="text-lg font-medium mb-2">Loading...</h3>
+            <p className="text-muted-foreground">
+              Please wait while we load the schedules.
+            </p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="md:col-span-1 border-r pr-4">
-              <InterviewerSelector
-                interviewers={filteredInterviewers}
-                selectedInterviewer={selectedInterviewer}
-                onSelectInterviewer={setSelectedInterviewer}
-                loading={interviewersLoading}
-              />
+        ) : selectedInterviewerCode ? (
+          <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div className="p-4 border-b">
+              <h2 className="font-semibold">
+                Weekly Schedule for{" "}
+                {interviewers.find(i => i.code === selectedInterviewerCode)?.first_name || ""}{" "}
+                {interviewers.find(i => i.code === selectedInterviewerCode)?.last_name || ""}
+              </h2>
             </div>
             
-            <div className="md:col-span-4">
-              <WeekNavigator
-                weekStart={weekStart}
-                weekEnd={weekEnd}
-                onPreviousWeek={handlePreviousWeek}
-                onNextWeek={handleNextWeek}
-                onCurrentWeek={handleCurrentWeek}
-              />
-              
-              <ScheduleGrid
-                loading={schedulesLoading}
-                schedules={schedules}
-                weekStart={weekStart}
-                onEditSchedule={handleEditSchedule}
-                onDeleteSchedule={handleDeleteSchedule}
-              />
-            </div>
+            <ScheduleGrid 
+              currentWeekStart={currentWeekStart}
+              schedules={schedules}
+              sessions={sessions}
+              onEditSchedule={handleEdit}
+              onDeleteSchedule={handleDelete}
+            />
           </div>
-        </div>
+        ) : (
+          <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
+            <h3 className="text-lg font-medium mb-2">No Interviewer Selected</h3>
+            <p className="text-muted-foreground">
+              Please select an interviewer to view and manage their schedule.
+            </p>
+          </div>
+        )}
       </div>
       
-      <ScheduleDialog
-        open={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        isEditing={false}
-        selectedSchedule={null}
-        selectedInterviewer={selectedInterviewer}
-        selectedInterviewerCode={selectedInterviewer?.code || ""}
-        interviewers={interviewers}
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        startTime={startTime}
-        setStartTime={setStartTime}
-        endTime={endTime}
-        setEndTime={setEndTime}
-        status={status}
-        setStatus={setStatus}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        setSelectedProjectId={setSelectedProjectId}
-        onSubmit={handleAddSubmit}
-      />
-      
-      <ScheduleDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        isEditing={true}
+      <ScheduleDialog 
+        open={showAddEditDialog}
+        onOpenChange={setShowAddEditDialog}
+        isEditing={isEditing}
         selectedSchedule={selectedSchedule}
         selectedInterviewer={selectedInterviewer}
-        selectedInterviewerCode={selectedInterviewer?.code || ""}
+        selectedInterviewerCode={selectedInterviewerCode}
         interviewers={interviewers}
         dateRange={dateRange}
         setDateRange={setDateRange}
@@ -305,18 +329,15 @@ const Scheduling = () => {
         setEndTime={setEndTime}
         status={status}
         setStatus={setStatus}
-        projects={projects}
-        selectedProjectId={selectedProjectId}
-        setSelectedProjectId={setSelectedProjectId}
-        onSubmit={handleEditSubmit}
+        onSubmit={handleSubmit}
       />
       
-      <DeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        onConfirm={handleConfirmDelete}
-        title="Delete Schedule"
-        description="Are you sure you want to delete this schedule? This action cannot be undone."
+      <DeleteDialog 
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        selectedSchedule={selectedSchedule}
+        interviewers={interviewers}
+        onConfirmDelete={confirmDelete}
       />
     </AdminLayout>
   );

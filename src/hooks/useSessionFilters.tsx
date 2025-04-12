@@ -1,24 +1,21 @@
 
 import { useState, useEffect } from "react";
-import { Session, Interviewer, Island, Project } from "@/types";
+import { Session, Interviewer } from "@/types";
 import { startOfDay, endOfDay } from "date-fns";
 
 export const useSessionFilters = (sessions: Session[]) => {
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
   const [interviewerCodeFilter, setInterviewerCodeFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
-  const [islandFilter, setIslandFilter] = useState<Island | null>(null);
-  const [projectFilter, setProjectFilter] = useState<string | null>(null);
   
   // Update filtered sessions when base sessions change
   useEffect(() => {
     setFilteredSessions(sessions);
   }, [sessions]);
   
-  const applyFilters = (interviewers: Interviewer[] = [], projects: Project[] = []) => {
+  const applyFilters = (interviewers: Interviewer[] = []) => {
     let filtered = [...sessions];
     
-    // Filter by interviewer code
     if (interviewerCodeFilter) {
       const matchingInterviewers = interviewers.filter(interviewer => 
         interviewer.code.toLowerCase().includes(interviewerCodeFilter.toLowerCase())
@@ -30,23 +27,6 @@ export const useSessionFilters = (sessions: Session[]) => {
       }
     }
     
-    // Filter by project
-    if (projectFilter) {
-      filtered = filtered.filter(session => session.project_id === projectFilter);
-    }
-    
-    // Filter by island (via projects)
-    if (islandFilter && projects.length > 0) {
-      const projectIds = projects
-        .filter(project => project.island === islandFilter)
-        .map(project => project.id);
-        
-      filtered = filtered.filter(session => 
-        session.project_id && projectIds.includes(session.project_id)
-      );
-    }
-    
-    // Filter by date
     if (dateFilter) {
       // Create start and end of the selected day in local timezone
       const localStartOfDay = startOfDay(dateFilter);
@@ -65,8 +45,6 @@ export const useSessionFilters = (sessions: Session[]) => {
   const resetFilters = () => {
     setInterviewerCodeFilter("");
     setDateFilter(undefined);
-    setIslandFilter(null);
-    setProjectFilter(null);
     setFilteredSessions(sessions);
   };
   
@@ -76,10 +54,6 @@ export const useSessionFilters = (sessions: Session[]) => {
     setInterviewerCodeFilter,
     dateFilter,
     setDateFilter,
-    islandFilter,
-    setIslandFilter,
-    projectFilter,
-    setProjectFilter,
     applyFilters,
     resetFilters
   };

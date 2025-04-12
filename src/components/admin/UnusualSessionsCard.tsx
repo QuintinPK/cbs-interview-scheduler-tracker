@@ -21,7 +21,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   loading = false,
   threshold = 120 // Default: 2 hours
 }) => {
-  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number, label: string} | null>(null);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   
   const unusualSessions = useMemo(() => {
@@ -53,11 +53,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   
   const handleCoordinateClick = (lat: number | null, lng: number | null) => {
     if (lat !== null && lng !== null) {
-      setSelectedCoordinate({ 
-        lat, 
-        lng, 
-        label: "Session Location" 
-      });
+      setSelectedCoordinate({ lat, lng });
       setIsMapOpen(true);
     }
   };
@@ -135,14 +131,11 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
         </CardContent>
       </Card>
       
-      {isMapOpen && selectedCoordinate && (
-        <CoordinatePopup
-          mapLat={selectedCoordinate.lat}
-          mapLng={selectedCoordinate.lng}
-          mapLabel={selectedCoordinate.label}
-          onClose={() => setIsMapOpen(false)}
-        />
-      )}
+      <CoordinatePopup
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)} 
+        coordinate={selectedCoordinate}
+      />
     </>
   );
 };

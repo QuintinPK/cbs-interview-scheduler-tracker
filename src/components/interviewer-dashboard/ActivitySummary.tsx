@@ -33,19 +33,14 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
   latestEndTime,
   activeSessions,
 }) => {
-  const [selectedLocation, setSelectedLocation] = useState<{
-    lat: number; 
-    lng: number;
-    label: string;
-  } | null>(null);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   
   const handleCoordinateClick = (session: Session) => {
     if (session.start_latitude !== null && session.start_longitude !== null) {
-      setSelectedLocation({ 
+      setSelectedCoordinate({ 
         lat: session.start_latitude, 
-        lng: session.start_longitude,
-        label: `Location: ${formatDateTime(session.start_time)}`
+        lng: session.start_longitude 
       });
       setIsMapOpen(true);
     }
@@ -203,14 +198,11 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         </CardContent>
       </Card>
       
-      {isMapOpen && selectedLocation && (
-        <CoordinatePopup
-          mapLat={selectedLocation.lat}
-          mapLng={selectedLocation.lng}
-          mapLabel={selectedLocation.label}
-          onClose={() => setIsMapOpen(false)}
-        />
-      )}
+      <CoordinatePopup
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)} 
+        coordinate={selectedCoordinate}
+      />
     </>
   );
 };

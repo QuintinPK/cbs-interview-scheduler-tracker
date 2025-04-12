@@ -46,8 +46,8 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
     result: string | null;
   }>({ result: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number, label: string} | null>(null);
-  const [showMap, setShowMap] = useState(false);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
+  const [isMapOpen, setIsMapOpen] = useState(false);
 
   const getResultBadge = (result: string | null) => {
     if (!result) return null;
@@ -80,10 +80,10 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
     setEditDialogOpen(true);
   };
   
-  const handleCoordinateClick = (lat: number | null, lng: number | null, label: string = "Location") => {
+  const handleCoordinateClick = (lat: number | null, lng: number | null) => {
     if (lat !== null && lng !== null) {
-      setSelectedCoordinate({ lat, lng, label });
-      setShowMap(true);
+      setSelectedCoordinate({ lat, lng });
+      setIsMapOpen(true);
     }
   };
 
@@ -259,6 +259,7 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
         </CardContent>
       </Card>
 
+      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -285,6 +286,7 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -337,14 +339,11 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
         </DialogContent>
       </Dialog>
       
-      {showMap && selectedCoordinate && (
-        <CoordinatePopup
-          mapLat={selectedCoordinate.lat}
-          mapLng={selectedCoordinate.lng}
-          mapLabel={selectedCoordinate.label}
-          onClose={() => setShowMap(false)}
-        />
-      )}
+      <CoordinatePopup
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)} 
+        coordinate={selectedCoordinate}
+      />
     </>
   );
 };

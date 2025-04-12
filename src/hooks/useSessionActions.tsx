@@ -1,56 +1,39 @@
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { Session } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
+import { useCallback } from "react";
 
 export const useSessionActions = (
-  sessions: Session[],
+  sessions: Session[], 
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>,
   filteredSessions: Session[],
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
   toast: any
 ) => {
-  // Helper function to find a session by ID
-  const findSession = (sessionId: string): Session | undefined => {
-    return sessions.find(session => session.id === sessionId);
-  };
-
-  // Stop a session by ID
-  const stopSession = async (sessionId: string) => {
+  
+  const stopSession = useCallback(async (session: Session) => {
     try {
       setLoading(true);
       
       const currentLocation = await getCurrentLocation();
       
-      // Get the current date/time
-      const now = new Date().toISOString();
-      
-      const updates = {
-        is_active: false,
-        end_time: now,
-        end_latitude: currentLocation?.latitude || null,
-        end_longitude: currentLocation?.longitude || null,
-      };
-      
       const { error } = await supabase
         .from('sessions')
-        .update(updates)
-        .eq('id', sessionId);
+        .update({
+          end_time: new Date().toISOString(),
+          end_latitude: currentLocation?.latitude || null,
+          end_longitude: currentLocation?.longitude || null,
+          end_address: currentLocation?.address || null,
+          is_active: false
+        })
+        .eq('id', session.id);
         
       if (error) throw error;
       
-      // Update local state
-      const updatedSessions = sessions.map(session => 
-        session.id === sessionId 
-          ? { ...session, ...updates } 
-          : session
-      );
-      
-      setSessions(updatedSessions);
-      
       toast({
         title: "Session Stopped",
-        description: "The session has been marked as completed.",
+        description: `Session has been stopped.`,
       });
       
       return true;
@@ -58,39 +41,29 @@ export const useSessionActions = (
       console.error("Error stopping session:", error);
       toast({
         title: "Error",
-        description: "Failed to stop session. Please try again.",
+        description: "Could not stop session",
         variant: "destructive",
       });
       return false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, toast]);
   
-  // Update a session
-  const updateSession = async (sessionId: string, updates: Partial<Session>) => {
+  const updateSession = useCallback(async (sessionId: string, updateData: Partial<Session>) => {
     try {
       setLoading(true);
       
       const { error } = await supabase
         .from('sessions')
-        .update(updates)
+        .update(updateData)
         .eq('id', sessionId);
         
       if (error) throw error;
       
-      // Update local state
-      const updatedSessions = sessions.map(session => 
-        session.id === sessionId 
-          ? { ...session, ...updates } 
-          : session
-      );
-      
-      setSessions(updatedSessions);
-      
       toast({
         title: "Session Updated",
-        description: "The session has been updated successfully.",
+        description: "Session has been updated successfully.",
       });
       
       return true;
@@ -98,17 +71,16 @@ export const useSessionActions = (
       console.error("Error updating session:", error);
       toast({
         title: "Error",
-        description: "Failed to update session. Please try again.",
+        description: "Could not update session",
         variant: "destructive",
       });
       return false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [setLoading, toast]);
   
-  // Delete a session by ID
-  const deleteSession = async (sessionId: string) => {
+  const deleteSession = useCallback(async (sessionId: string) => {
     try {
       setLoading(true);
       
@@ -119,13 +91,12 @@ export const useSessionActions = (
         
       if (error) throw error;
       
-      // Update local state by removing the deleted session
-      const updatedSessions = sessions.filter(session => session.id !== sessionId);
-      setSessions(updatedSessions);
+      // Update sessions state by filtering the array properly
+      setSessions((prevSessions) => prevSessions.filter(s => s.id !== sessionId));
       
       toast({
         title: "Session Deleted",
-        description: "The session has been permanently deleted.",
+        description: "Session has been deleted successfully.",
       });
       
       return true;
@@ -133,14 +104,14 @@ export const useSessionActions = (
       console.error("Error deleting session:", error);
       toast({
         title: "Error",
-        description: "Failed to delete session. Please try again.",
+        description: "Could not delete session",
         variant: "destructive",
       });
       return false;
     } finally {
       setLoading(false);
     }
-  };
+  }, [setSessions, setLoading, toast]);
   
   return {
     stopSession,

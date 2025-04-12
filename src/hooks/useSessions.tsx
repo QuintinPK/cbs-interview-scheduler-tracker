@@ -1,12 +1,11 @@
 
 import { useState, useEffect } from "react";
-import { Session, Interviewer, Island, Project } from "@/types";
+import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useSessionFilters } from "./useSessionFilters";
 import { useSessionActions } from "./useSessionActions";
 import { useDataFetching } from "./useDataFetching";
 import { useToast } from "./use-toast";
-import { useProjects } from "./useProjects";
 
 export const useSessions = (
   interviewerId?: string,
@@ -18,7 +17,6 @@ export const useSessions = (
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   
   // Initialize with sessions specific to the interviewer if ID is provided
   useEffect(() => {
@@ -28,31 +26,12 @@ export const useSessions = (
       );
       setSessions(interviewerSessions);
       setFilteredSessions(interviewerSessions);
-    } else if (startDate && endDate) {
-      // Filter by date range if provided
-      const startTS = new Date(startDate).getTime();
-      const endTS = new Date(endDate).getTime();
-      
-      const dateRangeSessions = allSessions.filter(session => {
-        const sessionTS = new Date(session.start_time).getTime();
-        return sessionTS >= startTS && sessionTS <= endTS;
-      });
-      
-      setSessions(dateRangeSessions);
-      setFilteredSessions(dateRangeSessions);
     } else {
       setSessions(allSessions);
       setFilteredSessions(allSessions);
     }
     setLoading(fetchLoading);
-  }, [allSessions, interviewerId, startDate, endDate, fetchLoading]);
-  
-  // Fetch all projects for filtering
-  const { projects: allProjects, loading: projectsLoading } = useProjects();
-  
-  useEffect(() => {
-    setProjects(allProjects);
-  }, [allProjects]);
+  }, [allSessions, interviewerId, fetchLoading]);
   
   // Initialize session filters
   const {
@@ -61,10 +40,6 @@ export const useSessions = (
     setInterviewerCodeFilter,
     dateFilter,
     setDateFilter,
-    islandFilter,
-    setIslandFilter,
-    projectFilter,
-    setProjectFilter,
     applyFilters: applySessionFilters,
     resetFilters: resetSessionFilters
   } = useSessionFilters(sessions);
@@ -93,9 +68,9 @@ export const useSessions = (
     return interviewer ? interviewer.code : "Unknown";
   };
   
-  // Wrapper for applying filters with interviewers and projects
+  // Wrapper for applying filters with interviewers
   const applyFilters = () => {
-    applySessionFilters(interviewers, projects);
+    applySessionFilters(interviewers);
   };
   
   return { 
@@ -106,10 +81,6 @@ export const useSessions = (
     setInterviewerCodeFilter,
     dateFilter,
     setDateFilter,
-    islandFilter,
-    setIslandFilter,
-    projectFilter,
-    setProjectFilter,
     getInterviewerCode,
     applyFilters,
     resetFilters: resetSessionFilters,

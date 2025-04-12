@@ -44,19 +44,6 @@ export function formatDateTime(dateString: string): string {
   return `${formatDate(dateString)} ${formatTime(dateString)}`;
 }
 
-export function formatDuration(startTime: string, endTime: string | null): string {
-  if (!endTime) return "Ongoing";
-  
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  const durationMs = end.getTime() - start.getTime();
-  
-  const hours = Math.floor(durationMs / (1000 * 60 * 60));
-  const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-  
-  return `${hours}h ${minutes}m`;
-}
-
 export function calculateDuration(startTime: string, endTime: string | null): string {
   if (!endTime) return "Ongoing";
   
