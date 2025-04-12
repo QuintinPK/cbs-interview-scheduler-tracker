@@ -39,7 +39,8 @@ const InterviewerDashboard = () => {
   const sessionsData = sessions || [];
   const activeSessions = sessionsData.filter(session => session.is_active);
   
-  const { totalActiveTime, totalActiveSeconds } = useInterviewerWorkHours(id, startDate, endDate);
+  // Only pass the interviewer code to the hook, as that's all it expects
+  const { totalActiveTime, totalActiveSeconds } = useInterviewerWorkHours(interviewer?.code);
   
   useEffect(() => {
     if (interviewers.length > 0 && id) {
