@@ -29,7 +29,8 @@ export const useInterviewers = () => {
         phone: interviewer.phone || "",
         email: interviewer.email || "",
         // Cast the island to the appropriate type if it exists
-        island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
+        island: interviewer.island ? (interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius') : undefined
+
       })) || [];
       
       setInterviewers(typedInterviewers);
