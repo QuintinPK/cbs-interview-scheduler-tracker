@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Interviewer } from "@/types";
@@ -28,9 +27,8 @@ export const useInterviewers = () => {
         last_name: interviewer.last_name,
         phone: interviewer.phone || "",
         email: interviewer.email || "",
-        // Cast the island to the appropriate type if it exists
-        island: interviewer.island ? (interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius') : undefined
-
+        // Safely handle the island property
+        island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
       })) || [];
       
       setInterviewers(typedInterviewers);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -71,9 +70,7 @@ const Projects = () => {
           last_name: data.last_name,
           phone: data.phone || "",
           email: data.email || "",
-          // Properly cast the island to the defined type
-          island: data.island ? (data.island as 'Bonaire' | 'Saba' | 'Sint Eustatius') : undefined
-
+          island: data.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
         };
         
         setSelectedInterviewer(typedInterviewer);
