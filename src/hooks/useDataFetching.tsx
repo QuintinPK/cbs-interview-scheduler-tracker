@@ -19,7 +19,20 @@ export const useDataFetching = () => {
           .select('*');
           
         if (interviewersError) throw interviewersError;
-        setInterviewers(interviewersData || []);
+        
+        // Ensure data conforms to the Interviewer interface
+        const typedInterviewers: Interviewer[] = interviewersData?.map(interviewer => ({
+          id: interviewer.id,
+          code: interviewer.code,
+          first_name: interviewer.first_name,
+          last_name: interviewer.last_name,
+          phone: interviewer.phone || "",
+          email: interviewer.email || "",
+          // Properly cast the island property to our union type or undefined
+          island: (interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
+        })) || [];
+        
+        setInterviewers(typedInterviewers);
         
         // Fetch sessions
         const { data: sessionsData, error: sessionsError } = await supabase

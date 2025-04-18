@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Project, Interviewer } from "@/types";
@@ -235,7 +234,18 @@ export const useProjects = () => {
         
       if (interviewersError) throw interviewersError;
       
-      return interviewers || [];
+      // Map the database results to our Interviewer type
+      const typedInterviewers: Interviewer[] = interviewers?.map(interviewer => ({
+        id: interviewer.id,
+        code: interviewer.code,
+        first_name: interviewer.first_name,
+        last_name: interviewer.last_name,
+        phone: interviewer.phone || "",
+        email: interviewer.email || "",
+        island: (interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
+      })) || [];
+      
+      return typedInterviewers;
     } catch (error) {
       console.error("Error getting project interviewers:", error);
       toast({

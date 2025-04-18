@@ -48,7 +48,19 @@ const InterviewerDashboard = () => {
           .single();
           
         if (interviewerError) throw interviewerError;
-        setInterviewer(interviewerData);
+        
+        // Properly map the database result to our Interviewer type
+        const typedInterviewer: Interviewer = {
+          id: interviewerData.id,
+          code: interviewerData.code,
+          first_name: interviewerData.first_name,
+          last_name: interviewerData.last_name,
+          phone: interviewerData.phone || "",
+          email: interviewerData.email || "",
+          island: (interviewerData.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
+        };
+        
+        setInterviewer(typedInterviewer);
         
         // Fetch sessions
         const { data: sessionsData, error: sessionsError } = await supabase
