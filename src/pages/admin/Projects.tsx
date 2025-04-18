@@ -72,7 +72,8 @@ const Projects = () => {
           phone: data.phone || "",
           email: data.email || "",
           // Properly cast the island to the defined type
-          island: data.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
+          island: data.island ? (data.island as 'Bonaire' | 'Saba' | 'Sint Eustatius') : undefined
+
         };
         
         setSelectedInterviewer(typedInterviewer);
