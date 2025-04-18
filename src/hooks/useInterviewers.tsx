@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Interviewer } from "@/types";
@@ -27,7 +28,7 @@ export const useInterviewers = () => {
         last_name: interviewer.last_name,
         phone: interviewer.phone || "",
         email: interviewer.email || "",
-        // Safely handle the island property
+        // Properly handle the island property now that it exists in the database
         island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
       })) || [];
       

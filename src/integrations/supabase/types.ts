@@ -40,6 +40,7 @@ export type Database = {
           email: string | null
           first_name: string
           id: string
+          island: string | null
           last_name: string
           phone: string | null
         }
@@ -49,6 +50,7 @@ export type Database = {
           email?: string | null
           first_name: string
           id?: string
+          island?: string | null
           last_name: string
           phone?: string | null
         }
@@ -58,6 +60,7 @@ export type Database = {
           email?: string | null
           first_name?: string
           id?: string
+          island?: string | null
           last_name?: string
           phone?: string | null
         }
