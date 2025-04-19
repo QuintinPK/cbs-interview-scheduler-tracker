@@ -25,6 +25,7 @@ interface InterviewerListProps {
   onDelete: (interviewer: Interviewer) => void;
   onSchedule: (interviewer: Interviewer) => void;
   onViewDashboard: (interviewer: Interviewer) => void;
+  interviewerProjects: {[key: string]: Project[]};
 }
 
 const InterviewerList: React.FC<InterviewerListProps> = ({
@@ -34,12 +35,13 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   onDelete,
   onSchedule,
   onViewDashboard,
+  interviewerProjects,
 }) => {
   const { toast } = useToast();
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
-  const [interviewerProjects, setInterviewerProjects] = useState<Project[]>([]);
+  const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
@@ -60,7 +62,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     setShowProjectDialog(true);
     try {
       const projects = await getInterviewerProjects(interviewer.id);
-      setInterviewerProjects(projects);
+      setAssignedProjects(projects);
     } catch (error) {
       console.error("Error fetching interviewer projects:", error);
       toast({
@@ -78,10 +80,10 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     try {
       if (checked) {
         await assignInterviewerToProject(project.id, selectedInterviewer.id);
-        setInterviewerProjects(prev => [...prev, project]);
+        setAssignedProjects(prev => [...prev, project]);
       } else {
         await removeInterviewerFromProject(project.id, selectedInterviewer.id);
-        setInterviewerProjects(prev => prev.filter(p => p.id !== project.id));
+        setAssignedProjects(prev => prev.filter(p => p.id !== project.id));
       }
     } catch (error) {
       console.error("Error updating project assignment:", error);
@@ -96,7 +98,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   };
 
   const isProjectAssigned = (projectId: string) => {
-    return interviewerProjects.some(p => p.id === projectId);
+    return assignedProjects.some(p => p.id === projectId);
   };
 
   const getAvailableProjects = (interviewer: Interviewer) => {
@@ -137,100 +139,99 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                 </TableCell>
               </TableRow>
             ) : (
-              interviewers.map((interviewer) => {
-                const assignedProjects = interviewerProjects.filter(p => p.id === interviewer.id);
-                return (
-                  <TableRow key={interviewer.id}>
-                    <TableCell className="font-medium">{interviewer.code}</TableCell>
-                    <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
-                    <TableCell>
-                      {interviewer.island ? (
-                        <Badge 
-                          variant="default" 
-                          style={getIslandBadgeStyle(interviewer.island)}
-                        >
-                          {interviewer.island}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">Not assigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {assignedProjects.length > 0 ? (
-                        assignedProjects.map(project => (
-                          <Badge key={project.id} variant="outline" className="mr-1 mb-1">
+              interviewers.map((interviewer) => (
+                <TableRow key={interviewer.id}>
+                  <TableCell className="font-medium">{interviewer.code}</TableCell>
+                  <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
+                  <TableCell>
+                    {interviewer.island ? (
+                      <Badge 
+                        variant="default" 
+                        style={getIslandBadgeStyle(interviewer.island)}
+                      >
+                        {interviewer.island}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">Not assigned</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {interviewerProjects[interviewer.id] && interviewerProjects[interviewer.id].length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {interviewerProjects[interviewer.id].map(project => (
+                          <Badge key={project.id} variant="outline" className="mb-1">
                             {project.name}
                           </Badge>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground text-sm">No projects</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No projects</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageProjects(interviewer)}
+                        className="text-xs"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Manage Projects
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      {interviewer.phone && (
+                        <div className="text-sm">{interviewer.phone}</div>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleManageProjects(interviewer)}
-                          className="text-xs"
-                        >
-                          <Users className="h-3 w-3 mr-1" />
-                          Manage Projects
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {interviewer.phone && (
-                          <div className="text-sm">{interviewer.phone}</div>
-                        )}
-                        {interviewer.email && (
-                          <div className="text-sm text-muted-foreground">{interviewer.email}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(interviewer)}
-                          title="Edit Interviewer"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onSchedule(interviewer)}
-                          title="Schedule Interviewer"
-                        >
-                          <Calendar className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onViewDashboard(interviewer)}
-                          title="View Dashboard"
-                        >
-                          <BarChart className="h-4 w-4" />
-                        </Button>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDelete(interviewer)}
-                          title="Delete Interviewer"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
+                      {interviewer.email && (
+                        <div className="text-sm text-muted-foreground">{interviewer.email}</div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEdit(interviewer)}
+                        title="Edit Interviewer"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onSchedule(interviewer)}
+                        title="Schedule Interviewer"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onViewDashboard(interviewer)}
+                        title="View Dashboard"
+                      >
+                        <BarChart className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDelete(interviewer)}
+                        title="Delete Interviewer"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

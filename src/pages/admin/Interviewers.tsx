@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Interviewer } from "@/types";
@@ -144,21 +145,26 @@ const Interviewers = () => {
   useEffect(() => {
     const loadProjects = async () => {
       const projectsMap: {[key: string]: any[]} = {};
-      for (const interviewer of interviewers) {
-        try {
-          const projects = await getInterviewerProjects(interviewer.id);
-          projectsMap[interviewer.id] = projects;
-        } catch (error) {
-          console.error(`Error loading projects for interviewer ${interviewer.id}:`, error);
+      
+      if (interviewers.length > 0) {
+        for (const interviewer of interviewers) {
+          try {
+            const projects = await getInterviewerProjects(interviewer.id);
+            projectsMap[interviewer.id] = projects;
+          } catch (error) {
+            console.error(`Error loading projects for interviewer ${interviewer.id}:`, error);
+            projectsMap[interviewer.id] = [];
+          }
         }
       }
+      
       setInterviewerProjects(projectsMap);
     };
 
-    if (interviewers.length > 0) {
+    if (!loading) {
       loadProjects();
     }
-  }, [interviewers, getInterviewerProjects]);
+  }, [interviewers, getInterviewerProjects, loading]);
 
   return (
     <AdminLayout>
@@ -207,6 +213,7 @@ const Interviewers = () => {
           onDelete={handleDelete}
           onSchedule={handleSchedule}
           onViewDashboard={handleViewDashboard}
+          interviewerProjects={interviewerProjects}
         />
       </div>
       
