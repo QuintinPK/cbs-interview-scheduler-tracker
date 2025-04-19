@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Input } from "@/components/ui/input";
@@ -23,7 +22,7 @@ import {
 const Interviewers = () => {
   const navigate = useNavigate();
   const { interviewers, loading, addInterviewer, updateInterviewer, deleteInterviewer } = useInterviewers();
-  const { getInterviewerProjects } = useProjects();
+  const { getInterviewerProjects, getProjectAssignments } = useProjects();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
@@ -31,6 +30,7 @@ const Interviewers = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [interviewerProjects, setInterviewerProjects] = useState<{[key: string]: any[]}>({});
+  const [projectsLoading, setProjectsLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     code: "",
@@ -149,13 +149,12 @@ const Interviewers = () => {
       setSubmitting(true);
       
       for (const interviewer of csvInterviewers) {
-        // Convert CsvInterviewer to Interviewer format by ensuring required fields are present
         await addInterviewer({
           code: interviewer.code,
           first_name: interviewer.first_name,
           last_name: interviewer.last_name,
-          phone: interviewer.phone || "", // Ensure phone is never undefined
-          email: interviewer.email || "", // Ensure email is never undefined
+          phone: interviewer.phone || "",
+          email: interviewer.email || "",
           island: interviewer.island,
         });
       }
@@ -168,28 +167,35 @@ const Interviewers = () => {
   };
   
   useEffect(() => {
-    const loadProjects = async () => {
-      const projectsMap: {[key: string]: any[]} = {};
+    const loadAllProjects = async () => {
+      if (interviewers.length === 0 || loading) return;
       
-      if (interviewers.length > 0) {
-        for (const interviewer of interviewers) {
-          try {
-            const projects = await getInterviewerProjects(interviewer.id);
-            projectsMap[interviewer.id] = projects;
-          } catch (error) {
-            console.error(`Error loading projects for interviewer ${interviewer.id}:`, error);
-            projectsMap[interviewer.id] = [];
+      setProjectsLoading(true);
+      try {
+        const assignments = await getProjectAssignments();
+        
+        const projectsMap: {[key: string]: any[]} = {};
+        
+        interviewers.forEach(interviewer => {
+          projectsMap[interviewer.id] = [];
+        });
+        
+        Object.entries(assignments).forEach(([interviewerId, projects]) => {
+          if (projectsMap.hasOwnProperty(interviewerId)) {
+            projectsMap[interviewerId] = projects;
           }
-        }
+        });
+        
+        setInterviewerProjects(projectsMap);
+      } catch (error) {
+        console.error("Error loading interviewer projects:", error);
+      } finally {
+        setProjectsLoading(false);
       }
-      
-      setInterviewerProjects(projectsMap);
     };
 
-    if (!loading) {
-      loadProjects();
-    }
-  }, [interviewers, getInterviewerProjects, loading]);
+    loadAllProjects();
+  }, [interviewers, getProjectAssignments, loading]);
 
   return (
     <AdminLayout>
@@ -236,7 +242,7 @@ const Interviewers = () => {
         
         <InterviewerList
           interviewers={filteredInterviewers}
-          loading={loading}
+          loading={loading || projectsLoading}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onSchedule={handleSchedule}

@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { 
   Table, 
@@ -47,13 +46,13 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
       case 'Bonaire':
-        return {};
+        return { variant: "success" as const };
       case 'Saba':
-        return {};
+        return { variant: "warning" as const };
       case 'Sint Eustatius':
-        return {};
+        return { variant: "danger" as const };
       default:
-        return {};
+        return { variant: "outline" as const };
     }
   };
 
@@ -146,8 +145,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                   <TableCell>
                     {interviewer.island ? (
                       <Badge 
-                        variant="default" 
-                        style={getIslandBadgeStyle(interviewer.island)}
+                        {...getIslandBadgeStyle(interviewer.island)}
                       >
                         {interviewer.island}
                       </Badge>

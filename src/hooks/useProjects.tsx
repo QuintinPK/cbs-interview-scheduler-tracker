@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Project, Interviewer } from "@/types";
@@ -338,6 +337,69 @@ export const useProjects = () => {
     }
   };
 
+  // New method to get all project assignments for all interviewers at once
+  const getProjectAssignments = async (): Promise<{[key: string]: Project[]}> => {
+    try {
+      setLoading(true);
+      
+      // First get all project_interviewers records
+      const { data: assignments, error: assignmentsError } = await supabase
+        .from('project_interviewers')
+        .select('*');
+        
+      if (assignmentsError) throw assignmentsError;
+      
+      if (!assignments || assignments.length === 0) return {};
+      
+      // Get all projects in one query
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('*');
+        
+      if (projectsError) throw projectsError;
+      
+      // Create a map of project IDs to project details for fast lookup
+      const projectMap: {[key: string]: Project} = {};
+      projectsData?.forEach(project => {
+        projectMap[project.id] = {
+          id: project.id,
+          name: project.name,
+          start_date: project.start_date,
+          end_date: project.end_date,
+          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+        };
+      });
+      
+      // Group assignments by interviewer
+      const result: {[key: string]: Project[]} = {};
+      
+      assignments.forEach(assignment => {
+        const interviewerId = assignment.interviewer_id;
+        const projectId = assignment.project_id;
+        
+        if (!result[interviewerId]) {
+          result[interviewerId] = [];
+        }
+        
+        if (projectMap[projectId]) {
+          result[interviewerId].push(projectMap[projectId]);
+        }
+      });
+      
+      return result;
+    } catch (error) {
+      console.error("Error getting project assignments:", error);
+      toast({
+        title: "Error",
+        description: "Could not load project assignments",
+        variant: "destructive",
+      });
+      return {};
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     projects,
     loading,
@@ -455,6 +517,7 @@ export const useProjects = () => {
     },
     getProjectInterviewers,
     getInterviewerProjects,
+    getProjectAssignments, // Export the new method
     refresh: loadProjects
   };
 };
