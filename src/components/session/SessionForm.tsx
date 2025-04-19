@@ -52,6 +52,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [interviewerId, setInterviewerId] = useState<string | undefined>(undefined);
   
   useEffect(() => {
     if (activeSession?.project_id) {
@@ -74,7 +75,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     if (activeSession?.id) {
       fetchActiveInterview(activeSession.id);
     }
-  }, [activeSession]);
+  }, [activeSession, fetchActiveInterview]);
 
   // Add effect to fetch the active project details
   useEffect(() => {
@@ -106,25 +107,35 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveProject();
   }, [selectedProjectId]);
 
-  // Effect to fetch available projects when interviewer code changes
+  // Get interviewer ID when code changes
   useEffect(() => {
-    const fetchProjects = async () => {
-      if (!interviewerCode || isRunning) return;
+    const getInterviewerId = async () => {
+      if (!interviewerCode.trim()) return;
       
       try {
-        // Get the interviewer's projects
-        const { data: interviewers, error: interviewerError } = await supabase
+        const { data, error } = await supabase
           .from('interviewers')
           .select('id')
           .eq('code', interviewerCode)
-          .limit(1);
+          .single();
           
-        if (interviewerError) throw interviewerError;
-        
-        if (!interviewers || interviewers.length === 0) return;
-        
-        const interviewerId = interviewers[0].id;
-        
+        if (error) throw error;
+        setInterviewerId(data.id);
+      } catch (error) {
+        console.error("Error getting interviewer ID:", error);
+        setInterviewerId(undefined);
+      }
+    };
+    
+    getInterviewerId();
+  }, [interviewerCode]);
+
+  // Effect to fetch available projects when interviewer code changes
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!interviewerCode || !interviewerId || isRunning) return;
+      
+      try {
         // Get assigned projects
         const { data: projectAssignments, error: projectsError } = await supabase
           .from('project_interviewers')
@@ -142,7 +153,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
           } else if (projects.length > 1) {
             // Reset selected project when user has multiple projects
             setSelectedProjectId(undefined);
+          } else {
+            setSelectedProjectId(undefined);
           }
+        } else {
+          // No projects assigned
+          setAvailableProjects([]);
+          setSelectedProjectId(undefined);
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -150,7 +167,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchProjects();
-  }, [interviewerCode, isRunning]);
+  }, [interviewerCode, interviewerId, isRunning]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -166,16 +183,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       try {
         setLoading(true);
         
-        // Get the interviewer's projects
-        const { data: interviewers, error: interviewerError } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', interviewerCode)
-          .limit(1);
-          
-        if (interviewerError) throw interviewerError;
-        
-        if (!interviewers || interviewers.length === 0) {
+        if (!interviewerId) {
           toast({
             title: "Error",
             description: "Interviewer code not found",
@@ -184,17 +192,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        const interviewerId = interviewers[0].id;
-        
-        // Get assigned projects
-        const { data: projectAssignments, error: projectsError } = await supabase
-          .from('project_interviewers')
-          .select('project_id, projects:project_id(*)')
-          .eq('interviewer_id', interviewerId);
-          
-        if (projectsError) throw projectsError;
-        
-        if (!projectAssignments || projectAssignments.length === 0) {
+        // Check projects
+        if (availableProjects.length === 0) {
           toast({
             title: "Error",
             description: "You are not assigned to any projects",
@@ -203,23 +202,22 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        const projects = projectAssignments.map(pa => pa.projects as Project);
-        setAvailableProjects(projects);
-        
-        if (projects.length > 1 && !selectedProjectId) {
+        if (availableProjects.length > 1 && !selectedProjectId) {
           setShowProjectDialog(true);
           return;
-        } else if (projects.length === 1) {
-          setSelectedProjectId(projects[0].id);
         }
         
-        if (!selectedProjectId && !showProjectDialog) {
-          toast({
-            title: "Error",
-            description: "Please select a project",
-            variant: "destructive",
-          });
-          return;
+        if (!selectedProjectId) {
+          if (availableProjects.length === 1) {
+            setSelectedProjectId(availableProjects[0].id);
+          } else {
+            toast({
+              title: "Error",
+              description: "Please select a project",
+              variant: "destructive",
+            });
+            return;
+          }
         }
       } catch (error) {
         console.error("Error checking projects:", error);
@@ -246,15 +244,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     try {
       setLoading(true);
       
-      const { data: interviewers, error: interviewerError } = await supabase
-        .from('interviewers')
-        .select('id')
-        .eq('code', interviewerCode)
-        .limit(1);
-        
-      if (interviewerError) throw interviewerError;
-      
-      if (!interviewers || interviewers.length === 0) {
+      if (!interviewerId) {
         toast({
           title: "Error",
           description: "Interviewer code not found",
@@ -263,10 +253,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
         return;
       }
       
-      const interviewerId = interviewers[0].id;
-      
       const currentLocation = await getCurrentLocation();
-        
+      
+      // Log the project ID being used for debugging
+      console.log("Starting session with project ID:", selectedProjectId);
+      
       const { data: session, error: insertError } = await supabase
         .from('sessions')
         .insert([
@@ -353,6 +344,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const handleProjectSelect = (projectId: string) => {
+    console.log("Project selected:", projectId);  // Debug log
     setSelectedProjectId(projectId);
     setShowProjectDialog(false);
     handleSessionStart();
@@ -365,29 +357,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       await startInterview(selectedProjectId);
     }
   };
-
-  const [interviewerId, setInterviewerId] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    const getInterviewerId = async () => {
-      if (!interviewerCode) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', interviewerCode)
-          .single();
-          
-        if (error) throw error;
-        setInterviewerId(data.id);
-      } catch (error) {
-        console.error("Error getting interviewer ID:", error);
-      }
-    };
-    
-    getInterviewerId();
-  }, [interviewerCode]);
 
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
