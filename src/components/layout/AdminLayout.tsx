@@ -16,7 +16,7 @@ interface AdminLayoutProps {
   showFilters?: boolean;
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true }) => {
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -168,12 +168,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
           
           {/* Main Content */}
           <main className="flex-1 p-4 md:p-6 bg-background min-h-screen">
-            {showFilters && (
-              <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
-                <h2 className="text-sm font-medium mb-3">Filters</h2>
-                <GlobalFilter />
-              </div>
-            )}
             {children}
           </main>
         </div>
