@@ -1,22 +1,16 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { Interviewer } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { PlusCircle, Loader2, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import InterviewerForm from "@/components/interviewer/InterviewerForm";
 import InterviewerList from "@/components/interviewer/InterviewerList";
+import InterviewerCsvImport from "@/components/interviewer/InterviewerCsvImport";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { useProjects } from "@/hooks/useProjects";
+import { CsvInterviewer } from "@/utils/csvUtils";
+import type { Interviewer } from "@/types";
 
 const Interviewers = () => {
   const navigate = useNavigate();
@@ -142,6 +136,21 @@ const Interviewers = () => {
     navigate(`/admin/interviewer/${interviewer.id}`);
   };
   
+  const handleCsvImport = async (csvInterviewers: CsvInterviewer[]) => {
+    try {
+      setSubmitting(true);
+      
+      for (const interviewer of csvInterviewers) {
+        await addInterviewer(interviewer);
+      }
+      
+    } catch (error) {
+      console.error("Error importing interviewers:", error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
   useEffect(() => {
     const loadProjects = async () => {
       const projectsMap: {[key: string]: any[]} = {};
@@ -179,14 +188,17 @@ const Interviewers = () => {
             </p>
           </div>
           
-          <Button
-            onClick={handleAddNew}
-            className="bg-cbs hover:bg-cbs-light flex items-center gap-2 transition-all shadow-sm hover:shadow"
-            disabled={loading}
-          >
-            <PlusCircle size={16} />
-            Add New Interviewer
-          </Button>
+          <div className="flex gap-2">
+            <InterviewerCsvImport onImport={handleCsvImport} />
+            <Button
+              onClick={handleAddNew}
+              className="bg-cbs hover:bg-cbs-light flex items-center gap-2 transition-all shadow-sm hover:shadow"
+              disabled={loading}
+            >
+              <PlusCircle size={16} />
+              Add New Interviewer
+            </Button>
+          </div>
         </div>
         
         <div className="bg-white p-5 rounded-lg shadow-sm border">
