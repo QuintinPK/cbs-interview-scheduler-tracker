@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,8 @@ import {
 
 const Interviewers = () => {
   const navigate = useNavigate();
-  const { interviewers, loading, addInterviewer, updateInterviewer, deleteInterviewer } = useInterviewers();
-  const { getInterviewerProjects, getProjectAssignments } = useProjects();
+  const { interviewers, loading: interviewersLoading, addInterviewer, updateInterviewer, deleteInterviewer } = useInterviewers();
+  const { getAllProjectAssignments } = useProjects();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
@@ -41,6 +42,7 @@ const Interviewers = () => {
     island: undefined as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined,
   });
   
+  // Filter interviewers based on search query
   const filteredInterviewers = interviewers.filter((interviewer) => {
     const query = searchQuery.toLowerCase();
     return (
@@ -51,6 +53,26 @@ const Interviewers = () => {
       (interviewer.island && interviewer.island.toLowerCase().includes(query))
     );
   });
+  
+  // Load all project assignments once when interviewers are loaded
+  useEffect(() => {
+    const loadProjectAssignments = async () => {
+      if (interviewers.length === 0 || interviewersLoading) return;
+      
+      setProjectsLoading(true);
+      try {
+        // Use the optimized method to get all assignments at once
+        const assignments = await getAllProjectAssignments();
+        setInterviewerProjects(assignments);
+      } catch (error) {
+        console.error("Error loading project assignments:", error);
+      } finally {
+        setProjectsLoading(false);
+      }
+    };
+
+    loadProjectAssignments();
+  }, [interviewers, interviewersLoading, getAllProjectAssignments]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -165,37 +187,6 @@ const Interviewers = () => {
       setSubmitting(false);
     }
   };
-  
-  useEffect(() => {
-    const loadAllProjects = async () => {
-      if (interviewers.length === 0 || loading) return;
-      
-      setProjectsLoading(true);
-      try {
-        const assignments = await getProjectAssignments();
-        
-        const projectsMap: {[key: string]: any[]} = {};
-        
-        interviewers.forEach(interviewer => {
-          projectsMap[interviewer.id] = [];
-        });
-        
-        Object.entries(assignments).forEach(([interviewerId, projects]) => {
-          if (projectsMap.hasOwnProperty(interviewerId)) {
-            projectsMap[interviewerId] = projects;
-          }
-        });
-        
-        setInterviewerProjects(projectsMap);
-      } catch (error) {
-        console.error("Error loading interviewer projects:", error);
-      } finally {
-        setProjectsLoading(false);
-      }
-    };
-
-    loadAllProjects();
-  }, [interviewers, getProjectAssignments, loading]);
 
   return (
     <AdminLayout>
@@ -215,7 +206,7 @@ const Interviewers = () => {
             <Button
               onClick={handleAddNew}
               className="bg-cbs hover:bg-cbs-light flex items-center gap-2 transition-all shadow-sm hover:shadow"
-              disabled={loading}
+              disabled={interviewersLoading}
             >
               <PlusCircle size={16} />
               Add New Interviewer
@@ -230,7 +221,7 @@ const Interviewers = () => {
               placeholder="Search by name, code, island, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={loading}
+              disabled={interviewersLoading}
               className="pl-9 border-gray-200 focus:border-cbs focus:ring-1 focus:ring-cbs"
             />
           </div>
@@ -242,7 +233,7 @@ const Interviewers = () => {
         
         <InterviewerList
           interviewers={filteredInterviewers}
-          loading={loading || projectsLoading}
+          loading={interviewersLoading || projectsLoading}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onSchedule={handleSchedule}

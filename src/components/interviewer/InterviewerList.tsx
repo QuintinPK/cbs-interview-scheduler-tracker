@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { 
   Table, 
@@ -59,6 +60,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const handleManageProjects = async (interviewer: Interviewer) => {
     setSelectedInterviewer(interviewer);
     setShowProjectDialog(true);
+    setAssignmentsLoading(true);
+    
     try {
       const projects = await getInterviewerProjects(interviewer.id);
       setAssignedProjects(projects);
@@ -69,6 +72,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
         description: "Could not load interviewer's projects",
         variant: "destructive",
       });
+    } finally {
+      setAssignmentsLoading(false);
     }
   };
 
@@ -167,17 +172,15 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleManageProjects(interviewer)}
-                        className="text-xs"
-                      >
-                        <Users className="h-3 w-3 mr-1" />
-                        Manage Projects
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleManageProjects(interviewer)}
+                      className="text-xs"
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      Manage Projects
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -245,7 +248,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           
           <ScrollArea className="h-[300px] rounded-md border p-4">
             <div className="space-y-4">
-              {projectsLoading ? (
+              {projectsLoading || assignmentsLoading ? (
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
