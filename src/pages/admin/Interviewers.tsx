@@ -139,10 +139,6 @@ const Interviewers = () => {
     navigate(`/admin/interviewer/${interviewer.id}`);
   };
   
-  const handleProjects = (interviewer: Interviewer) => {
-    navigate(`/admin/projects?interviewer=${interviewer.id}`);
-  };
-  
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -190,7 +186,6 @@ const Interviewers = () => {
           onDelete={handleDelete}
           onSchedule={handleSchedule}
           onViewDashboard={handleViewDashboard}
-          onManageProjects={handleProjects}
         />
       </div>
       

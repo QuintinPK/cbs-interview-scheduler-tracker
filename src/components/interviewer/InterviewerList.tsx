@@ -155,11 +155,13 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
-                      {interviewerProjects.filter(p => p.id === interviewer.id).map(project => (
-                        <Badge key={project.id} variant="outline" className="mr-1">
-                          {project.name}
-                        </Badge>
-                      ))}
+                      {interviewerProjects
+                        .filter(p => selectedInterviewer?.id === interviewer.id)
+                        .map(project => (
+                          <Badge key={project.id} variant="outline" className="mr-1">
+                            {project.name}
+                          </Badge>
+                        ))}
                       <Button
                         variant="outline"
                         size="sm"
