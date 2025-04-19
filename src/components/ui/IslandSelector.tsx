@@ -12,36 +12,29 @@ type Island = 'Bonaire' | 'Saba' | 'Sint Eustatius';
 
 interface IslandSelectorProps {
   selectedIsland?: Island;
-  onIslandChange: (island: Island | undefined) => void;
+  onIslandChange: (island: Island) => void;
   disabled?: boolean;
   placeholder?: string;
-  includeAll?: boolean;
-  className?: string;
 }
 
 const IslandSelector: React.FC<IslandSelectorProps> = ({
   selectedIsland,
   onIslandChange,
   disabled = false,
-  placeholder = "Select an island",
-  includeAll = false,
-  className
+  placeholder = "Select an island"
 }) => {
   const islands: Island[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
 
   return (
     <Select
-      value={selectedIsland || "all"}
-      onValueChange={(value) => onIslandChange(value === "all" ? undefined : value as Island)}
+      value={selectedIsland}
+      onValueChange={(value) => onIslandChange(value as Island)}
       disabled={disabled}
     >
-      <SelectTrigger className={className}>
+      <SelectTrigger className="w-full">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {includeAll && (
-          <SelectItem value="all">{placeholder}</SelectItem>
-        )}
         {islands.map((island) => (
           <SelectItem key={island} value={island}>
             {island}
