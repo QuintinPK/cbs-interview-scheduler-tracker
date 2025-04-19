@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Interviewer } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -16,16 +15,19 @@ import { useNavigate } from "react-router-dom";
 import InterviewerForm from "@/components/interviewer/InterviewerForm";
 import InterviewerList from "@/components/interviewer/InterviewerList";
 import { useInterviewers } from "@/hooks/useInterviewers";
+import { useProjects } from "@/hooks/useProjects";
 
 const Interviewers = () => {
   const navigate = useNavigate();
   const { interviewers, loading, addInterviewer, updateInterviewer, deleteInterviewer } = useInterviewers();
+  const { getInterviewerProjects } = useProjects();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [interviewerProjects, setInterviewerProjects] = useState<{[key: string]: any[]}>({});
   
   const [formData, setFormData] = useState({
     code: "",
@@ -139,6 +141,25 @@ const Interviewers = () => {
     navigate(`/admin/interviewer/${interviewer.id}`);
   };
   
+  useEffect(() => {
+    const loadProjects = async () => {
+      const projectsMap: {[key: string]: any[]} = {};
+      for (const interviewer of interviewers) {
+        try {
+          const projects = await getInterviewerProjects(interviewer.id);
+          projectsMap[interviewer.id] = projects;
+        } catch (error) {
+          console.error(`Error loading projects for interviewer ${interviewer.id}:`, error);
+        }
+      }
+      setInterviewerProjects(projectsMap);
+    };
+
+    if (interviewers.length > 0) {
+      loadProjects();
+    }
+  }, [interviewers, getInterviewerProjects]);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
