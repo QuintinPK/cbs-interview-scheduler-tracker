@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,7 @@ const ProjectAssign = () => {
   const { interviewers } = useInterviewers();
   
   const [projectInterviewers, setProjectInterviewers] = useState<Interviewer[]>([]);
-  const [assigningInterviewer, setAssigningInterviewer] = useState(false);
-  const [removingInterviewer, setRemovingInterviewer] = useState(false);
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
   
   useEffect(() => {
     // Find the project by ID
@@ -54,53 +53,77 @@ const ProjectAssign = () => {
     }
   }, [projectId, projects, navigate, toast]);
   
-  useEffect(() => {
-    const loadProjectInterviewers = async () => {
-      if (projectId) {
-        setLoading(true);
-        try {
-          const interviewers = await getProjectInterviewers(projectId);
-          setProjectInterviewers(interviewers);
-        } catch (error) {
-          console.error("Error loading project interviewers:", error);
-        } finally {
-          setLoading(false);
-        }
+  const loadProjectInterviewers = useCallback(async () => {
+    if (projectId) {
+      setLoading(true);
+      try {
+        const interviewers = await getProjectInterviewers(projectId);
+        setProjectInterviewers(interviewers);
+      } catch (error) {
+        console.error("Error loading project interviewers:", error);
+      } finally {
+        setLoading(false);
       }
-    };
-    
-    loadProjectInterviewers();
+    }
   }, [projectId, getProjectInterviewers]);
   
+  useEffect(() => {
+    loadProjectInterviewers();
+  }, [loadProjectInterviewers]);
+  
   const handleAssignInterviewer = async (interviewer: Interviewer) => {
-    if (!projectId) return;
+    if (!projectId || processingIds.has(interviewer.id)) return;
     
-    setAssigningInterviewer(true);
+    setProcessingIds(prev => new Set(prev).add(interviewer.id));
+    
     try {
       await assignInterviewerToProject(projectId, interviewer.id);
-      // Refresh the list of project interviewers
-      const updatedInterviewers = await getProjectInterviewers(projectId);
-      setProjectInterviewers(updatedInterviewers);
+      
+      // Update local state without making another API call
+      setProjectInterviewers(prev => [...prev, interviewer]);
+      
+      toast({
+        title: "Success",
+        description: "Interviewer assigned successfully",
+      });
     } catch (error) {
       console.error("Error assigning interviewer:", error);
+      // Only reload the full list if there was an error
+      await loadProjectInterviewers();
     } finally {
-      setAssigningInterviewer(false);
+      setProcessingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(interviewer.id);
+        return newSet;
+      });
     }
   };
   
   const handleRemoveInterviewer = async (interviewer: Interviewer) => {
-    if (!projectId) return;
+    if (!projectId || processingIds.has(interviewer.id)) return;
     
-    setRemovingInterviewer(true);
+    setProcessingIds(prev => new Set(prev).add(interviewer.id));
+    
     try {
       await removeInterviewerFromProject(projectId, interviewer.id);
-      // Refresh the list of project interviewers
-      const updatedInterviewers = await getProjectInterviewers(projectId);
-      setProjectInterviewers(updatedInterviewers);
+      
+      // Update local state without making another API call
+      setProjectInterviewers(prev => prev.filter(i => i.id !== interviewer.id));
+      
+      toast({
+        title: "Success",
+        description: "Interviewer removed successfully",
+      });
     } catch (error) {
       console.error("Error removing interviewer:", error);
+      // Only reload the full list if there was an error
+      await loadProjectInterviewers();
     } finally {
-      setRemovingInterviewer(false);
+      setProcessingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(interviewer.id);
+        return newSet;
+      });
     }
   };
   
@@ -124,6 +147,10 @@ const ProjectAssign = () => {
   // Check if an interviewer is already assigned to the project
   const isInterviewerAssigned = (interviewerId: string) => {
     return projectInterviewers.some(i => i.id === interviewerId);
+  };
+  
+  const isProcessing = (interviewerId: string) => {
+    return processingIds.has(interviewerId);
   };
   
   return (
@@ -191,9 +218,9 @@ const ProjectAssign = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleRemoveInterviewer(interviewer)}
-                              disabled={removingInterviewer}
+                              disabled={isProcessing(interviewer.id)}
                             >
-                              {removingInterviewer ? (
+                              {isProcessing(interviewer.id) ? (
                                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                               ) : (
                                 <UserMinus className="h-4 w-4 mr-2 text-destructive" />
@@ -254,6 +281,7 @@ const ProjectAssign = () => {
                     ) : (
                       filteredInterviewers.map(interviewer => {
                         const assigned = isInterviewerAssigned(interviewer.id);
+                        const processing = isProcessing(interviewer.id);
                         return (
                           <TableRow key={interviewer.id} className={assigned ? "bg-muted/30" : ""}>
                             <TableCell className="font-medium">{interviewer.code}</TableCell>
@@ -275,9 +303,9 @@ const ProjectAssign = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleRemoveInterviewer(interviewer)}
-                                  disabled={removingInterviewer}
+                                  disabled={processing}
                                 >
-                                  {removingInterviewer ? (
+                                  {processing ? (
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                   ) : (
                                     <UserMinus className="h-4 w-4 mr-2 text-destructive" />
@@ -289,9 +317,9 @@ const ProjectAssign = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => handleAssignInterviewer(interviewer)}
-                                  disabled={assigningInterviewer}
+                                  disabled={processing}
                                 >
-                                  {assigningInterviewer ? (
+                                  {processing ? (
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                   ) : (
                                     <UserPlus className="h-4 w-4 mr-2 text-cbs" />
