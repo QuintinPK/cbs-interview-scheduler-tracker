@@ -56,8 +56,8 @@ export const useProjects = () => {
         start_date: project.start_date,
         end_date: project.end_date,
         excluded_islands: project.excluded_islands,
-        // Include the required island field for the database
-        island: 'Bonaire' // Default value required by the database schema
+        // Include the required island field for the database schema
+        island: 'Bonaire' as 'Bonaire' | 'Saba' | 'Sint Eustatius' // Explicitly typed to match the enum
       };
       
       const { data, error } = await supabase
@@ -106,8 +106,8 @@ export const useProjects = () => {
         start_date: project.start_date,
         end_date: project.end_date,
         excluded_islands: project.excluded_islands,
-        // Include the required island field for the database
-        island: 'Bonaire' // Default value required by the database schema
+        // Include the required island field for the database schema
+        island: 'Bonaire' as 'Bonaire' | 'Saba' | 'Sint Eustatius' // Explicitly typed to match the enum
       };
       
       const { error } = await supabase
