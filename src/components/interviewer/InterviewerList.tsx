@@ -47,13 +47,13 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
       case 'Bonaire':
-        return { variant: "success" as const };
+        return {};
       case 'Saba':
-        return { variant: "warning" as const };
+        return {};
       case 'Sint Eustatius':
-        return { variant: "danger" as const };
+        return {};
       default:
-        return { variant: "outline" as const };
+        return {};
     }
   };
 
@@ -146,7 +146,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                   <TableCell>
                     {interviewer.island ? (
                       <Badge 
-                        {...getIslandBadgeStyle(interviewer.island)}
+                        variant="default" 
+                        style={getIslandBadgeStyle(interviewer.island)}
                       >
                         {interviewer.island}
                       </Badge>

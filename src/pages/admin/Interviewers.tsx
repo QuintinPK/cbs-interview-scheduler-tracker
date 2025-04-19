@@ -31,7 +31,6 @@ const Interviewers = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [interviewerProjects, setInterviewerProjects] = useState<{[key: string]: any[]}>({});
-  const [projectsLoading, setProjectsLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     code: "",
@@ -168,39 +167,28 @@ const Interviewers = () => {
     }
   };
   
-  // Load all project assignments in a single batch operation 
   useEffect(() => {
-    const loadAllProjects = async () => {
-      if (interviewers.length === 0 || loading) return;
+    const loadProjects = async () => {
+      const projectsMap: {[key: string]: any[]} = {};
       
-      setProjectsLoading(true);
-      try {
-        const projectsMap: {[key: string]: any[]} = {};
-        
-        // Get a batch of all project assignments at once instead of one by one
-        const batchPromises = interviewers.map(interviewer => 
-          getInterviewerProjects(interviewer.id)
-            .then(projects => {
-              projectsMap[interviewer.id] = projects;
-            })
-            .catch(error => {
-              console.error(`Error loading projects for interviewer ${interviewer.id}:`, error);
-              projectsMap[interviewer.id] = [];
-            })
-        );
-        
-        // Wait for all promises to resolve
-        await Promise.allSettled(batchPromises);
-        
-        setInterviewerProjects(projectsMap);
-      } catch (error) {
-        console.error("Error loading interviewer projects:", error);
-      } finally {
-        setProjectsLoading(false);
+      if (interviewers.length > 0) {
+        for (const interviewer of interviewers) {
+          try {
+            const projects = await getInterviewerProjects(interviewer.id);
+            projectsMap[interviewer.id] = projects;
+          } catch (error) {
+            console.error(`Error loading projects for interviewer ${interviewer.id}:`, error);
+            projectsMap[interviewer.id] = [];
+          }
+        }
       }
+      
+      setInterviewerProjects(projectsMap);
     };
 
-    loadAllProjects();
+    if (!loading) {
+      loadProjects();
+    }
   }, [interviewers, getInterviewerProjects, loading]);
 
   return (
@@ -248,7 +236,7 @@ const Interviewers = () => {
         
         <InterviewerList
           interviewers={filteredInterviewers}
-          loading={loading || projectsLoading}
+          loading={loading}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onSchedule={handleSchedule}
