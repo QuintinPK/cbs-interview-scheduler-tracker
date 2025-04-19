@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle, MapPin } from "lucide-react";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
-import { Session, Interview } from "@/types";
+import { Session, Interview, Project } from "@/types";
 import InterviewsList from "./InterviewsList";
 import CoordinatePopup from "../ui/CoordinatePopup";
 
@@ -24,6 +24,7 @@ interface SessionListProps {
   onEdit: (session: Session) => void;
   onStop: (session: Session) => void;
   onDelete: (session: Session) => void;
+  projects: Project[];
 }
 
 const SessionList: React.FC<SessionListProps> = ({
@@ -34,7 +35,8 @@ const SessionList: React.FC<SessionListProps> = ({
   getSessionInterviewsCount,
   onEdit,
   onStop,
-  onDelete
+  onDelete,
+  projects
 }) => {
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
   const [sessionInterviews, setSessionInterviews] = useState<Record<string, Interview[]>>({});
@@ -43,6 +45,12 @@ const SessionList: React.FC<SessionListProps> = ({
   const [loadingCounts, setLoadingCounts] = useState<Record<string, boolean>>({});
   const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
+
+  const getProjectName = (projectId: string | undefined | null): string => {
+    if (!projectId) return "No project";
+    const project = projects.find(p => p.id === projectId);
+    return project ? project.name : "Unknown project";
+  };
 
   useEffect(() => {
     const loadAllInterviewCounts = async () => {
@@ -139,6 +147,7 @@ const SessionList: React.FC<SessionListProps> = ({
               <TableRow>
                 <TableHead className="w-10"></TableHead>
                 <TableHead>Interviewer Code</TableHead>
+                <TableHead>Project</TableHead>
                 <TableHead>Start Date/Time</TableHead>
                 <TableHead>End Date/Time</TableHead>
                 <TableHead>Duration</TableHead>
@@ -151,7 +160,7 @@ const SessionList: React.FC<SessionListProps> = ({
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-10">
+                  <TableCell colSpan={10} className="text-center py-10">
                     <div className="flex justify-center items-center">
                       <Loader2 className="h-8 w-8 animate-spin text-cbs" />
                     </div>
@@ -159,7 +168,7 @@ const SessionList: React.FC<SessionListProps> = ({
                 </TableRow>
               ) : sessions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                     No sessions found
                   </TableCell>
                 </TableRow>
@@ -183,6 +192,11 @@ const SessionList: React.FC<SessionListProps> = ({
                         )}
                       </TableCell>
                       <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {getProjectName(session.project_id)}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{formatDateTime(session.start_time)}</TableCell>
                       <TableCell>
                         {session.end_time ? formatDateTime(session.end_time) : (

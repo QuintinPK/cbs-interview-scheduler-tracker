@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Session, Interview } from "@/types";
@@ -25,11 +24,13 @@ import { cn, formatDateTime } from "@/lib/utils";
 import SessionFilters from "@/components/session/SessionFilters";
 import SessionList from "@/components/session/SessionList";
 import { useSessions } from "@/hooks/useSessions";
+import { useProjects } from "@/hooks/useProjects";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const Sessions = () => {
   const { toast } = useToast();
+  const { projects } = useProjects();
   const { 
     filteredSessions, 
     loading, 
@@ -206,7 +207,6 @@ const Sessions = () => {
           </Button>
         </div>
         
-        {/* Filters */}
         <SessionFilters
           interviewerCodeFilter={interviewerCodeFilter}
           setInterviewerCodeFilter={setInterviewerCodeFilter}
@@ -217,7 +217,6 @@ const Sessions = () => {
           loading={loading}
         />
         
-        {/* Sessions Table */}
         <SessionList
           sessions={filteredSessions}
           loading={loading}
@@ -227,10 +226,10 @@ const Sessions = () => {
           onEdit={handleEdit}
           onStop={handleStopSession}
           onDelete={handleDelete}
+          projects={projects}
         />
       </div>
       
-      {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
@@ -337,7 +336,6 @@ const Sessions = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
