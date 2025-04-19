@@ -53,7 +53,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [interviewerId, setInterviewerId] = useState<string | undefined>(undefined);
-  
+  const [projectDialogStep, setProjectDialogStep] = useState<'init' | 'pending' | 'complete'>('init');
+
+  // Set selected project ID when active session has a project ID
   useEffect(() => {
     if (activeSession?.project_id) {
       setSelectedProjectId(activeSession.project_id);
@@ -110,16 +112,26 @@ const SessionForm: React.FC<SessionFormProps> = ({
   // Get interviewer ID when code changes
   useEffect(() => {
     const getInterviewerId = async () => {
-      if (!interviewerCode.trim()) return;
+      if (!interviewerCode.trim()) {
+        setInterviewerId(undefined);
+        return;
+      }
       
       try {
+        console.log("Getting interviewer ID for code:", interviewerCode);
         const { data, error } = await supabase
           .from('interviewers')
           .select('id')
           .eq('code', interviewerCode)
           .single();
           
-        if (error) throw error;
+        if (error) {
+          console.error("Error getting interviewer ID:", error);
+          setInterviewerId(undefined);
+          return;
+        }
+        
+        console.log("Found interviewer ID:", data.id);
         setInterviewerId(data.id);
       } catch (error) {
         console.error("Error getting interviewer ID:", error);
@@ -130,12 +142,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
     getInterviewerId();
   }, [interviewerCode]);
 
-  // Effect to fetch available projects when interviewer code changes
+  // Effect to fetch available projects when interviewer ID changes
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!interviewerCode || !interviewerId || isRunning) return;
+      if (!interviewerId || isRunning) return;
       
       try {
+        console.log("Fetching projects for interviewer ID:", interviewerId);
         // Get assigned projects
         const { data: projectAssignments, error: projectsError } = await supabase
           .from('project_interviewers')
@@ -146,20 +159,32 @@ const SessionForm: React.FC<SessionFormProps> = ({
         
         if (projectAssignments && projectAssignments.length > 0) {
           const projects = projectAssignments.map(pa => pa.projects as Project);
+          console.log("Found projects:", projects);
           setAvailableProjects(projects);
           
           if (projects.length === 1) {
+            console.log("Single project found, setting project ID:", projects[0].id);
             setSelectedProjectId(projects[0].id);
+            setProjectDialogStep('complete');
           } else if (projects.length > 1) {
             // Reset selected project when user has multiple projects
             setSelectedProjectId(undefined);
+            // Show project selection dialog immediately if not running
+            if (!isRunning && projectDialogStep === 'init') {
+              console.log("Multiple projects found, showing selection dialog");
+              setShowProjectDialog(true);
+              setProjectDialogStep('pending');
+            }
           } else {
             setSelectedProjectId(undefined);
+            setProjectDialogStep('complete');
           }
         } else {
           // No projects assigned
+          console.log("No projects found for this interviewer");
           setAvailableProjects([]);
           setSelectedProjectId(undefined);
+          setProjectDialogStep('complete');
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -167,7 +192,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchProjects();
-  }, [interviewerCode, interviewerId, isRunning]);
+  }, [interviewerId, isRunning, projectDialogStep]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -203,12 +228,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
         }
         
         if (availableProjects.length > 1 && !selectedProjectId) {
+          console.log("Multiple projects but no selection, showing dialog");
           setShowProjectDialog(true);
+          setProjectDialogStep('pending');
           return;
         }
         
         if (!selectedProjectId) {
           if (availableProjects.length === 1) {
+            console.log("Auto-selecting the only available project:", availableProjects[0].id);
             setSelectedProjectId(availableProjects[0].id);
           } else {
             toast({
@@ -230,8 +258,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
         setLoading(false);
       }
       
-      if (!showProjectDialog) {
+      if (projectDialogStep === 'complete' || availableProjects.length === 1) {
         // Continue with session start
+        console.log("Proceeding with session start, selected project:", selectedProjectId);
         handleSessionStart();
       }
     } else {
@@ -248,6 +277,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
         toast({
           title: "Error",
           description: "Interviewer code not found",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!selectedProjectId) {
+        console.error("No project selected for session start");
+        toast({
+          title: "Error",
+          description: "No project selected. Please select a project first.",
           variant: "destructive",
         });
         return;
@@ -275,6 +314,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         
       if (insertError) throw insertError;
       
+      console.log("Session created:", session);
       setActiveSession(session);
       setIsRunning(true);
       setStartTime(session.start_time);
@@ -344,10 +384,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const handleProjectSelect = (projectId: string) => {
-    console.log("Project selected:", projectId);  // Debug log
+    console.log("Project selected:", projectId);
     setSelectedProjectId(projectId);
     setShowProjectDialog(false);
-    handleSessionStart();
+    setProjectDialogStep('complete');
+    // Start session after project selection is complete
+    setTimeout(() => {
+      handleSessionStart();
+    }, 100);
   };
 
   const handleInterviewAction = async () => {
@@ -429,7 +473,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isOpen={showProjectDialog}
         projects={availableProjects}
         onProjectSelect={handleProjectSelect}
-        onClose={() => setShowProjectDialog(false)}
+        onClose={() => {
+          setShowProjectDialog(false);
+          setProjectDialogStep('init');
+        }}
       />
     </div>
   );
