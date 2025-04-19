@@ -37,7 +37,7 @@ const ProjectSelectionDialog: React.FC<ProjectSelectionDialogProps> = ({
               <Button
                 key={project.id}
                 variant="outline"
-                className="w-full justify-start text-left"
+                className="w-full justify-start text-left font-medium"
                 onClick={() => onProjectSelect(project.id)}
               >
                 {project.name}

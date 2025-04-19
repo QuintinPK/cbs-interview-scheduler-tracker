@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { Session, Location } from "@/types";
+import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
 

@@ -106,6 +106,52 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveProject();
   }, [selectedProjectId]);
 
+  // Effect to fetch available projects when interviewer code changes
+  useEffect(() => {
+    const fetchProjects = async () => {
+      if (!interviewerCode || isRunning) return;
+      
+      try {
+        // Get the interviewer's projects
+        const { data: interviewers, error: interviewerError } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .limit(1);
+          
+        if (interviewerError) throw interviewerError;
+        
+        if (!interviewers || interviewers.length === 0) return;
+        
+        const interviewerId = interviewers[0].id;
+        
+        // Get assigned projects
+        const { data: projectAssignments, error: projectsError } = await supabase
+          .from('project_interviewers')
+          .select('project_id, projects:project_id(*)')
+          .eq('interviewer_id', interviewerId);
+          
+        if (projectsError) throw projectsError;
+        
+        if (projectAssignments && projectAssignments.length > 0) {
+          const projects = projectAssignments.map(pa => pa.projects as Project);
+          setAvailableProjects(projects);
+          
+          if (projects.length === 1) {
+            setSelectedProjectId(projects[0].id);
+          } else if (projects.length > 1) {
+            // Reset selected project when user has multiple projects
+            setSelectedProjectId(undefined);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+      }
+    };
+    
+    fetchProjects();
+  }, [interviewerCode, isRunning]);
+
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
       toast({
