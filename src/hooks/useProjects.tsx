@@ -128,38 +128,38 @@ export const useProjects = () => {
     }
   };
 
-  // Function to assign an interviewer to a project
   const assignInterviewerToProject = async (projectId: string, interviewerId: string) => {
     try {
       setLoading(true);
       
-      // Check if this assignment already exists
-      const { data: existingAssignment, error: checkError } = await supabase
-        .from('project_interviewers')
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
         .select('*')
-        .eq('project_id', projectId)
-        .eq('interviewer_id', interviewerId)
+        .eq('id', projectId)
         .single();
         
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        throw checkError;
-      }
+      if (projectError) throw projectError;
       
-      if (existingAssignment) {
+      const { data: interviewer, error: interviewerError } = await supabase
+        .from('interviewers')
+        .select('*')
+        .eq('id', interviewerId)
+        .single();
+        
+      if (interviewerError) throw interviewerError;
+      
+      if (interviewer.island && project.island && interviewer.island !== project.island) {
         toast({
-          title: "Info",
-          description: "Interviewer is already assigned to this project",
+          title: "Error",
+          description: "Interviewers can only be assigned to projects on their island",
+          variant: "destructive",
         });
-        return;
+        throw new Error("Island mismatch");
       }
       
-      // Create the new assignment
       const { error } = await supabase
         .from('project_interviewers')
-        .insert([{
-          project_id: projectId,
-          interviewer_id: interviewerId
-        }]);
+        .insert([{ project_id: projectId, interviewer_id: interviewerId }]);
         
       if (error) throw error;
       
@@ -169,18 +169,19 @@ export const useProjects = () => {
       });
     } catch (error) {
       console.error("Error assigning interviewer to project:", error);
-      toast({
-        title: "Error",
-        description: "Could not assign interviewer to project",
-        variant: "destructive",
-      });
+      if (!(error instanceof Error) || error.message !== "Island mismatch") {
+        toast({
+          title: "Error",
+          description: "Could not assign interviewer to project",
+          variant: "destructive",
+        });
+      }
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to remove an interviewer from a project
   const removeInterviewerFromProject = async (projectId: string, interviewerId: string) => {
     try {
       setLoading(true);
@@ -210,7 +211,6 @@ export const useProjects = () => {
     }
   };
 
-  // Function to get all interviewers assigned to a project
   const getProjectInterviewers = async (projectId: string): Promise<Interviewer[]> => {
     try {
       setLoading(true);
@@ -224,7 +224,6 @@ export const useProjects = () => {
       
       if (!data || data.length === 0) return [];
       
-      // Get the full interviewer details
       const interviewerIds = data.map(pi => pi.interviewer_id);
       
       const { data: interviewers, error: interviewersError } = await supabase
@@ -234,7 +233,6 @@ export const useProjects = () => {
         
       if (interviewersError) throw interviewersError;
       
-      // Map the database results to our Interviewer type
       const typedInterviewers: Interviewer[] = interviewers?.map(interviewer => ({
         id: interviewer.id,
         code: interviewer.code,
@@ -259,7 +257,6 @@ export const useProjects = () => {
     }
   };
 
-  // Function to get all projects an interviewer is assigned to
   const getInterviewerProjects = async (interviewerId: string): Promise<Project[]> => {
     try {
       setLoading(true);
@@ -273,7 +270,6 @@ export const useProjects = () => {
       
       if (!data || data.length === 0) return [];
       
-      // Get the full project details
       const projectIds = data.map(pi => pi.project_id);
       
       const { data: projects, error: projectsError } = await supabase
