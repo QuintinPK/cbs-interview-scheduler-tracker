@@ -1,5 +1,5 @@
 
-import { Island } from "@/types";
+export type Island = 'Bonaire' | 'Saba' | 'Sint Eustatius';
 
 export interface CsvInterviewer {
   code: string;

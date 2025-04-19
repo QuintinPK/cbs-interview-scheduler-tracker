@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,13 @@ import { useInterviewers } from "@/hooks/useInterviewers";
 import { useProjects } from "@/hooks/useProjects";
 import { CsvInterviewer } from "@/utils/csvUtils";
 import type { Interviewer } from "@/types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const Interviewers = () => {
   const navigate = useNavigate();
@@ -141,7 +149,15 @@ const Interviewers = () => {
       setSubmitting(true);
       
       for (const interviewer of csvInterviewers) {
-        await addInterviewer(interviewer);
+        // Convert CsvInterviewer to Interviewer format by ensuring required fields are present
+        await addInterviewer({
+          code: interviewer.code,
+          first_name: interviewer.first_name,
+          last_name: interviewer.last_name,
+          phone: interviewer.phone || "", // Ensure phone is never undefined
+          email: interviewer.email || "", // Ensure email is never undefined
+          island: interviewer.island,
+        });
       }
       
     } catch (error) {
