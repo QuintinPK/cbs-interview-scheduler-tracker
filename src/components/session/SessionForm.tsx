@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
-import { Session, Location, Interview } from "@/types";
+import { Session, Location, Interview, Project } from "@/types";
 import CurrentSessionTime from "./CurrentSessionTime";
 import InterviewerCodeInput from "./InterviewerCodeInput";
 import SessionButton from "./SessionButton";
@@ -12,6 +12,7 @@ import ActiveInterviewInfo from "../interview/ActiveInterviewInfo";
 import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
+import ProjectSelectionDialog from "./ProjectSelectionDialog";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -47,6 +48,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
   
   useEffect(() => {
     if (activeSession?.project_id) {
@@ -71,6 +75,29 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   }, [activeSession]);
 
+  // Add effect to fetch the active project details
+  useEffect(() => {
+    const fetchActiveProject = async () => {
+      if (!selectedProjectId) return;
+      
+      try {
+        const { data: project, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', selectedProjectId)
+          .single();
+          
+        if (error) throw error;
+        
+        setActiveProject(project);
+      } catch (error) {
+        console.error("Error fetching project details:", error);
+      }
+    };
+    
+    fetchActiveProject();
+  }, [selectedProjectId]);
+
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
       toast({
@@ -81,15 +108,87 @@ const SessionForm: React.FC<SessionFormProps> = ({
       return;
     }
     
-    if (!isRunning && !selectedProjectId) {
-      toast({
-        title: "Error",
-        description: "Please select a project",
-        variant: "destructive",
-      });
-      return;
+    if (!isRunning) {
+      try {
+        setLoading(true);
+        
+        // Get the interviewer's projects
+        const { data: interviewers, error: interviewerError } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .limit(1);
+          
+        if (interviewerError) throw interviewerError;
+        
+        if (!interviewers || interviewers.length === 0) {
+          toast({
+            title: "Error",
+            description: "Interviewer code not found",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const interviewerId = interviewers[0].id;
+        
+        // Get assigned projects
+        const { data: projectAssignments, error: projectsError } = await supabase
+          .from('project_interviewers')
+          .select('project_id, projects:project_id(*)')
+          .eq('interviewer_id', interviewerId);
+          
+        if (projectsError) throw projectsError;
+        
+        if (!projectAssignments || projectAssignments.length === 0) {
+          toast({
+            title: "Error",
+            description: "You are not assigned to any projects",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const projects = projectAssignments.map(pa => pa.projects as Project);
+        setAvailableProjects(projects);
+        
+        if (projects.length > 1 && !selectedProjectId) {
+          setShowProjectDialog(true);
+          return;
+        } else if (projects.length === 1) {
+          setSelectedProjectId(projects[0].id);
+        }
+        
+        if (!selectedProjectId && !showProjectDialog) {
+          toast({
+            title: "Error",
+            description: "Please select a project",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking projects:", error);
+        toast({
+          title: "Error",
+          description: "Could not check project assignments",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+      
+      if (!showProjectDialog) {
+        // Continue with session start
+        handleSessionStart();
+      }
+    } else {
+      // Handle session end
+      handleSessionEnd();
     }
-    
+  };
+
+  const handleSessionStart = async () => {
     try {
       setLoading(true);
       
@@ -112,79 +211,97 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       const interviewerId = interviewers[0].id;
       
-      if (!isRunning) {
-        const currentLocation = await getCurrentLocation();
+      const currentLocation = await getCurrentLocation();
         
-        const { data: session, error: insertError } = await supabase
-          .from('sessions')
-          .insert([
-            {
-              interviewer_id: interviewerId,
-              project_id: selectedProjectId,
-              start_latitude: currentLocation?.latitude || null,
-              start_longitude: currentLocation?.longitude || null,
-              start_address: currentLocation?.address || null,
-              is_active: true
-            }
-          ])
-          .select()
-          .single();
-          
-        if (insertError) throw insertError;
+      const { data: session, error: insertError } = await supabase
+        .from('sessions')
+        .insert([
+          {
+            interviewer_id: interviewerId,
+            project_id: selectedProjectId,
+            start_latitude: currentLocation?.latitude || null,
+            start_longitude: currentLocation?.longitude || null,
+            start_address: currentLocation?.address || null,
+            is_active: true
+          }
+        ])
+        .select()
+        .single();
         
-        setActiveSession(session);
-        setIsRunning(true);
-        setStartTime(session.start_time);
-        setStartLocation(currentLocation);
-        
-        toast({
-          title: "Session Started",
-          description: `Started at ${new Date().toLocaleTimeString()}`,
-        });
-      } else {
-        if (activeInterview) {
-          toast({
-            title: "Error",
-            description: "Please stop the active interview before ending your session",
-            variant: "destructive",
-          });
-          return;
-        }
-        
-        const currentLocation = await getCurrentLocation();
-        
-        if (!activeSession) return;
-        
-        const { error: updateError } = await supabase
-          .from('sessions')
-          .update({
-            end_time: new Date().toISOString(),
-            end_latitude: currentLocation?.latitude || null,
-            end_longitude: currentLocation?.longitude || null,
-            end_address: currentLocation?.address || null,
-            is_active: false
-          })
-          .eq('id', activeSession.id);
-          
-        if (updateError) throw updateError;
-        
-        endSession();
-        
-        toast({
-          title: "Session Ended",
-          description: `Ended at ${new Date().toLocaleTimeString()}`,
-        });
-      }
+      if (insertError) throw insertError;
+      
+      setActiveSession(session);
+      setIsRunning(true);
+      setStartTime(session.start_time);
+      setStartLocation(currentLocation);
+      
+      toast({
+        title: "Session Started",
+        description: `Started at ${new Date().toLocaleTimeString()}`,
+      });
     } catch (error) {
-      console.error("Error managing session:", error);
+      console.error("Error starting session:", error);
       toast({
         title: "Error",
-        description: "Could not manage session",
+        description: "Could not start session",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSessionEnd = async () => {
+    try {
+      setLoading(true);
+      if (activeInterview) {
+        toast({
+          title: "Error",
+          description: "Please stop the active interview before ending your session",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const currentLocation = await getCurrentLocation();
+      
+      if (!activeSession) return;
+      
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({
+          end_time: new Date().toISOString(),
+          end_latitude: currentLocation?.latitude || null,
+          end_longitude: currentLocation?.longitude || null,
+          end_address: currentLocation?.address || null,
+          is_active: false
+        })
+        .eq('id', activeSession.id);
+        
+      if (updateError) throw updateError;
+      
+      endSession();
+      
+      toast({
+        title: "Session Ended",
+        description: `Ended at ${new Date().toLocaleTimeString()}`,
+      });
+    } catch (error) {
+      console.error("Error ending session:", error);
+      toast({
+        title: "Error",
+        description: "Could not end session",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProjectSelect = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    setShowProjectDialog(false);
+    handleSessionStart();
   };
 
   const handleInterviewAction = async () => {
@@ -229,17 +346,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
         switchUser={switchUser}
       />
       
-      {!isRunning && interviewerCode && (
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            Select Project
-          </label>
-          <ProjectSelector
-            selectedProjectId={selectedProjectId}
-            onProjectChange={setSelectedProjectId}
-            interviewerId={interviewerId}
-            disabled={isRunning || loading}
-          />
+      {activeProject && isRunning && (
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-sm text-gray-500">Current Project</p>
+          <p className="font-medium">{activeProject.name}</p>
         </div>
       )}
       
@@ -290,6 +400,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
         onClose={cancelResultDialog}
         onSelectResult={setInterviewResult}
         isSubmitting={isInterviewLoading}
+      />
+      
+      <ProjectSelectionDialog
+        isOpen={showProjectDialog}
+        projects={availableProjects}
+        onProjectSelect={handleProjectSelect}
+        onClose={() => setShowProjectDialog(false)}
       />
     </div>
   );
