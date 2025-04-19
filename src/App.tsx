@@ -16,7 +16,8 @@ import InterviewerDashboard from "./pages/admin/InterviewerDashboard";
 import Scheduling from "./pages/admin/Scheduling";
 import Costs from "./pages/admin/Costs";
 import Settings from "./pages/admin/Settings";
-import Projects from "./pages/admin/Projects"; // Add the new Projects page
+import Projects from "./pages/admin/Projects"; 
+import ProjectAssign from "./pages/admin/ProjectAssign"; // Import the new ProjectAssign page
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Projects />
+          </ProtectedRoute>
+        } 
+      />
+      {/* Add the new route for project assignment */}
+      <Route 
+        path="/admin/projects/assign/:projectId" 
+        element={
+          <ProtectedRoute>
+            <ProjectAssign />
           </ProtectedRoute>
         } 
       />
