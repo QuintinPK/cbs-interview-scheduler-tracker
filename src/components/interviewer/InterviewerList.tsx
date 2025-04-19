@@ -11,7 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Trash2, Calendar, BarChart, Users, Loader2 } from "lucide-react";
-import { Interviewer } from "@/types";
+import { Interviewer, Project } from "@/types";
+import { useProjects } from "@/hooks/useProjects";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface InterviewerListProps {
   interviewers: Interviewer[];
@@ -30,8 +36,14 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   onDelete,
   onSchedule,
   onViewDashboard,
-  onManageProjects
 }) => {
+  const { toast } = useToast();
+  const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
+  const [interviewerProjects, setInterviewerProjects] = useState<Project[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
       case 'Bonaire':
@@ -45,6 +57,50 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     }
   };
 
+  const handleManageProjects = async (interviewer: Interviewer) => {
+    setSelectedInterviewer(interviewer);
+    setShowProjectDialog(true);
+    try {
+      const projects = await getInterviewerProjects(interviewer.id);
+      setInterviewerProjects(projects);
+    } catch (error) {
+      console.error("Error fetching interviewer projects:", error);
+      toast({
+        title: "Error",
+        description: "Could not load interviewer's projects",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleProjectToggle = async (project: Project, checked: boolean) => {
+    if (!selectedInterviewer) return;
+    
+    setAssignmentsLoading(true);
+    try {
+      if (checked) {
+        await assignInterviewerToProject(project.id, selectedInterviewer.id);
+        setInterviewerProjects(prev => [...prev, project]);
+      } else {
+        await removeInterviewerFromProject(project.id, selectedInterviewer.id);
+        setInterviewerProjects(prev => prev.filter(p => p.id !== project.id));
+      }
+    } catch (error) {
+      console.error("Error updating project assignment:", error);
+      toast({
+        title: "Error",
+        description: "Could not update project assignment",
+        variant: "destructive",
+      });
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  };
+
+  const isProjectAssigned = (projectId: string) => {
+    return interviewerProjects.some(p => p.id === projectId);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="overflow-x-auto">
@@ -54,6 +110,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Island</TableHead>
+              <TableHead>Projects</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -61,7 +118,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-10">
+                <TableCell colSpan={6} className="text-center py-10">
                   <div className="flex justify-center items-center">
                     <Loader2 className="h-8 w-8 animate-spin text-cbs" />
                   </div>
@@ -69,7 +126,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               </TableRow>
             ) : interviewers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                   No interviewers found
                 </TableCell>
               </TableRow>
@@ -89,6 +146,17 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                     ) : (
                       <span className="text-muted-foreground text-sm">Not assigned</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleManageProjects(interviewer)}
+                      className="text-xs"
+                    >
+                      <Users className="h-3 w-3 mr-1" />
+                      Manage Projects
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -129,17 +197,6 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                         <BarChart className="h-4 w-4" />
                       </Button>
                       
-                      {onManageProjects && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onManageProjects(interviewer)}
-                          title="Manage Projects"
-                        >
-                          <Users className="h-4 w-4" />
-                        </Button>
-                      )}
-                      
                       <Button
                         variant="ghost"
                         size="icon"
@@ -156,6 +213,45 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Projects for {selectedInterviewer?.first_name} {selectedInterviewer?.last_name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[300px] rounded-md border p-4">
+            <div className="space-y-4">
+              {projectsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : projects.length === 0 ? (
+                <p className="text-center text-muted-foreground">No projects available</p>
+              ) : (
+                projects.map((project) => (
+                  <div key={project.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`project-${project.id}`}
+                      checked={isProjectAssigned(project.id)}
+                      onCheckedChange={(checked) => handleProjectToggle(project, checked as boolean)}
+                      disabled={assignmentsLoading}
+                    />
+                    <label
+                      htmlFor={`project-${project.id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {project.name}
+                    </label>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
