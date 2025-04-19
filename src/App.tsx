@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { FilterProvider } from "./contexts/FilterContext";
 
 // Pages
 import Index from "./pages/Index";
@@ -17,7 +18,7 @@ import Scheduling from "./pages/admin/Scheduling";
 import Costs from "./pages/admin/Costs";
 import Settings from "./pages/admin/Settings";
 import Projects from "./pages/admin/Projects"; 
-import ProjectAssign from "./pages/admin/ProjectAssign"; // Import the new ProjectAssign page
+import ProjectAssign from "./pages/admin/ProjectAssign";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,8 +40,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
-      <Route path="/admin/login" element={<Login />} />
+      <Route path="/" element={<FilterProvider><Index /></FilterProvider>} />
+      <Route path="/admin/login" element={<FilterProvider><Login /></FilterProvider>} />
       
       {/* Protected Admin Routes */}
       <Route 
@@ -129,9 +130,11 @@ const App = () => (
     <TooltipProvider>
       <BrowserRouter>
         <AuthProvider>
-          <Toaster />
-          <Sonner />
-          <AppRoutes />
+          <FilterProvider>
+            <Toaster />
+            <Sonner />
+            <AppRoutes />
+          </FilterProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

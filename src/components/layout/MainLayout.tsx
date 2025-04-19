@@ -78,6 +78,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   placeholder="All Islands"
                   disabled={loading}
                   includeAll={true}
+                  className="bg-white/10 border-white/20 text-white"
                 />
               </div>
             </div>
