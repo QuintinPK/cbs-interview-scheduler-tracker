@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
-import IslandSelector from "@/components/ui/IslandSelector";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
@@ -13,12 +12,10 @@ interface ProjectFormProps {
     name: string;
     start_date: string;
     end_date: string;
-    island: 'Bonaire' | 'Saba' | 'Sint Eustatius';
-    excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+    excluded_islands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
   };
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDateChange: (name: 'start_date' | 'end_date', value: string) => void;
-  handleIslandChange: (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => void;
   handleExcludedIslandsChange: (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => void;
   handleSubmit: () => Promise<void>;
   isEditing: boolean;
@@ -30,7 +27,6 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
   formData,
   handleInputChange,
   handleDateChange,
-  handleIslandChange,
   handleExcludedIslandsChange,
   handleSubmit,
   isEditing,
@@ -81,30 +77,19 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
       </div>
       
       <div className="space-y-2">
-        <label htmlFor="island" className="text-sm font-medium">Primary Island</label>
-        <IslandSelector
-          selectedIsland={formData.island}
-          onIslandChange={handleIslandChange}
-          disabled={loading}
-        />
-      </div>
-      
-      <div className="space-y-2">
         <Label className="text-sm font-medium">Excluded Islands</Label>
         <div className="flex items-center space-x-4 pt-2">
-          {allIslands
-            .filter(island => island !== formData.island)
-            .map(island => (
-              <div key={island} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`exclude-${island}`}
-                  checked={formData.excluded_islands?.includes(island)}
-                  onCheckedChange={() => handleExcludedIslandsChange(island)}
-                  disabled={loading}
-                />
-                <Label htmlFor={`exclude-${island}`}>{island}</Label>
-              </div>
-            ))}
+          {allIslands.map(island => (
+            <div key={island} className="flex items-center space-x-2">
+              <Checkbox
+                id={`exclude-${island}`}
+                checked={formData.excluded_islands.includes(island)}
+                onCheckedChange={() => handleExcludedIslandsChange(island)}
+                disabled={loading}
+              />
+              <Label htmlFor={`exclude-${island}`}>{island}</Label>
+            </div>
+          ))}
         </div>
       </div>
       
