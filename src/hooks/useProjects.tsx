@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Project, Interviewer } from "@/types";
@@ -19,7 +20,13 @@ export const useProjects = () => {
         
       if (error) throw error;
       
-      setProjects(data || []);
+      // Transform the data to ensure excluded_islands is properly typed
+      const typedProjects: Project[] = (data || []).map(project => ({
+        ...project,
+        excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+      }));
+      
+      setProjects(typedProjects);
     } catch (error) {
       console.error("Error loading projects:", error);
       toast({
@@ -48,13 +55,18 @@ export const useProjects = () => {
         
       if (error) throw error;
       
+      const typedProject: Project = {
+        ...data,
+        excluded_islands: (data.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+      };
+      
       toast({
         title: "Success",
         description: "New project added successfully",
       });
       
-      setProjects([...projects, data]);
-      return data;
+      setProjects([...projects, typedProject]);
+      return typedProject;
     } catch (error) {
       console.error("Error adding project:", error);
       toast({
@@ -279,7 +291,11 @@ export const useProjects = () => {
         
       if (projectsError) throw projectsError;
       
-      return projects || [];
+      // Transform the data to ensure excluded_islands is properly typed
+      return (projects || []).map(project => ({
+        ...project,
+        excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+      }));
     } catch (error) {
       console.error("Error getting interviewer projects:", error);
       toast({

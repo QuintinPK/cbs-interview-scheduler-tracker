@@ -15,7 +15,6 @@ export const useActiveProject = (sessionId?: string, interviewerId?: string) => 
         setLoading(true);
         
         if (sessionId) {
-          // Get project from session
           const { data: session, error: sessionError } = await supabase
             .from('sessions')
             .select('project_id')
@@ -25,7 +24,7 @@ export const useActiveProject = (sessionId?: string, interviewerId?: string) => 
           if (sessionError) throw sessionError;
           
           if (session.project_id) {
-            const { data: project, error: projectError } = await supabase
+            const { data, error: projectError } = await supabase
               .from('projects')
               .select('*')
               .eq('id', session.project_id)
@@ -33,10 +32,12 @@ export const useActiveProject = (sessionId?: string, interviewerId?: string) => 
               
             if (projectError) throw projectError;
             
-            setActiveProject(project);
+            setActiveProject({
+              ...data,
+              excluded_islands: (data.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+            });
           }
         } else if (interviewerId) {
-          // Get the most recent session for this interviewer to determine active project
           const { data: sessions, error: sessionsError } = await supabase
             .from('sessions')
             .select('project_id')
@@ -47,7 +48,7 @@ export const useActiveProject = (sessionId?: string, interviewerId?: string) => 
           if (sessionsError) throw sessionsError;
           
           if (sessions && sessions.length > 0 && sessions[0].project_id) {
-            const { data: project, error: projectError } = await supabase
+            const { data, error: projectError } = await supabase
               .from('projects')
               .select('*')
               .eq('id', sessions[0].project_id)
@@ -55,7 +56,10 @@ export const useActiveProject = (sessionId?: string, interviewerId?: string) => 
               
             if (projectError) throw projectError;
             
-            setActiveProject(project);
+            setActiveProject({
+              ...data,
+              excluded_islands: (data.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+            });
           }
         }
       } catch (error) {

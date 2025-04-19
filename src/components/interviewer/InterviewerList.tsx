@@ -32,6 +32,19 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   onViewDashboard,
   onManageProjects
 }) => {
+  const getIslandBadgeStyle = (island: string | undefined) => {
+    switch (island) {
+      case 'Bonaire':
+        return { backgroundColor: '#FEF7CD', color: '#000000' };
+      case 'Saba':
+        return { backgroundColor: '#0C4A6E', color: '#000000' };
+      case 'Sint Eustatius':
+        return { backgroundColor: '#ea384c', color: '#000000' };
+      default:
+        return {};
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="overflow-x-auto">
@@ -69,13 +82,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                     {interviewer.island ? (
                       <Badge 
                         variant="default" 
-                        style={{
-                          backgroundColor: interviewer.island === 'Bonaire' 
-                            ? '#FEF7CD' : 
-                            interviewer.island === 'Saba' 
-                            ? '#1EAEDB' : 
-                            '#ea384c'
-                        }}
+                        style={getIslandBadgeStyle(interviewer.island)}
                       >
                         {interviewer.island}
                       </Badge>

@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
 import { Input } from "@/components/ui/input";
@@ -17,8 +16,10 @@ import IslandSelector from "@/components/ui/IslandSelector";
 import ProjectForm from "@/components/project/ProjectForm";
 import ProjectList from "@/components/project/ProjectList";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const Projects = () => {
+  const navigate = useNavigate();
   const { projects, loading, addProject, updateProject, deleteProject } = useProjects();
   const { interviewers } = useInterviewers();
   
@@ -94,6 +95,10 @@ const Projects = () => {
     });
     setShowAddEditDialog(true);
   };
+
+  const handleAssign = (project: Project) => {
+    navigate(`/admin/projects/assign/${project.id}`);
+  };
   
   const handleSubmit = async () => {
     try {
@@ -134,6 +139,21 @@ const Projects = () => {
     
     return matchesSearch && matchesIsland;
   });
+  
+  const deleteProjectHandler = useCallback(
+    async (project: Project) => {
+      if (
+        window.confirm(`Are you sure you want to delete project "${project.name}"?`)
+      ) {
+        try {
+          await deleteProject(project.id);
+        } catch (error) {
+          console.error("Error deleting project:", error);
+        }
+      }
+    },
+    [deleteProject]
+  );
   
   return (
     <AdminLayout>
@@ -189,7 +209,8 @@ const Projects = () => {
           projects={filteredProjects}
           loading={loading}
           onEdit={handleEdit}
-          onDelete={() => {}}  // Implement delete functionality
+          onDelete={deleteProjectHandler}
+          onAssign={handleAssign}
         />
       </div>
       
