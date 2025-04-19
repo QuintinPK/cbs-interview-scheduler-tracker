@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Project } from "@/types";
@@ -27,11 +28,11 @@ const ProjectSelectionDialog: React.FC<ProjectSelectionDialogProps> = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Select Project</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 pt-4">
-          <p className="text-sm text-muted-foreground">
+          <DialogDescription>
             You are assigned to multiple projects. Please select which project you want to work on:
-          </p>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
           <div className="space-y-2">
             {projects.map((project) => (
               <Button

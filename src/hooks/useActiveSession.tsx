@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +43,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   // Check if there's an active session for this interviewer on code change
   useEffect(() => {
     const checkActiveSession = async () => {
-      if (!interviewerCode.trim()) return;
+      if (!interviewerCode.trim()) {
+        return;
+      }
       
       try {
         setLoading(true);
@@ -54,8 +57,13 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           .eq('code', interviewerCode)
           .limit(1);
           
-        if (interviewerError) throw interviewerError;
-        if (!interviewers || interviewers.length === 0) return;
+        if (interviewerError) {
+          throw interviewerError;
+        }
+        
+        if (!interviewers || interviewers.length === 0) {
+          return;
+        }
         
         const interviewerId = interviewers[0].id;
         
@@ -67,9 +75,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           .eq('is_active', true)
           .limit(1);
           
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          throw sessionError;
+        }
         
         if (sessions && sessions.length > 0) {
+          console.log("Found active session:", sessions[0]);
           updateSessionState(sessions[0]);
         } else {
           resetSessionState();

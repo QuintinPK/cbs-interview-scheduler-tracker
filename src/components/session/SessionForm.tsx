@@ -48,19 +48,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
+  const [interviewerId, setInterviewerId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [interviewerId, setInterviewerId] = useState<string | undefined>(undefined);
-  const [projectDialogStep, setProjectDialogStep] = useState<'init' | 'pending' | 'complete'>('init');
-
-  // Set selected project ID when active session has a project ID
-  useEffect(() => {
-    if (activeSession?.project_id) {
-      setSelectedProjectId(activeSession.project_id);
-    }
-  }, [activeSession]);
   
   const {
     activeInterview,
@@ -73,47 +65,25 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveInterview
   } = useInterviewActions(activeSession?.id || null);
 
+  // Set selected project ID when active session has a project ID
+  useEffect(() => {
+    if (activeSession?.project_id) {
+      setSelectedProjectId(activeSession.project_id);
+    }
+  }, [activeSession]);
+
+  // Fetch active interview when session changes
   useEffect(() => {
     if (activeSession?.id) {
       fetchActiveInterview(activeSession.id);
     }
   }, [activeSession, fetchActiveInterview]);
 
-  // Add effect to fetch the active project details
-  useEffect(() => {
-    const fetchActiveProject = async () => {
-      if (!selectedProjectId) return;
-      
-      try {
-        const { data: project, error } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', selectedProjectId)
-          .single();
-          
-        if (error) throw error;
-        
-        // Cast the excluded_islands to the correct type
-        setActiveProject({
-          id: project.id,
-          name: project.name,
-          start_date: project.start_date,
-          end_date: project.end_date,
-          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
-        });
-      } catch (error) {
-        console.error("Error fetching project details:", error);
-      }
-    };
-    
-    fetchActiveProject();
-  }, [selectedProjectId]);
-
-  // Get interviewer ID when code changes
+  // Fetch interviewer ID from interviewer code
   useEffect(() => {
     const getInterviewerId = async () => {
       if (!interviewerCode.trim()) {
-        setInterviewerId(undefined);
+        setInterviewerId(null);
         return;
       }
       
@@ -127,7 +97,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           
         if (error) {
           console.error("Error getting interviewer ID:", error);
-          setInterviewerId(undefined);
+          setInterviewerId(null);
           return;
         }
         
@@ -135,64 +105,96 @@ const SessionForm: React.FC<SessionFormProps> = ({
         setInterviewerId(data.id);
       } catch (error) {
         console.error("Error getting interviewer ID:", error);
-        setInterviewerId(undefined);
+        setInterviewerId(null);
       }
     };
     
     getInterviewerId();
   }, [interviewerCode]);
 
-  // Effect to fetch available projects when interviewer ID changes
+  // Fetch available projects when interviewer ID changes
   useEffect(() => {
     const fetchProjects = async () => {
-      if (!interviewerId || isRunning) return;
+      if (!interviewerId) {
+        setAvailableProjects([]);
+        return;
+      }
       
       try {
         console.log("Fetching projects for interviewer ID:", interviewerId);
+        
         // Get assigned projects
         const { data: projectAssignments, error: projectsError } = await supabase
           .from('project_interviewers')
           .select('project_id, projects:project_id(*)')
           .eq('interviewer_id', interviewerId);
           
-        if (projectsError) throw projectsError;
+        if (projectsError) {
+          throw projectsError;
+        }
         
         if (projectAssignments && projectAssignments.length > 0) {
           const projects = projectAssignments.map(pa => pa.projects as Project);
           console.log("Found projects:", projects);
           setAvailableProjects(projects);
           
+          // If only one project, auto-select it
           if (projects.length === 1) {
             console.log("Single project found, setting project ID:", projects[0].id);
             setSelectedProjectId(projects[0].id);
-            setProjectDialogStep('complete');
-          } else if (projects.length > 1) {
-            // Reset selected project when user has multiple projects
-            setSelectedProjectId(undefined);
-            // Show project selection dialog immediately if not running
-            if (!isRunning && projectDialogStep === 'init') {
-              console.log("Multiple projects found, showing selection dialog");
-              setShowProjectDialog(true);
-              setProjectDialogStep('pending');
-            }
-          } else {
-            setSelectedProjectId(undefined);
-            setProjectDialogStep('complete');
+          } else if (projects.length > 1 && !isRunning) {
+            // Reset selected project for multiple projects
+            setSelectedProjectId(null);
           }
         } else {
-          // No projects assigned
           console.log("No projects found for this interviewer");
           setAvailableProjects([]);
-          setSelectedProjectId(undefined);
-          setProjectDialogStep('complete');
+          setSelectedProjectId(null);
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
+        setAvailableProjects([]);
       }
     };
     
     fetchProjects();
-  }, [interviewerId, isRunning, projectDialogStep]);
+  }, [interviewerId, isRunning]);
+
+  // Fetch active project details when selected project changes
+  useEffect(() => {
+    const fetchActiveProject = async () => {
+      if (!selectedProjectId) {
+        setActiveProject(null);
+        return;
+      }
+      
+      try {
+        const { data: project, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', selectedProjectId)
+          .single();
+          
+        if (error) {
+          throw error;
+        }
+        
+        // Cast the excluded_islands to the correct type
+        setActiveProject({
+          id: project.id,
+          name: project.name,
+          start_date: project.start_date,
+          end_date: project.end_date,
+          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+        });
+      } catch (error) {
+        console.error("Error fetching project details:", error);
+        setActiveProject(null);
+      }
+    };
+    
+    fetchActiveProject();
+  }, [selectedProjectId]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -205,6 +207,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
     
     if (!isRunning) {
+      // Start session flow
       try {
         setLoading(true);
         
@@ -217,7 +220,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // Check projects
+        // Check if interviewer has assigned projects
         if (availableProjects.length === 0) {
           toast({
             title: "Error",
@@ -227,49 +230,45 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        if (availableProjects.length > 1 && !selectedProjectId) {
-          console.log("Multiple projects but no selection, showing dialog");
-          setShowProjectDialog(true);
-          setProjectDialogStep('pending');
+        // For single project, use it automatically
+        if (availableProjects.length === 1) {
+          console.log("Using the only available project:", availableProjects[0].id);
+          await handleSessionStart(availableProjects[0].id);
           return;
         }
         
-        if (!selectedProjectId) {
-          if (availableProjects.length === 1) {
-            console.log("Auto-selecting the only available project:", availableProjects[0].id);
-            setSelectedProjectId(availableProjects[0].id);
-          } else {
-            toast({
-              title: "Error",
-              description: "Please select a project",
-              variant: "destructive",
-            });
-            return;
-          }
+        // For multiple projects, show the selection dialog
+        if (availableProjects.length > 1) {
+          console.log("Multiple projects available, showing selection dialog");
+          setShowProjectDialog(true);
+          return;
         }
       } catch (error) {
-        console.error("Error checking projects:", error);
+        console.error("Error in start session flow:", error);
         toast({
           title: "Error",
-          description: "Could not check project assignments",
+          description: "Could not start session",
           variant: "destructive",
         });
       } finally {
         setLoading(false);
       }
-      
-      if (projectDialogStep === 'complete' || availableProjects.length === 1) {
-        // Continue with session start
-        console.log("Proceeding with session start, selected project:", selectedProjectId);
-        handleSessionStart();
-      }
     } else {
-      // Handle session end
-      handleSessionEnd();
+      // End session flow
+      await handleSessionEnd();
     }
   };
 
-  const handleSessionStart = async () => {
+  const handleProjectSelect = async (projectId: string) => {
+    console.log("Project selected in dialog:", projectId);
+    setSelectedProjectId(projectId);
+    setShowProjectDialog(false);
+    
+    // Start session with the selected project
+    await handleSessionStart(projectId);
+  };
+
+  const handleSessionStart = async (projectId: string) => {
     try {
       setLoading(true);
       
@@ -282,8 +281,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
         return;
       }
       
-      if (!selectedProjectId) {
-        console.error("No project selected for session start");
+      if (!projectId) {
+        console.error("No project ID provided for session start");
         toast({
           title: "Error",
           description: "No project selected. Please select a project first.",
@@ -292,17 +291,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
         return;
       }
       
-      const currentLocation = await getCurrentLocation();
+      console.log("Starting session with project ID:", projectId);
       
-      // Log the project ID being used for debugging
-      console.log("Starting session with project ID:", selectedProjectId);
+      const currentLocation = await getCurrentLocation();
       
       const { data: session, error: insertError } = await supabase
         .from('sessions')
         .insert([
           {
             interviewer_id: interviewerId,
-            project_id: selectedProjectId,
+            project_id: projectId,
             start_latitude: currentLocation?.latitude || null,
             start_longitude: currentLocation?.longitude || null,
             start_address: currentLocation?.address || null,
@@ -312,9 +310,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
         .select()
         .single();
         
-      if (insertError) throw insertError;
+      if (insertError) {
+        throw insertError;
+      }
       
-      console.log("Session created:", session);
+      console.log("Session created successfully:", session);
       setActiveSession(session);
       setIsRunning(true);
       setStartTime(session.start_time);
@@ -339,6 +339,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const handleSessionEnd = async () => {
     try {
       setLoading(true);
+      
       if (activeInterview) {
         toast({
           title: "Error",
@@ -348,9 +349,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
         return;
       }
       
-      const currentLocation = await getCurrentLocation();
+      if (!activeSession) {
+        return;
+      }
       
-      if (!activeSession) return;
+      const currentLocation = await getCurrentLocation();
       
       const { error: updateError } = await supabase
         .from('sessions')
@@ -363,7 +366,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
         })
         .eq('id', activeSession.id);
         
-      if (updateError) throw updateError;
+      if (updateError) {
+        throw updateError;
+      }
       
       endSession();
       
@@ -383,22 +388,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   };
 
-  const handleProjectSelect = (projectId: string) => {
-    console.log("Project selected:", projectId);
-    setSelectedProjectId(projectId);
-    setShowProjectDialog(false);
-    setProjectDialogStep('complete');
-    // Start session after project selection is complete
-    setTimeout(() => {
-      handleSessionStart();
-    }, 100);
-  };
-
   const handleInterviewAction = async () => {
     if (activeInterview) {
       await stopInterview();
     } else {
-      await startInterview(selectedProjectId);
+      await startInterview(selectedProjectId || undefined);
     }
   };
 
@@ -473,10 +467,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isOpen={showProjectDialog}
         projects={availableProjects}
         onProjectSelect={handleProjectSelect}
-        onClose={() => {
-          setShowProjectDialog(false);
-          setProjectDialogStep('init');
-        }}
+        onClose={() => setShowProjectDialog(false)}
       />
     </div>
   );
