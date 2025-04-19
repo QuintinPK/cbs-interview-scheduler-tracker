@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -89,7 +90,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
           
         if (error) throw error;
         
-        setActiveProject(project);
+        // Cast the excluded_islands to the correct type
+        setActiveProject({
+          id: project.id,
+          name: project.name,
+          start_date: project.start_date,
+          end_date: project.end_date,
+          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+        });
       } catch (error) {
         console.error("Error fetching project details:", error);
       }
