@@ -26,7 +26,6 @@ interface InterviewerListProps {
   onDelete: (interviewer: Interviewer) => void;
   onSchedule: (interviewer: Interviewer) => void;
   onViewDashboard: (interviewer: Interviewer) => void;
-  onManageProjects?: (interviewer: Interviewer) => void;
 }
 
 const InterviewerList: React.FC<InterviewerListProps> = ({
@@ -101,6 +100,13 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     return interviewerProjects.some(p => p.id === projectId);
   };
 
+  const getAvailableProjects = (interviewer: Interviewer) => {
+    if (!interviewer.island) return projects;
+    return projects.filter(project => 
+      !project.excluded_islands?.includes(interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius')
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="overflow-x-auto">
@@ -148,15 +154,22 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleManageProjects(interviewer)}
-                      className="text-xs"
-                    >
-                      <Users className="h-3 w-3 mr-1" />
-                      Manage Projects
-                    </Button>
+                    <div className="space-y-1">
+                      {interviewerProjects.filter(p => p.id === interviewer.id).map(project => (
+                        <Badge key={project.id} variant="outline" className="mr-1">
+                          {project.name}
+                        </Badge>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageProjects(interviewer)}
+                        className="text-xs"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Manage Projects
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -228,10 +241,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : projects.length === 0 ? (
-                <p className="text-center text-muted-foreground">No projects available</p>
               ) : (
-                projects.map((project) => (
+                selectedInterviewer && getAvailableProjects(selectedInterviewer).map((project) => (
                   <div key={project.id} className="flex items-center space-x-2">
                     <Checkbox
                       id={`project-${project.id}`}
