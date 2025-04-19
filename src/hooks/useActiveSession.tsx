@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
