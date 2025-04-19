@@ -35,11 +35,11 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
       case 'Bonaire':
-        return { backgroundColor: '#FEF7CD', color: '#000000' };
+        return {};
       case 'Saba':
-        return { backgroundColor: '#0C4A6E', color: '#000000' };
+        return {};
       case 'Sint Eustatius':
-        return { backgroundColor: '#ea384c', color: '#000000' };
+        return {};
       default:
         return {};
     }
