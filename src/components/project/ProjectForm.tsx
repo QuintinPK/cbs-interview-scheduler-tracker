@@ -1,10 +1,12 @@
 
-import React from "react";
+import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import IslandSelector from "@/components/ui/IslandSelector";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 interface ProjectFormProps {
   formData: {
@@ -12,11 +14,13 @@ interface ProjectFormProps {
     start_date: string;
     end_date: string;
     island: 'Bonaire' | 'Saba' | 'Sint Eustatius';
+    excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
   };
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDateChange: (name: 'start_date' | 'end_date', value: string) => void;
   handleIslandChange: (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => void;
-  handleSubmit: () => void;
+  handleExcludedIslandsChange: (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => void;
+  handleSubmit: () => Promise<void>;
   isEditing: boolean;
   loading: boolean;
   onCancel: () => void;
@@ -27,28 +31,57 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
   handleInputChange,
   handleDateChange,
   handleIslandChange,
+  handleExcludedIslandsChange,
   handleSubmit,
   isEditing,
   loading,
   onCancel
 }) => {
+  const allIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
+
   return (
     <div className="space-y-4 py-2">
       <div className="space-y-2">
-        <Label htmlFor="name">Project Name</Label>
+        <label htmlFor="name" className="text-sm font-medium">Project Name</label>
         <Input
           id="name"
           name="name"
           value={formData.name}
           onChange={handleInputChange}
           placeholder="Enter project name"
-          required
           disabled={loading}
+          required
         />
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="island">Island</Label>
+        <label htmlFor="start_date" className="text-sm font-medium">Start Date</label>
+        <Input
+          id="start_date"
+          name="start_date"
+          type="date"
+          value={formData.start_date}
+          onChange={(e) => handleDateChange('start_date', e.target.value)}
+          disabled={loading}
+          required
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <label htmlFor="end_date" className="text-sm font-medium">End Date</label>
+        <Input
+          id="end_date"
+          name="end_date"
+          type="date"
+          value={formData.end_date}
+          onChange={(e) => handleDateChange('end_date', e.target.value)}
+          disabled={loading}
+          required
+        />
+      </div>
+      
+      <div className="space-y-2">
+        <label htmlFor="island" className="text-sm font-medium">Primary Island</label>
         <IslandSelector
           selectedIsland={formData.island}
           onIslandChange={handleIslandChange}
@@ -57,34 +90,26 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="start_date">Start Date</Label>
-        <Input
-          id="start_date"
-          name="start_date"
-          type="date"
-          value={formData.start_date}
-          onChange={(e) => handleDateChange('start_date', e.target.value)}
-          required
-          disabled={loading}
-        />
+        <Label className="text-sm font-medium">Excluded Islands</Label>
+        <div className="flex items-center space-x-4 pt-2">
+          {allIslands
+            .filter(island => island !== formData.island)
+            .map(island => (
+              <div key={island} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`exclude-${island}`}
+                  checked={formData.excluded_islands?.includes(island)}
+                  onCheckedChange={() => handleExcludedIslandsChange(island)}
+                  disabled={loading}
+                />
+                <Label htmlFor={`exclude-${island}`}>{island}</Label>
+              </div>
+            ))}
+        </div>
       </div>
       
-      <div className="space-y-2">
-        <Label htmlFor="end_date">End Date</Label>
-        <Input
-          id="end_date"
-          name="end_date"
-          type="date"
-          value={formData.end_date}
-          onChange={(e) => handleDateChange('end_date', e.target.value)}
-          required
-          disabled={loading}
-        />
-      </div>
-      
-      <div className="flex justify-end space-x-2 pt-4">
+      <DialogFooter className="pt-4">
         <Button
-          type="button"
           variant="outline"
           onClick={onCancel}
           disabled={loading}
@@ -92,9 +117,9 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
           Cancel
         </Button>
         <Button
-          type="button"
           onClick={handleSubmit}
-          disabled={!formData.name || !formData.start_date || !formData.end_date || loading}
+          disabled={loading || !formData.name || !formData.start_date || !formData.end_date}
+          className="bg-cbs hover:bg-cbs-light"
         >
           {loading ? (
             <>
@@ -105,7 +130,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
             isEditing ? "Update Project" : "Create Project"
           )}
         </Button>
-      </div>
+      </DialogFooter>
     </div>
   );
 };

@@ -4,11 +4,12 @@ import { FilterProvider } from '@/contexts/FilterContext';
 import GlobalFilter from '@/components/GlobalFilter';
 import { 
   BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X, DollarSign, Settings
+  LogOut, Home, Menu, X, DollarSign, Settings, Folder
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
+import Projects from "@/pages/admin/Projects";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -30,6 +31,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
     { path: "/admin/dashboard", label: "Dashboard", icon: <BarChart className="h-5 w-5" /> },
     { path: "/admin/sessions", label: "Session Logs", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
+    { path: "/admin/projects", label: "Projects", icon: <Folder className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
   ];

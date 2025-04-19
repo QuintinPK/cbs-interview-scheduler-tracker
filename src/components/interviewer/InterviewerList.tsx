@@ -67,11 +67,16 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                   <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
                   <TableCell>
                     {interviewer.island ? (
-                      <Badge variant={
-                        interviewer.island === 'Bonaire' ? 'default' : 
-                        interviewer.island === 'Saba' ? 'info' : 
-                        'purple'
-                      }>
+                      <Badge 
+                        variant="default" 
+                        style={{
+                          backgroundColor: interviewer.island === 'Bonaire' 
+                            ? '#FEF7CD' : 
+                            interviewer.island === 'Saba' 
+                            ? '#1EAEDB' : 
+                            '#ea384c'
+                        }}
+                      >
                         {interviewer.island}
                       </Badge>
                     ) : (

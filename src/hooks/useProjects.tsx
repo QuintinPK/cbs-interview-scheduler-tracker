@@ -130,8 +130,7 @@ export const useProjects = () => {
 
   const assignInterviewerToProject = async (projectId: string, interviewerId: string) => {
     try {
-      setLoading(true);
-      
+      // First, get the project details
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .select('*')
@@ -140,6 +139,7 @@ export const useProjects = () => {
         
       if (projectError) throw projectError;
       
+      // Then, get the interviewer details
       const { data: interviewer, error: interviewerError } = await supabase
         .from('interviewers')
         .select('*')
@@ -148,15 +148,17 @@ export const useProjects = () => {
         
       if (interviewerError) throw interviewerError;
       
-      if (interviewer.island && project.island && interviewer.island !== project.island) {
+      // Check if the interviewer's island is excluded from the project
+      if (interviewer.island && project.excluded_islands?.includes(interviewer.island)) {
         toast({
           title: "Error",
-          description: "Interviewers can only be assigned to projects on their island",
+          description: `Interviewers from ${interviewer.island} are excluded from this project`,
           variant: "destructive",
         });
-        throw new Error("Island mismatch");
+        throw new Error("Island excluded from project");
       }
       
+      // If islands match or interviewer has no island, proceed with assignment
       const { error } = await supabase
         .from('project_interviewers')
         .insert([{ project_id: projectId, interviewer_id: interviewerId }]);
@@ -169,7 +171,7 @@ export const useProjects = () => {
       });
     } catch (error) {
       console.error("Error assigning interviewer to project:", error);
-      if (!(error instanceof Error) || error.message !== "Island mismatch") {
+      if (!(error instanceof Error) || error.message !== "Island excluded from project") {
         toast({
           title: "Error",
           description: "Could not assign interviewer to project",
@@ -177,8 +179,6 @@ export const useProjects = () => {
         });
       }
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

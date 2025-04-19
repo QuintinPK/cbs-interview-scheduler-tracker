@@ -172,6 +172,7 @@ export type Database = {
         Row: {
           created_at: string
           end_date: string
+          excluded_islands: string[] | null
           id: string
           island: Database["public"]["Enums"]["island"]
           name: string
@@ -180,6 +181,7 @@ export type Database = {
         Insert: {
           created_at?: string
           end_date: string
+          excluded_islands?: string[] | null
           id?: string
           island: Database["public"]["Enums"]["island"]
           name: string
@@ -188,6 +190,7 @@ export type Database = {
         Update: {
           created_at?: string
           end_date?: string
+          excluded_islands?: string[] | null
           id?: string
           island?: Database["public"]["Enums"]["island"]
           name?: string

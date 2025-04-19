@@ -1,4 +1,3 @@
-
 export interface Interviewer {
   id: string;
   code: string;
@@ -62,6 +61,7 @@ export interface Project {
   start_date: string;
   end_date: string;
   island: 'Bonaire' | 'Saba' | 'Sint Eustatius';
+  excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
 }
 
 export interface ProjectInterviewer {
