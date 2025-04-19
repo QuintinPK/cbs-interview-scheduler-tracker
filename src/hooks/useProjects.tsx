@@ -22,7 +22,10 @@ export const useProjects = () => {
       
       // Transform the data to ensure excluded_islands is properly typed
       const typedProjects: Project[] = (data || []).map(project => ({
-        ...project,
+        id: project.id,
+        name: project.name,
+        start_date: project.start_date,
+        end_date: project.end_date,
         excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
       }));
       
@@ -47,16 +50,29 @@ export const useProjects = () => {
     try {
       setLoading(true);
       
+      // Prepare the project data for database insertion
+      const dbProject = {
+        name: project.name,
+        start_date: project.start_date,
+        end_date: project.end_date,
+        excluded_islands: project.excluded_islands,
+        // Include the required island field for the database
+        island: 'Bonaire' // Default value required by the database schema
+      };
+      
       const { data, error } = await supabase
         .from('projects')
-        .insert([project])
+        .insert([dbProject])
         .select()
         .single();
         
       if (error) throw error;
       
       const typedProject: Project = {
-        ...data,
+        id: data.id,
+        name: data.name,
+        start_date: data.start_date,
+        end_date: data.end_date,
         excluded_islands: (data.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
       };
       
@@ -84,9 +100,19 @@ export const useProjects = () => {
     try {
       setLoading(true);
       
+      // Prepare the project data for database update
+      const dbProject = {
+        name: project.name,
+        start_date: project.start_date,
+        end_date: project.end_date,
+        excluded_islands: project.excluded_islands,
+        // Include the required island field for the database
+        island: 'Bonaire' // Default value required by the database schema
+      };
+      
       const { error } = await supabase
         .from('projects')
-        .update(project)
+        .update(dbProject)
         .eq('id', id);
         
       if (error) throw error;
@@ -293,7 +319,10 @@ export const useProjects = () => {
       
       // Transform the data to ensure excluded_islands is properly typed
       return (projects || []).map(project => ({
-        ...project,
+        id: project.id,
+        name: project.name,
+        start_date: project.start_date,
+        end_date: project.end_date,
         excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
       }));
     } catch (error) {
@@ -314,9 +343,116 @@ export const useProjects = () => {
     loading,
     addProject,
     updateProject,
-    deleteProject,
-    assignInterviewerToProject,
-    removeInterviewerFromProject,
+    deleteProject: async (id: string) => {
+      try {
+        setLoading(true);
+        
+        const { error } = await supabase
+          .from('projects')
+          .delete()
+          .eq('id', id);
+          
+        if (error) throw error;
+        
+        setProjects(projects.filter(p => p.id !== id));
+        
+        toast({
+          title: "Success",
+          description: "Project deleted successfully",
+        });
+      } catch (error) {
+        console.error("Error deleting project:", error);
+        toast({
+          title: "Error",
+          description: "Could not delete project",
+          variant: "destructive",
+        });
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    assignInterviewerToProject: async (projectId: string, interviewerId: string) => {
+      try {
+        // First, get the project details
+        const { data: project, error: projectError } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .single();
+          
+        if (projectError) throw projectError;
+        
+        // Then, get the interviewer details
+        const { data: interviewer, error: interviewerError } = await supabase
+          .from('interviewers')
+          .select('*')
+          .eq('id', interviewerId)
+          .single();
+          
+        if (interviewerError) throw interviewerError;
+        
+        // Check if the interviewer's island is excluded from the project
+        if (interviewer.island && project.excluded_islands?.includes(interviewer.island)) {
+          toast({
+            title: "Error",
+            description: `Interviewers from ${interviewer.island} are excluded from this project`,
+            variant: "destructive",
+          });
+          throw new Error("Island excluded from project");
+        }
+        
+        // If islands match or interviewer has no island, proceed with assignment
+        const { error } = await supabase
+          .from('project_interviewers')
+          .insert([{ project_id: projectId, interviewer_id: interviewerId }]);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Interviewer assigned to project successfully",
+        });
+      } catch (error) {
+        console.error("Error assigning interviewer to project:", error);
+        if (!(error instanceof Error) || error.message !== "Island excluded from project") {
+          toast({
+            title: "Error",
+            description: "Could not assign interviewer to project",
+            variant: "destructive",
+          });
+        }
+        throw error;
+      }
+    },
+    removeInterviewerFromProject: async (projectId: string, interviewerId: string) => {
+      try {
+        setLoading(true);
+        
+        const { error } = await supabase
+          .from('project_interviewers')
+          .delete()
+          .eq('project_id', projectId)
+          .eq('interviewer_id', interviewerId);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Success",
+          description: "Interviewer removed from project successfully",
+        });
+      } catch (error) {
+        console.error("Error removing interviewer from project:", error);
+        toast({
+          title: "Error",
+          description: "Could not remove interviewer from project",
+          variant: "destructive",
+        });
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
     getProjectInterviewers,
     getInterviewerProjects,
     refresh: loadProjects

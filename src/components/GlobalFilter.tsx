@@ -21,9 +21,7 @@ const GlobalFilter: React.FC = () => {
     const project = projects.find(p => p.id === projectId) || null;
     setSelectedProject(project);
     
-    if (project) {
-      setSelectedIsland(project.island);
-    }
+    // No longer setting island from project since it doesn't have an island property
   };
 
   return (

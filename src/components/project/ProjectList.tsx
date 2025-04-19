@@ -38,19 +38,18 @@ const ProjectList: React.FC<ProjectListProps> = ({
       if (projectIds.length === 0) return;
       
       try {
-        // Corrected query syntax for counting interviewers per project
-        const { data, error } = await supabase
-          .from('project_interviewers')
-          .select('project_id, count', { count: 'exact' })
-          .in('project_id', projectIds);
-        
-        if (error) throw error;
-        
-        // Count interviewers per project manually
+        // Query to count interviewers per project
         const counts: Record<string, number> = {};
-        projectIds.forEach(id => {
-          counts[id] = data?.filter(item => item.project_id === id).length || 0;
-        });
+        
+        for (const projectId of projectIds) {
+          const { data, error, count } = await supabase
+            .from('project_interviewers')
+            .select('*', { count: 'exact' })
+            .eq('project_id', projectId);
+            
+          if (error) throw error;
+          counts[projectId] = count || 0;
+        }
         
         setInterviewerCounts(counts);
       } catch (error) {
@@ -61,6 +60,12 @@ const ProjectList: React.FC<ProjectListProps> = ({
     fetchInterviewerCounts();
   }, [projects]);
   
+  // Get islands that are not excluded for a project
+  const getIncludedIslands = (project: Project) => {
+    const allIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
+    return allIslands.filter(island => !project.excluded_islands.includes(island));
+  };
+  
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="overflow-x-auto">
@@ -68,7 +73,7 @@ const ProjectList: React.FC<ProjectListProps> = ({
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Island</TableHead>
+              <TableHead>Islands</TableHead>
               <TableHead>Start Date</TableHead>
               <TableHead>End Date</TableHead>
               <TableHead>Interviewers</TableHead>
@@ -95,13 +100,17 @@ const ProjectList: React.FC<ProjectListProps> = ({
                 <TableRow key={project.id}>
                   <TableCell className="font-medium">{project.name}</TableCell>
                   <TableCell>
-                    <Badge variant={
-                      project.island === 'Bonaire' ? 'default' : 
-                      project.island === 'Saba' ? 'info' : 
-                      'purple'
-                    }>
-                      {project.island}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {getIncludedIslands(project).map(island => (
+                        <Badge key={island} variant={
+                          island === 'Bonaire' ? 'default' : 
+                          island === 'Saba' ? 'info' : 
+                          'purple'
+                        }>
+                          {island}
+                        </Badge>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell>{format(new Date(project.start_date), 'MMM d, yyyy')}</TableCell>
                   <TableCell>{format(new Date(project.end_date), 'MMM d, yyyy')}</TableCell>

@@ -48,7 +48,8 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     let filtered = [...projects];
     
     if (island) {
-      filtered = filtered.filter(project => project.island === island);
+      // Only include projects where the specified island is not excluded
+      filtered = filtered.filter(project => !project.excluded_islands.includes(island));
     }
     
     if (interviewerId && interviewerProjects.length > 0) {
@@ -59,6 +60,14 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
     
     setFilteredProjects(filtered);
   }, [projects, island, interviewerId, interviewerProjects]);
+
+  // Helper function to get a display name that includes active islands
+  const getProjectDisplayName = (project: Project) => {
+    const allIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
+    const includedIslands = allIslands.filter(island => !project.excluded_islands.includes(island));
+    const islandNames = includedIslands.join(', ');
+    return `${project.name} (${islandNames})`;
+  };
 
   return (
     <Select
@@ -83,7 +92,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
         ) : (
           filteredProjects.map((project) => (
             <SelectItem key={project.id} value={project.id}>
-              {project.name} ({project.island})
+              {getProjectDisplayName(project)}
             </SelectItem>
           ))
         )}

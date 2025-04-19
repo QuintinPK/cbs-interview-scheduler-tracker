@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -34,7 +35,6 @@ const Projects = () => {
     name: "",
     start_date: format(new Date(), 'yyyy-MM-dd'),
     end_date: format(new Date(), 'yyyy-MM-dd'),
-    island: "Bonaire" as 'Bonaire' | 'Saba' | 'Sint Eustatius',
     excluded_islands: [] as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
   });
   
@@ -50,14 +50,6 @@ const Projects = () => {
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
-  
-  const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => {
-    setFormData(prev => ({
-      ...prev,
-      island,
-      excluded_islands: prev.excluded_islands.filter(excludedIsland => excludedIsland !== island)
     }));
   };
   
@@ -77,7 +69,6 @@ const Projects = () => {
       name: "",
       start_date: format(new Date(), 'yyyy-MM-dd'),
       end_date: format(new Date(), 'yyyy-MM-dd'),
-      island: "Bonaire",
       excluded_islands: []
     });
     setShowAddEditDialog(true);
@@ -90,8 +81,7 @@ const Projects = () => {
       name: project.name,
       start_date: project.start_date,
       end_date: project.end_date,
-      island: project.island,
-      excluded_islands: project.excluded_islands || []
+      excluded_islands: project.excluded_islands
     });
     setShowAddEditDialog(true);
   };
@@ -109,7 +99,6 @@ const Projects = () => {
           name: formData.name,
           start_date: formData.start_date,
           end_date: formData.end_date,
-          island: formData.island,
           excluded_islands: formData.excluded_islands
         });
       } else {
@@ -117,7 +106,6 @@ const Projects = () => {
           name: formData.name,
           start_date: formData.start_date,
           end_date: formData.end_date,
-          island: formData.island,
           excluded_islands: formData.excluded_islands
         });
       }
@@ -133,9 +121,10 @@ const Projects = () => {
   // Filter projects based on search and island
   const filteredProjects = projects.filter((project) => {
     const query = searchQuery.toLowerCase();
-    const matchesSearch = project.name.toLowerCase().includes(query) || 
-                          project.island.toLowerCase().includes(query);
-    const matchesIsland = !selectedIsland || project.island === selectedIsland;
+    const matchesSearch = project.name.toLowerCase().includes(query);
+    
+    // Check if the project includes the selected island (not in excluded islands)
+    const matchesIsland = !selectedIsland || !project.excluded_islands.includes(selectedIsland);
     
     return matchesSearch && matchesIsland;
   });
@@ -182,7 +171,7 @@ const Projects = () => {
             <div className="max-w-md relative grow">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
-                placeholder="Search by name or island..."
+                placeholder="Search by name..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 disabled={loading}
@@ -224,7 +213,6 @@ const Projects = () => {
             formData={formData}
             handleInputChange={handleInputChange}
             handleDateChange={handleDateChange}
-            handleIslandChange={handleIslandChange}
             handleExcludedIslandsChange={handleExcludedIslandsChange}
             handleSubmit={handleSubmit}
             isEditing={isEditing}
