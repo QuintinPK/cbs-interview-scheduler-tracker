@@ -5,6 +5,7 @@ import { Session, Interviewer } from "@/types";
 import { UserX } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useFilter } from "@/contexts/FilterContext";
+import { useProjects } from "@/hooks/useProjects";
 
 interface InactiveInterviewersCardProps {
   sessions: Session[];
@@ -17,11 +18,20 @@ const InactiveInterviewersCard: React.FC<InactiveInterviewersCardProps> = ({
   interviewers,
   loading = false
 }) => {
-  const { filterSessions, filterInterviewers } = useFilter();
+  const { filterSessions, filterInterviewers, selectedProject } = useFilter();
+  const { getInterviewerProjects } = useProjects();
   
   // Apply global filters
   const filteredSessions = filterSessions(sessions);
   const filteredInterviewers = filterInterviewers(interviewers);
+  
+  // Further filter interviewers by project if a project is selected
+  const effectiveInterviewers = selectedProject 
+    ? filteredInterviewers.filter(interviewer => {
+        const projects = getInterviewerProjects(interviewer.id);
+        return projects.some(p => p.id === selectedProject.id);
+      })
+    : filteredInterviewers;
   
   // Calculate start of this week (Sunday)
   const startOfWeek = new Date();
@@ -36,7 +46,7 @@ const InactiveInterviewersCard: React.FC<InactiveInterviewersCardProps> = ({
   );
   
   // Get interviewers who haven't been active this week from filtered interviewers
-  const inactiveInterviewers = filteredInterviewers.filter(
+  const inactiveInterviewers = effectiveInterviewers.filter(
     interviewer => !activeInterviewerIds.has(interviewer.id)
   );
   

@@ -3,6 +3,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { useFilter } from "@/contexts/FilterContext";
+import { useProjects } from "@/hooks/useProjects";
 
 interface QuickStatsCardProps {
   sessions: Session[];
@@ -15,14 +16,23 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   interviewers,
   loading = false
 }) => {
-  const { filterSessions, filterInterviewers } = useFilter();
+  const { filterSessions, filterInterviewers, selectedProject } = useFilter();
+  const { getInterviewerProjects } = useProjects();
   
   // Apply global filters
   const filteredSessions = filterSessions(sessions);
   const filteredInterviewers = filterInterviewers(interviewers);
   
+  // Further filter interviewers by project if a project is selected
+  const effectiveInterviewers = selectedProject 
+    ? filteredInterviewers.filter(interviewer => {
+        const projects = getInterviewerProjects(interviewer.id);
+        return projects.some(p => p.id === selectedProject.id);
+      })
+    : filteredInterviewers;
+  
   // Calculate stats with filtered data
-  const totalInterviewers = filteredInterviewers.length;
+  const totalInterviewers = effectiveInterviewers.length;
   const activeSessions = filteredSessions.filter(session => session.is_active).length;
   
   // Get today's sessions from filtered data
