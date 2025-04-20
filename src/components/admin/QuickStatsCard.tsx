@@ -2,6 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
+import { useFilter } from "@/contexts/FilterContext";
 
 interface QuickStatsCardProps {
   sessions: Session[];
@@ -14,18 +15,24 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   interviewers,
   loading = false
 }) => {
-  // Calculate stats
-  const totalInterviewers = interviewers.length;
-  const activeSessions = sessions.filter(session => session.is_active).length;
+  const { filterSessions, filterInterviewers } = useFilter();
   
-  // Get today's sessions
+  // Apply global filters
+  const filteredSessions = filterSessions(sessions);
+  const filteredInterviewers = filterInterviewers(interviewers);
+  
+  // Calculate stats with filtered data
+  const totalInterviewers = filteredInterviewers.length;
+  const activeSessions = filteredSessions.filter(session => session.is_active).length;
+  
+  // Get today's sessions from filtered data
   const today = new Date().toISOString().split('T')[0];
-  const sessionsToday = sessions.filter(session => {
+  const sessionsToday = filteredSessions.filter(session => {
     const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
     return sessionDate === today;
   }).length;
   
-  // Calculate total hours this week
+  // Calculate total hours this week from filtered data
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
   startOfWeek.setHours(0, 0, 0, 0);
@@ -39,7 +46,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     return (end - start) / (1000 * 60 * 60); // Convert to hours
   };
   
-  const thisWeekSessions = sessions.filter(session => {
+  const thisWeekSessions = filteredSessions.filter(session => {
     const sessionDate = new Date(session.start_time);
     return sessionDate >= startOfWeek && !session.is_active && session.end_time;
   });
@@ -52,7 +59,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   // Calculate average sessions per interviewer this week
   const activeInterviewersThisWeek = new Set();
   
-  sessions.filter(session => {
+  filteredSessions.filter(session => {
     const sessionDate = new Date(session.start_time);
     return sessionDate >= startOfWeek;
   }).forEach(session => {

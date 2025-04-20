@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { UserX } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useFilter } from "@/contexts/FilterContext";
 
 interface InactiveInterviewersCardProps {
   sessions: Session[];
@@ -16,20 +17,26 @@ const InactiveInterviewersCard: React.FC<InactiveInterviewersCardProps> = ({
   interviewers,
   loading = false
 }) => {
+  const { filterSessions, filterInterviewers } = useFilter();
+  
+  // Apply global filters
+  const filteredSessions = filterSessions(sessions);
+  const filteredInterviewers = filterInterviewers(interviewers);
+  
   // Calculate start of this week (Sunday)
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Start from Sunday
   startOfWeek.setHours(0, 0, 0, 0);
   
-  // Find active interviewer IDs this week
+  // Find active interviewer IDs this week from filtered sessions
   const activeInterviewerIds = new Set(
-    sessions
+    filteredSessions
       .filter(session => new Date(session.start_time) >= startOfWeek)
       .map(session => session.interviewer_id)
   );
   
-  // Get interviewers who haven't been active this week
-  const inactiveInterviewers = interviewers.filter(
+  // Get interviewers who haven't been active this week from filtered interviewers
+  const inactiveInterviewers = filteredInterviewers.filter(
     interviewer => !activeInterviewerIds.has(interviewer.id)
   );
   
