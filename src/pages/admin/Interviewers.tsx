@@ -43,50 +43,12 @@ const Interviewers = () => {
     island: undefined as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined,
   });
   
-  // First apply global filters
-  const globalFilteredInterviewers = filterInterviewers(interviewers);
-  
-  // Then apply search query filter
-  const filteredInterviewers = globalFilteredInterviewers.filter((interviewer) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      interviewer.code.toLowerCase().includes(query) ||
-      interviewer.first_name.toLowerCase().includes(query) ||
-      interviewer.last_name.toLowerCase().includes(query) ||
-      (interviewer.email && interviewer.email.toLowerCase().includes(query)) ||
-      (interviewer.island && interviewer.island.toLowerCase().includes(query))
-    );
-  });
-  
-  // Filter interviewerProjects by selected project if needed
-  const filteredInterviewerProjects = React.useMemo(() => {
-    if (!selectedProject) return interviewerProjects;
-    
-    const filtered: {[key: string]: any[]} = {};
-    
-    // Only keep projects that match the selected project
-    Object.keys(interviewerProjects).forEach(interviewerId => {
-      const projects = interviewerProjects[interviewerId] || [];
-      const filteredProjects = projects.filter(project => project.id === selectedProject.id);
-      
-      if (filteredProjects.length > 0) {
-        filtered[interviewerId] = filteredProjects;
-      } else {
-        filtered[interviewerId] = [];
-      }
-    });
-    
-    return filtered;
-  }, [interviewerProjects, selectedProject]);
-  
-  // Load all project assignments once when interviewers are loaded
   useEffect(() => {
     const loadProjectAssignments = async () => {
       if (interviewers.length === 0 || interviewersLoading) return;
       
       setProjectsLoading(true);
       try {
-        // Use the optimized method to get all assignments at once
         const assignments = await getAllProjectAssignments();
         setInterviewerProjects(assignments);
       } catch (error) {
@@ -98,6 +60,19 @@ const Interviewers = () => {
 
     loadProjectAssignments();
   }, [interviewers, interviewersLoading, getAllProjectAssignments]);
+  
+  const globalFilteredInterviewers = filterInterviewers(interviewers, interviewerProjects);
+  
+  const filteredInterviewers = globalFilteredInterviewers.filter((interviewer) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      interviewer.code.toLowerCase().includes(query) ||
+      interviewer.first_name.toLowerCase().includes(query) ||
+      interviewer.last_name.toLowerCase().includes(query) ||
+      (interviewer.email && interviewer.email.toLowerCase().includes(query)) ||
+      (interviewer.island && interviewer.island.toLowerCase().includes(query))
+    );
+  });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -272,7 +247,7 @@ const Interviewers = () => {
           onDelete={handleDelete}
           onSchedule={handleSchedule}
           onViewDashboard={handleViewDashboard}
-          interviewerProjects={filteredInterviewerProjects}
+          interviewerProjects={interviewerProjects}
         />
       </div>
       

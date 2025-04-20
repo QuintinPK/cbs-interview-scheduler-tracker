@@ -9,6 +9,7 @@ export const useDataFetching = () => {
   const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [interviewerProjects, setInterviewerProjects] = useState<Record<string, Project[]>>({});
   const { selectedProject, selectedIsland, filterSessions, filterInterviewers, filterProjects } = useFilter();
 
   // Function to fetch all data
@@ -40,18 +41,45 @@ export const useDataFetching = () => {
       
       if (projectsError) throw projectsError;
       
+      // Fetch project-interviewer assignments
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('project_interviewers')
+        .select('*');
+        
+      if (assignmentsError) throw assignmentsError;
+      
       // Set data with proper type casting
-      setInterviewers(interviewersData?.map(interviewer => ({
+      const typedInterviewers = interviewersData?.map(interviewer => ({
         ...interviewer,
         island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
-      })) || []);
+      })) || [];
       
       setSessions(sessionsData || []);
       
-      setProjects(projectsData?.map(project => ({
+      const typedProjects = projectsData?.map(project => ({
         ...project,
         excluded_islands: project.excluded_islands as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
-      })) || []);
+      })) || [];
+      
+      setProjects(typedProjects);
+      setInterviewers(typedInterviewers);
+      
+      // Process project assignments
+      const projectAssignments: Record<string, Project[]> = {};
+      
+      if (assignmentsData) {
+        for (const assignment of assignmentsData) {
+          const project = typedProjects.find(p => p.id === assignment.project_id);
+          if (project) {
+            if (!projectAssignments[assignment.interviewer_id]) {
+              projectAssignments[assignment.interviewer_id] = [];
+            }
+            projectAssignments[assignment.interviewer_id].push(project);
+          }
+        }
+      }
+      
+      setInterviewerProjects(projectAssignments);
       
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -85,13 +113,9 @@ export const useDataFetching = () => {
   const filteredInterviewers = useMemo(() => {
     if (!selectedIsland && !selectedProject) return interviewers;
     
-    let filtered = filterInterviewers(interviewers);
-    
-    // Further filter by project if needed - this requires project assignments
-    // which would be handled in the component using this data
-    
-    return filtered;
-  }, [interviewers, selectedIsland, selectedProject, filterInterviewers]);
+    // Now use the interviewerProjects data for filtering by project
+    return filterInterviewers(interviewers, interviewerProjects);
+  }, [interviewers, selectedIsland, selectedProject, filterInterviewers, interviewerProjects]);
   
   const filteredProjects = useMemo(() => {
     if (!selectedIsland) return projects;

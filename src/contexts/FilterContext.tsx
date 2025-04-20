@@ -8,7 +8,7 @@ interface FilterContextType {
   setSelectedProject: (project: Project | null) => void;
   setSelectedIsland: (island: 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined) => void;
   clearFilters: () => void;
-  filterInterviewers: (interviewers: Interviewer[]) => Interviewer[];
+  filterInterviewers: (interviewers: Interviewer[], interviewerProjects?: Record<string, Project[]>) => Interviewer[];
   filterSessions: (sessions: Session[]) => Session[];
   filterProjects: (projects: Project[]) => Project[];
 }
@@ -25,15 +25,23 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   // Filter interviewers based on selected project and island
-  const filterInterviewers = (interviewers: Interviewer[]): Interviewer[] => {
+  const filterInterviewers = (
+    interviewers: Interviewer[], 
+    interviewerProjects?: Record<string, Project[]>
+  ): Interviewer[] => {
     return interviewers.filter(interviewer => {
       // Filter by island
       const matchesIsland = !selectedIsland || interviewer.island === selectedIsland;
       
-      // For project filtering, we'll need to handle this where the project assignments are available
-      // since this is just the generic filter
+      // Filter by project if interviewerProjects is provided
+      let matchesProject = true;
+      if (selectedProject && interviewerProjects) {
+        // Only include interviewers that have the selected project assigned
+        const projects = interviewerProjects[interviewer.id] || [];
+        matchesProject = projects.some(project => project.id === selectedProject.id);
+      }
       
-      return matchesIsland;
+      return matchesIsland && matchesProject;
     });
   };
 
