@@ -43,10 +43,35 @@ const Interviewers = () => {
     island: undefined as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined,
   });
   
-  // First apply global filters
-  const globalFilteredInterviewers = filterInterviewers(interviewers);
+  useEffect(() => {
+    const loadProjectAssignments = async () => {
+      if (interviewers.length === 0 || interviewersLoading) return;
+      
+      setProjectsLoading(true);
+      try {
+        const assignments = await getAllProjectAssignments();
+        setInterviewerProjects(assignments);
+      } catch (error) {
+        console.error("Error loading project assignments:", error);
+      } finally {
+        setProjectsLoading(false);
+      }
+    };
+
+    loadProjectAssignments();
+  }, [interviewers, interviewersLoading, getAllProjectAssignments]);
   
-  // Then apply search query filter
+  const islandFilteredInterviewers = filterInterviewers(interviewers);
+  
+  const globalFilteredInterviewers = React.useMemo(() => {
+    if (!selectedProject) return islandFilteredInterviewers;
+    
+    return islandFilteredInterviewers.filter(interviewer => {
+      const projects = interviewerProjects[interviewer.id] || [];
+      return projects.some(project => project.id === selectedProject.id);
+    });
+  }, [islandFilteredInterviewers, selectedProject, interviewerProjects]);
+  
   const filteredInterviewers = globalFilteredInterviewers.filter((interviewer) => {
     const query = searchQuery.toLowerCase();
     return (
@@ -58,13 +83,11 @@ const Interviewers = () => {
     );
   });
   
-  // Filter interviewerProjects by selected project if needed
   const filteredInterviewerProjects = React.useMemo(() => {
     if (!selectedProject) return interviewerProjects;
     
     const filtered: {[key: string]: any[]} = {};
     
-    // Only keep projects that match the selected project
     Object.keys(interviewerProjects).forEach(interviewerId => {
       const projects = interviewerProjects[interviewerId] || [];
       const filteredProjects = projects.filter(project => project.id === selectedProject.id);
@@ -78,27 +101,7 @@ const Interviewers = () => {
     
     return filtered;
   }, [interviewerProjects, selectedProject]);
-  
-  // Load all project assignments once when interviewers are loaded
-  useEffect(() => {
-    const loadProjectAssignments = async () => {
-      if (interviewers.length === 0 || interviewersLoading) return;
-      
-      setProjectsLoading(true);
-      try {
-        // Use the optimized method to get all assignments at once
-        const assignments = await getAllProjectAssignments();
-        setInterviewerProjects(assignments);
-      } catch (error) {
-        console.error("Error loading project assignments:", error);
-      } finally {
-        setProjectsLoading(false);
-      }
-    };
 
-    loadProjectAssignments();
-  }, [interviewers, interviewersLoading, getAllProjectAssignments]);
-  
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData({
