@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { useFilter } from "@/contexts/FilterContext";
@@ -18,18 +18,36 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
 }) => {
   const { filterSessions, filterInterviewers, selectedProject } = useFilter();
   const { getInterviewerProjects } = useProjects();
+  const [effectiveInterviewers, setEffectiveInterviewers] = useState<Interviewer[]>([]);
+  const [processingData, setProcessingData] = useState(true);
   
   // Apply global filters
   const filteredSessions = filterSessions(sessions);
   const filteredInterviewers = filterInterviewers(interviewers);
   
   // Further filter interviewers by project if a project is selected
-  const effectiveInterviewers = selectedProject 
-    ? filteredInterviewers.filter(interviewer => {
-        const projects = getInterviewerProjects(interviewer.id);
-        return projects.some(p => p.id === selectedProject.id);
-      })
-    : filteredInterviewers;
+  useEffect(() => {
+    const filterByProject = async () => {
+      if (selectedProject) {
+        const filtered = [];
+        
+        for (const interviewer of filteredInterviewers) {
+          const projects = await getInterviewerProjects(interviewer.id);
+          if (projects.some(p => p.id === selectedProject.id)) {
+            filtered.push(interviewer);
+          }
+        }
+        
+        setEffectiveInterviewers(filtered);
+      } else {
+        setEffectiveInterviewers(filteredInterviewers);
+      }
+      
+      setProcessingData(false);
+    };
+    
+    filterByProject();
+  }, [filteredInterviewers, selectedProject, getInterviewerProjects]);
   
   // Calculate stats with filtered data
   const totalInterviewers = effectiveInterviewers.length;
@@ -88,13 +106,16 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     { label: "Avg Sessions per Interviewer", value: avgSessionsPerInterviewer }
   ];
   
+  // Combine loading states
+  const isLoading = loading || processingData;
+  
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Quick Stats</CardTitle>
       </CardHeader>
       <CardContent>
-        {loading ? (
+        {isLoading ? (
           <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
