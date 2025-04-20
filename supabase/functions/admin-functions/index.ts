@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -301,6 +300,40 @@ serve(async (req) => {
         
         console.log("Returning Google Maps API key");
         result = { success: true, data: { apiKey: googleMapsApiKey } };
+        break;
+        
+      case "deleteProjectData":
+        // Validate project ID
+        if (!data || !data.projectId) {
+          throw new Error("Missing project ID");
+        }
+        
+        console.log(`Deleting all data for project: ${data.projectId}`);
+        
+        // First delete all interviews related to this project
+        const { error: interviewsError } = await supabase
+          .from('interviews')
+          .delete()
+          .eq('project_id', data.projectId);
+        
+        if (interviewsError) {
+          console.error("Error deleting project interviews:", interviewsError);
+          throw interviewsError;
+        }
+        
+        // Then delete all sessions related to this project
+        const { error: sessionsError } = await supabase
+          .from('sessions')
+          .delete()
+          .eq('project_id', data.projectId);
+        
+        if (sessionsError) {
+          console.error("Error deleting project sessions:", sessionsError);
+          throw sessionsError;
+        }
+        
+        console.log("Project data deleted successfully");
+        result = { success: true };
         break;
         
       default:

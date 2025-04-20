@@ -1,9 +1,7 @@
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
-import { useFilter } from "@/contexts/FilterContext";
-import { useProjects } from "@/hooks/useProjects";
 
 interface QuickStatsCardProps {
   sessions: Session[];
@@ -16,51 +14,18 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   interviewers,
   loading = false
 }) => {
-  const { filterSessions, filterInterviewers, selectedProject } = useFilter();
-  const { getInterviewerProjects } = useProjects();
-  const [effectiveInterviewers, setEffectiveInterviewers] = useState<Interviewer[]>([]);
-  const [processingData, setProcessingData] = useState(true);
+  // Calculate stats
+  const totalInterviewers = interviewers.length;
+  const activeSessions = sessions.filter(session => session.is_active).length;
   
-  // Apply global filters
-  const filteredSessions = filterSessions(sessions);
-  const filteredInterviewers = filterInterviewers(interviewers);
-  
-  // Further filter interviewers by project if a project is selected
-  useEffect(() => {
-    const filterByProject = async () => {
-      if (selectedProject) {
-        const filtered = [];
-        
-        for (const interviewer of filteredInterviewers) {
-          const projects = await getInterviewerProjects(interviewer.id);
-          if (projects.some(p => p.id === selectedProject.id)) {
-            filtered.push(interviewer);
-          }
-        }
-        
-        setEffectiveInterviewers(filtered);
-      } else {
-        setEffectiveInterviewers(filteredInterviewers);
-      }
-      
-      setProcessingData(false);
-    };
-    
-    filterByProject();
-  }, [filteredInterviewers, selectedProject, getInterviewerProjects]);
-  
-  // Calculate stats with filtered data
-  const totalInterviewers = effectiveInterviewers.length;
-  const activeSessions = filteredSessions.filter(session => session.is_active).length;
-  
-  // Get today's sessions from filtered data
+  // Get today's sessions
   const today = new Date().toISOString().split('T')[0];
-  const sessionsToday = filteredSessions.filter(session => {
+  const sessionsToday = sessions.filter(session => {
     const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
     return sessionDate === today;
   }).length;
   
-  // Calculate total hours this week from filtered data
+  // Calculate total hours this week
   const startOfWeek = new Date();
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
   startOfWeek.setHours(0, 0, 0, 0);
@@ -74,7 +39,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     return (end - start) / (1000 * 60 * 60); // Convert to hours
   };
   
-  const thisWeekSessions = filteredSessions.filter(session => {
+  const thisWeekSessions = sessions.filter(session => {
     const sessionDate = new Date(session.start_time);
     return sessionDate >= startOfWeek && !session.is_active && session.end_time;
   });
@@ -87,7 +52,7 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   // Calculate average sessions per interviewer this week
   const activeInterviewersThisWeek = new Set();
   
-  filteredSessions.filter(session => {
+  sessions.filter(session => {
     const sessionDate = new Date(session.start_time);
     return sessionDate >= startOfWeek;
   }).forEach(session => {
@@ -106,16 +71,13 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     { label: "Avg Sessions per Interviewer", value: avgSessionsPerInterviewer }
   ];
   
-  // Combine loading states
-  const isLoading = loading || processingData;
-  
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Quick Stats</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {loading ? (
           <p className="text-muted-foreground text-center py-4">Loading...</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
