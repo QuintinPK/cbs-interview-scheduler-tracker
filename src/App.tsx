@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { FilterProvider } from "./contexts/FilterContext";
 
 // Pages
 import Index from "./pages/Index";
@@ -17,7 +18,7 @@ import Scheduling from "./pages/admin/Scheduling";
 import Costs from "./pages/admin/Costs";
 import Settings from "./pages/admin/Settings";
 import Projects from "./pages/admin/Projects"; 
-import ProjectAssign from "./pages/admin/ProjectAssign"; // Import the new ProjectAssign page
+import ProjectAssign from "./pages/admin/ProjectAssign";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,77 +43,25 @@ const AppRoutes = () => {
       <Route path="/" element={<Index />} />
       <Route path="/admin/login" element={<Login />} />
       
-      {/* Protected Admin Routes */}
+      {/* Protected Admin Routes - Wrapped with FilterProvider for all admin routes */}
       <Route 
-        path="/admin/dashboard" 
+        path="/admin/*" 
         element={
           <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/sessions" 
-        element={
-          <ProtectedRoute>
-            <Sessions />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/interviewers" 
-        element={
-          <ProtectedRoute>
-            <Interviewers />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/interviewer/:id" 
-        element={
-          <ProtectedRoute>
-            <InterviewerDashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/projects" 
-        element={
-          <ProtectedRoute>
-            <Projects />
-          </ProtectedRoute>
-        } 
-      />
-      {/* Add the new route for project assignment */}
-      <Route 
-        path="/admin/projects/assign/:projectId" 
-        element={
-          <ProtectedRoute>
-            <ProjectAssign />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/scheduling" 
-        element={
-          <ProtectedRoute>
-            <Scheduling />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/costs" 
-        element={
-          <ProtectedRoute>
-            <Costs />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/admin/settings" 
-        element={
-          <ProtectedRoute>
-            <Settings />
+            <FilterProvider>
+              <Routes>
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="sessions" element={<Sessions />} />
+                <Route path="interviewers" element={<Interviewers />} />
+                <Route path="interviewer/:id" element={<InterviewerDashboard />} />
+                <Route path="projects" element={<Projects />} />
+                <Route path="projects/assign/:projectId" element={<ProjectAssign />} />
+                <Route path="scheduling" element={<Scheduling />} />
+                <Route path="costs" element={<Costs />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </FilterProvider>
           </ProtectedRoute>
         } 
       />

@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Session, Interviewer, Project } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useFilter } from '@/contexts/FilterContext';
@@ -40,10 +40,18 @@ export const useDataFetching = () => {
       
       if (projectsError) throw projectsError;
       
-      // Set data
-      setInterviewers(interviewersData || []);
+      // Set data with proper type casting
+      setInterviewers(interviewersData?.map(interviewer => ({
+        ...interviewer,
+        island: interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined
+      })) || []);
+      
       setSessions(sessionsData || []);
-      setProjects(projectsData || []);
+      
+      setProjects(projectsData?.map(project => ({
+        ...project,
+        excluded_islands: project.excluded_islands as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+      })) || []);
       
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -58,7 +66,7 @@ export const useDataFetching = () => {
   }, [fetchData]);
   
   // Apply filters to the data
-  const filteredSessions = React.useMemo(() => {
+  const filteredSessions = useMemo(() => {
     if (!selectedProject && !selectedIsland) return sessions;
     
     let filtered = filterSessions(sessions);
@@ -74,7 +82,7 @@ export const useDataFetching = () => {
     return filtered;
   }, [sessions, interviewers, selectedProject, selectedIsland, filterSessions]);
   
-  const filteredInterviewers = React.useMemo(() => {
+  const filteredInterviewers = useMemo(() => {
     if (!selectedIsland && !selectedProject) return interviewers;
     
     let filtered = filterInterviewers(interviewers);
@@ -85,7 +93,7 @@ export const useDataFetching = () => {
     return filtered;
   }, [interviewers, selectedIsland, selectedProject, filterInterviewers]);
   
-  const filteredProjects = React.useMemo(() => {
+  const filteredProjects = useMemo(() => {
     if (!selectedIsland) return projects;
     return filterProjects(projects);
   }, [projects, selectedIsland, filterProjects]);
