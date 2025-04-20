@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import IslandSelector from "@/components/ui/IslandSelector";
+
 const ProjectAssign = () => {
   const {
     projectId
@@ -36,8 +37,16 @@ const ProjectAssign = () => {
   } = useInterviewers();
   const [projectInterviewers, setProjectInterviewers] = useState<Interviewer[]>([]);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
+
+  const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius' | 'all' | undefined) => {
+    if (island === 'all') {
+      setSelectedIsland(undefined);
+    } else {
+      setSelectedIsland(island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined);
+    }
+  };
+
   useEffect(() => {
-    // Find the project by ID
     if (projectId && projects.length > 0) {
       const foundProject = projects.find(p => p.id === projectId);
       if (foundProject) {
@@ -52,6 +61,7 @@ const ProjectAssign = () => {
       }
     }
   }, [projectId, projects, navigate, toast]);
+
   const loadProjectInterviewers = useCallback(async () => {
     if (projectId) {
       setLoading(true);
@@ -65,16 +75,17 @@ const ProjectAssign = () => {
       }
     }
   }, [projectId, getProjectInterviewers]);
+
   useEffect(() => {
     loadProjectInterviewers();
   }, [loadProjectInterviewers]);
+
   const handleAssignInterviewer = async (interviewer: Interviewer) => {
     if (!projectId || processingIds.has(interviewer.id)) return;
     setProcessingIds(prev => new Set(prev).add(interviewer.id));
     try {
       await assignInterviewerToProject(projectId, interviewer.id);
 
-      // Update local state without making another API call
       setProjectInterviewers(prev => [...prev, interviewer]);
       toast({
         title: "Success",
@@ -82,7 +93,6 @@ const ProjectAssign = () => {
       });
     } catch (error) {
       console.error("Error assigning interviewer:", error);
-      // Only reload the full list if there was an error
       await loadProjectInterviewers();
     } finally {
       setProcessingIds(prev => {
@@ -92,13 +102,13 @@ const ProjectAssign = () => {
       });
     }
   };
+
   const handleRemoveInterviewer = async (interviewer: Interviewer) => {
     if (!projectId || processingIds.has(interviewer.id)) return;
     setProcessingIds(prev => new Set(prev).add(interviewer.id));
     try {
       await removeInterviewerFromProject(projectId, interviewer.id);
 
-      // Update local state without making another API call
       setProjectInterviewers(prev => prev.filter(i => i.id !== interviewer.id));
       toast({
         title: "Success",
@@ -106,7 +116,6 @@ const ProjectAssign = () => {
       });
     } catch (error) {
       console.error("Error removing interviewer:", error);
-      // Only reload the full list if there was an error
       await loadProjectInterviewers();
     } finally {
       setProcessingIds(prev => {
@@ -117,7 +126,6 @@ const ProjectAssign = () => {
     }
   };
 
-  // Filter interviewers based on search query and selected island
   const filteredInterviewers = interviewers.filter(interviewer => {
     const fullName = `${interviewer.first_name} ${interviewer.last_name}`.toLowerCase();
     const code = interviewer.code.toLowerCase();
@@ -125,18 +133,18 @@ const ProjectAssign = () => {
     const matchesSearch = fullName.includes(query) || code.includes(query);
     const matchesIsland = !selectedIsland || interviewer.island === selectedIsland;
 
-    // Check if the interviewer is eligible for this project (not from an excluded island)
     const isEligible = project && interviewer.island ? !project.excluded_islands.includes(interviewer.island) : true;
     return matchesSearch && matchesIsland && isEligible;
   });
 
-  // Check if an interviewer is already assigned to the project
   const isInterviewerAssigned = (interviewerId: string) => {
     return projectInterviewers.some(i => i.id === interviewerId);
   };
+
   const isProcessing = (interviewerId: string) => {
     return processingIds.has(interviewerId);
   };
+
   return <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -201,7 +209,7 @@ const ProjectAssign = () => {
                 </div>
                 
                 <div className="w-full md:w-60">
-                  <IslandSelector selectedIsland={selectedIsland} onIslandChange={setSelectedIsland} placeholder="All Islands" />
+                  <IslandSelector selectedIsland={selectedIsland} onIslandChange={handleIslandChange} placeholder="All Islands" showAllOption={true} />
                 </div>
               </div>
               
@@ -250,4 +258,5 @@ const ProjectAssign = () => {
       </div>
     </AdminLayout>;
 };
+
 export default ProjectAssign;

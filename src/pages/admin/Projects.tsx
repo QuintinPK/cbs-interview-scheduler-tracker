@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -38,6 +39,15 @@ const Projects = () => {
     end_date: format(new Date(), 'yyyy-MM-dd'),
     excluded_islands: [] as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
   });
+  
+  // Handle island selector changes with correct typing
+  const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius' | 'all' | undefined) => {
+    if (island === 'all') {
+      setSelectedLocalIsland(undefined);
+    } else {
+      setSelectedLocalIsland(island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined);
+    }
+  };
   
   const globalFilteredProjects = filterProjects(projects);
   
@@ -183,7 +193,7 @@ const Projects = () => {
             <div className="w-full md:w-60">
               <IslandSelector
                 selectedIsland={selectedLocalIsland}
-                onIslandChange={setSelectedLocalIsland}
+                onIslandChange={handleIslandChange}
                 placeholder="All Islands"
                 showAllOption={true}
                 disabled={loading}

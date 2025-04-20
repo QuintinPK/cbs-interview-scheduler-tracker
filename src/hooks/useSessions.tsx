@@ -64,7 +64,7 @@ export const useSessions = (
   // Apply component-specific filters
   const applyComponentFilters = (sessionsToFilter: Session[]) => {
     // We call this whenever we need to reapply the component filters
-    applySessionFilters(interviewers, sessionsToFilter);
+    applySessionFilters(sessionsToFilter);
   };
   
   // Apply filters whenever filter results change

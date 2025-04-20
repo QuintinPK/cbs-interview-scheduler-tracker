@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Interviewer } from "@/types";
 import { startOfDay, endOfDay } from "date-fns";
@@ -13,10 +12,25 @@ export const useSessionFilters = (sessions: Session[]) => {
     setFilteredSessions(sessions);
   }, [sessions]);
   
-  const applyFilters = (interviewers: Interviewer[] = []) => {
+  // Define an overloaded applyFilters function
+  const applyFilters = (interviewersOrSessions?: Interviewer[] | Session[]) => {
     let filtered = [...sessions];
+    let interviewers: Interviewer[] = [];
     
-    if (interviewerCodeFilter) {
+    // If nothing is passed, just filter based on the current state
+    if (!interviewersOrSessions) {
+      // No extra filtering
+    } 
+    // If the first item looks like a Session (has interviewer_id), treat as sessions array
+    else if (interviewersOrSessions.length > 0 && 'interviewer_id' in interviewersOrSessions[0]) {
+      filtered = interviewersOrSessions as Session[];
+    } 
+    // Otherwise, it's an interviewers array
+    else {
+      interviewers = interviewersOrSessions as Interviewer[];
+    }
+    
+    if (interviewerCodeFilter && interviewers.length > 0) {
       const matchingInterviewers = interviewers.filter(interviewer => 
         interviewer.code.toLowerCase().includes(interviewerCodeFilter.toLowerCase())
       );
