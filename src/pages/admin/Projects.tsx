@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -13,6 +12,7 @@ import {
 import { PlusCircle, Loader2, Search } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useInterviewers } from "@/hooks/useInterviewers";
+import { useFilter } from "@/contexts/FilterContext";
 import IslandSelector from "@/components/ui/IslandSelector";
 import ProjectForm from "@/components/project/ProjectForm";
 import ProjectList from "@/components/project/ProjectList";
@@ -23,9 +23,10 @@ const Projects = () => {
   const navigate = useNavigate();
   const { projects, loading, addProject, updateProject, deleteProject } = useProjects();
   const { interviewers } = useInterviewers();
+  const { selectedIsland, filterProjects } = useFilter();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIsland, setSelectedIsland] = useState<'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined>(undefined);
+  const [selectedLocalIsland, setSelectedLocalIsland] = useState<'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined>(undefined);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -36,6 +37,17 @@ const Projects = () => {
     start_date: format(new Date(), 'yyyy-MM-dd'),
     end_date: format(new Date(), 'yyyy-MM-dd'),
     excluded_islands: [] as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+  });
+  
+  const globalFilteredProjects = filterProjects(projects);
+  
+  const filteredProjects = globalFilteredProjects.filter((project) => {
+    const query = searchQuery.toLowerCase();
+    const matchesSearch = project.name.toLowerCase().includes(query);
+    
+    const matchesLocalIsland = !selectedLocalIsland || !project.excluded_islands.includes(selectedLocalIsland);
+    
+    return matchesSearch && matchesLocalIsland;
   });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,17 +130,6 @@ const Projects = () => {
     }
   };
   
-  // Filter projects based on search and island
-  const filteredProjects = projects.filter((project) => {
-    const query = searchQuery.toLowerCase();
-    const matchesSearch = project.name.toLowerCase().includes(query);
-    
-    // Check if the project includes the selected island (not in excluded islands)
-    const matchesIsland = !selectedIsland || !project.excluded_islands.includes(selectedIsland);
-    
-    return matchesSearch && matchesIsland;
-  });
-  
   const deleteProjectHandler = useCallback(
     async (project: Project) => {
       if (
@@ -181,16 +182,24 @@ const Projects = () => {
             
             <div className="w-full md:w-60">
               <IslandSelector
-                selectedIsland={selectedIsland}
-                onIslandChange={setSelectedIsland}
+                selectedIsland={selectedLocalIsland}
+                onIslandChange={setSelectedLocalIsland}
                 placeholder="All Islands"
+                showAllOption={true}
                 disabled={loading}
               />
             </div>
           </div>
           
-          <div className="mt-2 text-sm text-muted-foreground">
-            {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} found
+          <div className="mt-2 text-sm text-muted-foreground flex items-center justify-between">
+            <span>
+              {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''} found
+            </span>
+            {selectedIsland && (
+              <span className="text-cbs">
+                Global filter: Island: {selectedIsland}
+              </span>
+            )}
           </div>
         </div>
         

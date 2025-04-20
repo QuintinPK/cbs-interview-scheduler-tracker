@@ -1,5 +1,5 @@
 
-import React from "react";
+import React from 'react';
 import {
   Select,
   SelectContent,
@@ -8,38 +8,45 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Island = 'Bonaire' | 'Saba' | 'Sint Eustatius';
-
 interface IslandSelectorProps {
-  selectedIsland?: Island;
-  onIslandChange: (island: Island) => void;
-  disabled?: boolean;
+  selectedIsland: 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined;
+  onIslandChange: (island: 'Bonaire' | 'Saba' | 'Sint Eustatius' | 'all' | undefined) => void;
   placeholder?: string;
+  showAllOption?: boolean;
+  disabled?: boolean;
 }
 
 const IslandSelector: React.FC<IslandSelectorProps> = ({
   selectedIsland,
   onIslandChange,
-  disabled = false,
-  placeholder = "Select an island"
+  placeholder = "Select Island",
+  showAllOption = false,
+  disabled = false
 }) => {
-  const islands: Island[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
+  const handleChange = (value: string) => {
+    if (value === 'all') {
+      onIslandChange('all');
+    } else if (value === 'Bonaire' || value === 'Saba' || value === 'Sint Eustatius') {
+      onIslandChange(value);
+    } else {
+      onIslandChange(undefined);
+    }
+  };
 
   return (
     <Select
-      value={selectedIsland}
-      onValueChange={(value) => onIslandChange(value as Island)}
+      value={selectedIsland || (showAllOption ? 'all' : '')}
+      onValueChange={handleChange}
       disabled={disabled}
     >
-      <SelectTrigger className="w-full">
+      <SelectTrigger>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
-        {islands.map((island) => (
-          <SelectItem key={island} value={island}>
-            {island}
-          </SelectItem>
-        ))}
+        {showAllOption && <SelectItem value="all">All Islands</SelectItem>}
+        <SelectItem value="Bonaire">Bonaire</SelectItem>
+        <SelectItem value="Saba">Saba</SelectItem>
+        <SelectItem value="Sint Eustatius">Sint Eustatius</SelectItem>
       </SelectContent>
     </Select>
   );

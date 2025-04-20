@@ -9,14 +9,26 @@ import TopInterviewersChart from "@/components/admin/TopInterviewersChart";
 import UnusualSessionsCard from "@/components/admin/UnusualSessionsCard";
 import PeakSessionHoursChart from "@/components/admin/PeakSessionHoursChart";
 import { useDataFetching } from "@/hooks/useDataFetching";
+import { useFilter } from "@/contexts/FilterContext";
 
 const Dashboard = () => {
   const { sessions, interviewers, loading } = useDataFetching();
+  const { selectedProject, selectedIsland } = useFilter();
   
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div className="flex flex-col md:flex-row md:items-center justify-between">
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          
+          {(selectedProject || selectedIsland) && (
+            <div className="text-sm text-cbs font-medium bg-blue-50 px-3 py-1 rounded-md mt-2 md:mt-0">
+              Filtered by: {selectedProject ? `Project: ${selectedProject.name}` : ''}
+              {selectedProject && selectedIsland ? ' & ' : ''}
+              {selectedIsland ? `Island: ${selectedIsland}` : ''}
+            </div>
+          )}
+        </div>
         
         {/* Quick Stats at the top */}
         <div>

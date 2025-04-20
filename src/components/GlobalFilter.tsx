@@ -18,17 +18,27 @@ const GlobalFilter: React.FC = () => {
   const { projects, loading } = useProjects();
 
   const handleProjectChange = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId) || null;
-    setSelectedProject(project);
-    
-    // No longer setting island from project since it doesn't have an island property
+    if (projectId === 'all') {
+      setSelectedProject(null);
+    } else {
+      const project = projects.find(p => p.id === projectId) || null;
+      setSelectedProject(project);
+    }
+  };
+
+  const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius' | 'all' | undefined) => {
+    if (island === 'all') {
+      setSelectedIsland(undefined);
+    } else {
+      setSelectedIsland(island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined);
+    }
   };
 
   return (
     <div className="flex flex-wrap gap-3 items-center">
       <div className="w-64">
         <Select
-          value={selectedProject?.id || ''}
+          value={selectedProject?.id || 'all'}
           onValueChange={handleProjectChange}
           disabled={loading}
         >
@@ -36,6 +46,7 @@ const GlobalFilter: React.FC = () => {
             <SelectValue placeholder="Filter by Project" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
             {projects.map(project => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}
@@ -48,8 +59,9 @@ const GlobalFilter: React.FC = () => {
       <div className="w-48">
         <IslandSelector
           selectedIsland={selectedIsland}
-          onIslandChange={setSelectedIsland}
-          placeholder="Filter by Island"
+          onIslandChange={(island) => handleIslandChange(island)}
+          placeholder="All Islands"
+          showAllOption={true}
           disabled={loading}
         />
       </div>

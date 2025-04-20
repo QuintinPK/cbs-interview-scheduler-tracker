@@ -1,81 +1,103 @@
 
-import { useState, useEffect } from "react";
-import { Session, Interviewer } from "@/types";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from 'react';
+import { Session, Interviewer, Project } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useFilter } from '@/contexts/FilterContext';
 
 export const useDataFetching = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [interviewers, setInterviewers] = useState<Interviewer[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch interviewers
-        const { data: interviewersData, error: interviewersError } = await supabase
-          .from('interviewers')
-          .select('*');
-          
-        if (interviewersError) throw interviewersError;
-        
-        // Ensure data conforms to the Interviewer interface
-        const typedInterviewers: Interviewer[] = interviewersData?.map(interviewer => ({
-          id: interviewer.id,
-          code: interviewer.code,
-          first_name: interviewer.first_name,
-          last_name: interviewer.last_name,
-          phone: interviewer.phone || "",
-          email: interviewer.email || "",
-          // Properly cast the island property to our union type or undefined
-          island: (interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
-        })) || [];
-        
-        setInterviewers(typedInterviewers);
-        
-        // Fetch sessions
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from('sessions')
-          .select('*')
-          .order('start_time', { ascending: false });
-          
-        if (sessionsError) throw sessionsError;
-        
-        const transformedSessions = sessionsData.map(session => ({
-          ...session,
-          start_latitude: session.start_latitude !== null ? Number(session.start_latitude) : null,
-          start_longitude: session.start_longitude !== null ? Number(session.start_longitude) : null,
-          end_latitude: session.end_latitude !== null ? Number(session.end_latitude) : null,
-          end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
-        }));
-        
-        setSessions(transformedSessions || []);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-    
-    // Setup real-time listener for active sessions
-    const channel = supabase
-      .channel('public:sessions')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'sessions' 
-      }, () => {
-        fetchData();
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  const { selectedProject, selectedIsland, filterSessions, filterInterviewers, filterProjects } = useFilter();
 
-  return { sessions, interviewers, loading };
+  // Function to fetch all data
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch interviewers
+      const { data: interviewersData, error: interviewersError } = await supabase
+        .from('interviewers')
+        .select('*')
+        .order('code');
+      
+      if (interviewersError) throw interviewersError;
+      
+      // Fetch sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .order('start_time', { ascending: false });
+      
+      if (sessionsError) throw sessionsError;
+      
+      // Fetch projects
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .order('name');
+      
+      if (projectsError) throw projectsError;
+      
+      // Set data
+      setInterviewers(interviewersData || []);
+      setSessions(sessionsData || []);
+      setProjects(projectsData || []);
+      
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  
+  // Fetch data on component mount
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+  
+  // Apply filters to the data
+  const filteredSessions = React.useMemo(() => {
+    if (!selectedProject && !selectedIsland) return sessions;
+    
+    let filtered = filterSessions(sessions);
+    
+    // Further filter by island if needed
+    if (selectedIsland) {
+      filtered = filtered.filter(session => {
+        const interviewer = interviewers.find(i => i.id === session.interviewer_id);
+        return interviewer && interviewer.island === selectedIsland;
+      });
+    }
+    
+    return filtered;
+  }, [sessions, interviewers, selectedProject, selectedIsland, filterSessions]);
+  
+  const filteredInterviewers = React.useMemo(() => {
+    if (!selectedIsland && !selectedProject) return interviewers;
+    
+    let filtered = filterInterviewers(interviewers);
+    
+    // Further filter by project if needed - this requires project assignments
+    // which would be handled in the component using this data
+    
+    return filtered;
+  }, [interviewers, selectedIsland, selectedProject, filterInterviewers]);
+  
+  const filteredProjects = React.useMemo(() => {
+    if (!selectedIsland) return projects;
+    return filterProjects(projects);
+  }, [projects, selectedIsland, filterProjects]);
+
+  return {
+    sessions: filteredSessions,
+    interviewers: filteredInterviewers,
+    projects: filteredProjects,
+    allSessions: sessions, // Original unfiltered sessions
+    allInterviewers: interviewers, // Original unfiltered interviewers
+    allProjects: projects, // Original unfiltered projects
+    loading,
+    refresh: fetchData
+  };
 };

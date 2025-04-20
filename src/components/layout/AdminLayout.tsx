@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { FilterProvider } from '@/contexts/FilterContext';
@@ -9,7 +10,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import Projects from "@/pages/admin/Projects";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -35,6 +35,22 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
   ];
+  
+  // Determine if we should show filters based on the current route
+  const shouldShowFilters = () => {
+    if (!showFilters) return false;
+    
+    const routesWithFilters = [
+      '/admin/dashboard',
+      '/admin/sessions',
+      '/admin/interviewers',
+      '/admin/projects',
+      '/admin/scheduling',
+      '/admin/costs'
+    ];
+    
+    return routesWithFilters.some(route => location.pathname === route || location.pathname.startsWith(route + '/'));
+  };
   
   return (
     <FilterProvider>
@@ -168,7 +184,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
           
           {/* Main Content */}
           <main className="flex-1 p-4 md:p-6 bg-background min-h-screen">
-            {showFilters && (
+            {shouldShowFilters() && (
               <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
                 <h2 className="text-sm font-medium mb-3">Filters</h2>
                 <GlobalFilter />

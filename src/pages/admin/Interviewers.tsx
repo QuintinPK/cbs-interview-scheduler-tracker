@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Input } from "@/components/ui/input";
@@ -10,6 +9,7 @@ import InterviewerList from "@/components/interviewer/InterviewerList";
 import InterviewerCsvImport from "@/components/interviewer/InterviewerCsvImport";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { useProjects } from "@/hooks/useProjects";
+import { useFilter } from "@/contexts/FilterContext";
 import { CsvInterviewer } from "@/utils/csvUtils";
 import type { Interviewer } from "@/types";
 import {
@@ -24,6 +24,7 @@ const Interviewers = () => {
   const navigate = useNavigate();
   const { interviewers, loading: interviewersLoading, addInterviewer, updateInterviewer, deleteInterviewer } = useInterviewers();
   const { getAllProjectAssignments } = useProjects();
+  const { selectedProject, selectedIsland, filterInterviewers } = useFilter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
@@ -42,8 +43,11 @@ const Interviewers = () => {
     island: undefined as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined,
   });
   
-  // Filter interviewers based on search query
-  const filteredInterviewers = interviewers.filter((interviewer) => {
+  // First apply global filters
+  const globalFilteredInterviewers = filterInterviewers(interviewers);
+  
+  // Then apply search query filter
+  const filteredInterviewers = globalFilteredInterviewers.filter((interviewer) => {
     const query = searchQuery.toLowerCase();
     return (
       interviewer.code.toLowerCase().includes(query) ||
@@ -53,6 +57,27 @@ const Interviewers = () => {
       (interviewer.island && interviewer.island.toLowerCase().includes(query))
     );
   });
+  
+  // Filter interviewerProjects by selected project if needed
+  const filteredInterviewerProjects = React.useMemo(() => {
+    if (!selectedProject) return interviewerProjects;
+    
+    const filtered: {[key: string]: any[]} = {};
+    
+    // Only keep projects that match the selected project
+    Object.keys(interviewerProjects).forEach(interviewerId => {
+      const projects = interviewerProjects[interviewerId] || [];
+      const filteredProjects = projects.filter(project => project.id === selectedProject.id);
+      
+      if (filteredProjects.length > 0) {
+        filtered[interviewerId] = filteredProjects;
+      } else {
+        filtered[interviewerId] = [];
+      }
+    });
+    
+    return filtered;
+  }, [interviewerProjects, selectedProject]);
   
   // Load all project assignments once when interviewers are loaded
   useEffect(() => {
@@ -226,8 +251,17 @@ const Interviewers = () => {
             />
           </div>
           
-          <div className="mt-2 text-sm text-muted-foreground">
-            {filteredInterviewers.length} interviewer{filteredInterviewers.length !== 1 ? 's' : ''} found
+          <div className="mt-2 text-sm text-muted-foreground flex items-center justify-between">
+            <span>
+              {filteredInterviewers.length} interviewer{filteredInterviewers.length !== 1 ? 's' : ''} found
+            </span>
+            {(selectedProject || selectedIsland) && (
+              <span className="text-cbs">
+                Filtered by: {selectedProject ? `Project: ${selectedProject.name}` : ''}
+                {selectedProject && selectedIsland ? ' & ' : ''}
+                {selectedIsland ? `Island: ${selectedIsland}` : ''}
+              </span>
+            )}
           </div>
         </div>
         
@@ -238,7 +272,7 @@ const Interviewers = () => {
           onDelete={handleDelete}
           onSchedule={handleSchedule}
           onViewDashboard={handleViewDashboard}
-          interviewerProjects={interviewerProjects}
+          interviewerProjects={filteredInterviewerProjects}
         />
       </div>
       

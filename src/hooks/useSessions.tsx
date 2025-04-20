@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSessionFilters } from "./useSessionFilters";
 import { useSessionActions } from "./useSessionActions";
 import { useDataFetching } from "./useDataFetching";
+import { useFilter } from "@/contexts/FilterContext";
 import { useToast } from "./use-toast";
 
 export const useSessions = (
@@ -14,6 +15,7 @@ export const useSessions = (
 ) => {
   const { toast } = useToast();
   const { sessions: allSessions, interviewers, loading: fetchLoading } = useDataFetching();
+  const { selectedProject, selectedIsland, filterSessions } = useFilter();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
@@ -25,13 +27,28 @@ export const useSessions = (
         session => session.interviewer_id === interviewerId
       );
       setSessions(interviewerSessions);
-      setFilteredSessions(interviewerSessions);
     } else {
       setSessions(allSessions);
-      setFilteredSessions(allSessions);
     }
     setLoading(fetchLoading);
   }, [allSessions, interviewerId, fetchLoading]);
+  
+  // Apply global filters (project and island)
+  useEffect(() => {
+    // First filter by selected project
+    let filtered = filterSessions(sessions);
+    
+    // Then filter by selected island if needed
+    if (selectedIsland) {
+      filtered = filtered.filter(session => {
+        const interviewer = interviewers.find(i => i.id === session.interviewer_id);
+        return interviewer && interviewer.island === selectedIsland;
+      });
+    }
+    
+    // Apply the component's own filters
+    applyComponentFilters(filtered);
+  }, [sessions, selectedProject, selectedIsland, interviewers]);
   
   // Initialize session filters
   const {
@@ -43,6 +60,12 @@ export const useSessions = (
     applyFilters: applySessionFilters,
     resetFilters: resetSessionFilters
   } = useSessionFilters(sessions);
+  
+  // Apply component-specific filters
+  const applyComponentFilters = (sessionsToFilter: Session[]) => {
+    // We call this whenever we need to reapply the component filters
+    applySessionFilters(interviewers, sessionsToFilter);
+  };
   
   // Apply filters whenever filter results change
   useEffect(() => {
