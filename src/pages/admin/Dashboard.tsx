@@ -59,7 +59,7 @@ const Dashboard = () => {
           />
         </div>
         
-        {/* Top Interviewers and Unusual Sessions */}
+        {/* Underperforming Interviewers and Unusual Sessions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TopInterviewersChart 
             sessions={sessions} 
@@ -92,4 +92,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
