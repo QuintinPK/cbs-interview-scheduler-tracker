@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -15,7 +16,6 @@ import { InterviewerQuickStats } from "@/components/interviewer-dashboard/Interv
 import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
 import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
-import { useFilter } from "@/contexts/FilterContext";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +32,6 @@ const InterviewerDashboard = () => {
   // Use our custom metrics hook
   const metrics = useInterviewerMetrics(id, sessions);
   const { schedules } = useSchedules(id);
-  const { selectedProject } = useFilter();
   
   useEffect(() => {
     const fetchData = async () => {
@@ -139,32 +138,6 @@ const InterviewerDashboard = () => {
   // Active sessions
   const activeSessions = sessions.filter(session => session.is_active);
   
-  // Calculate project-specific metrics
-  const projectMetrics = useMemo(() => {
-    if (!sessions || !selectedProject) return null;
-    
-    const projectSessions = sessions.filter(s => s.project_id === selectedProject.id);
-    const totalProjectTime = projectSessions.reduce((total, session) => {
-      if (session.start_time && session.end_time) {
-        const start = new Date(session.start_time);
-        const end = new Date(session.end_time);
-        return total + (end.getTime() - start.getTime()) / (1000 * 60);
-      }
-      return total;
-    }, 0);
-    
-    const hours = Math.floor(totalProjectTime / 60);
-    const minutes = Math.floor(totalProjectTime % 60);
-    
-    return {
-      sessionCount: projectSessions.length,
-      totalTime: `${hours}h ${minutes}m`,
-      averageSessionLength: projectSessions.length > 0 
-        ? Math.round((totalProjectTime / projectSessions.length) * 10) / 10
-        : 0
-    };
-  }, [sessions, selectedProject]);
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -178,7 +151,6 @@ const InterviewerDashboard = () => {
             interviewer={interviewer}
             totalTime={calculateTotalTime()}
             hasActiveSessions={activeSessions.length > 0}
-            projectMetrics={selectedProject ? projectMetrics : undefined}
           />
         )}
         
@@ -200,7 +172,6 @@ const InterviewerDashboard = () => {
               earliestStartTime={metrics.earliestStartTime}
               latestEndTime={metrics.latestEndTime}
               activeSessions={activeSessions}
-              projectMetrics={selectedProject ? projectMetrics : undefined}
             />
           </TabsContent>
           

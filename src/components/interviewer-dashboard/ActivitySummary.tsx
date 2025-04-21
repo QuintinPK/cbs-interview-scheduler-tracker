@@ -20,11 +20,6 @@ interface ActivitySummaryProps {
   earliestStartTime: Date | null;
   latestEndTime: Date | null;
   activeSessions: Session[];
-  projectMetrics?: {
-    sessionCount: number;
-    totalTime: string;
-    averageSessionLength: number;
-  } | null;
 }
 
 export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
@@ -37,7 +32,6 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
   earliestStartTime,
   latestEndTime,
   activeSessions,
-  projectMetrics
 }) => {
   const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
@@ -199,30 +193,6 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                   </div>
                 </div>
               </div>
-              
-              {/* Project Metrics Card (conditionally rendered) */}
-              {projectMetrics && (
-                <div className="bg-card shadow-sm rounded-lg p-4 border border-border/50 transition-all hover:shadow-md">
-                  <h3 className="font-medium flex items-center text-primary mb-2">
-                    <Briefcase className="h-4 w-4 mr-2 opacity-70" />
-                    Project Statistics
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Sessions</p>
-                      <p className="text-xl font-medium">{projectMetrics.sessionCount}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Time</p>
-                      <p className="text-xl font-medium">{projectMetrics.totalTime}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Average Duration</p>
-                      <p className="text-xl font-medium">{projectMetrics.averageSessionLength} min</p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </CardContent>

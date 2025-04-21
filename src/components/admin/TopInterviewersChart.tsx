@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -141,7 +142,6 @@ const TopInterviewersChart: React.FC<TopInterviewersChartProps> = ({
           <DateRangePicker
             value={dateRange}
             onChange={setDateRange}
-            className="w-[200px]"
           />
         </div>
         <CardDescription className="mt-2">

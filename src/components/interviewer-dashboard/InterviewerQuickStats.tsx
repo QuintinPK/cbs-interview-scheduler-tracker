@@ -1,78 +1,54 @@
 
 import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Clock, Calendar, CheckCircle } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { Clock } from "lucide-react";
+import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Interviewer } from "@/types";
 
 interface InterviewerQuickStatsProps {
-  interviewer: {
-    first_name: string;
-    last_name: string;
-  };
+  interviewer: Interviewer | null;
   totalTime: string;
   hasActiveSessions: boolean;
-  projectMetrics?: {
-    sessionCount: number;
-    totalTime: string;
-    averageSessionLength: number;
-  } | null;
 }
 
 export const InterviewerQuickStats: React.FC<InterviewerQuickStatsProps> = ({
   interviewer,
   totalTime,
   hasActiveSessions,
-  projectMetrics
 }) => {
   return (
-    <Card>
-      <CardContent className="grid gap-4 pt-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium">Total Time</p>
-              <p className="text-xl font-bold">{totalTime}</p>
-            </div>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Interviewer Code</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-2xl font-bold">{interviewer?.code}</p>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Total Active Time</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center">
+            <Clock className="h-5 w-5 mr-2 text-cbs" />
+            <p className="text-2xl font-bold">{totalTime}</p>
           </div>
-          
-          {projectMetrics && (
-            <>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Project Sessions</p>
-                  <p className="text-xl font-bold">{projectMetrics.sessionCount}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Project Time</p>
-                  <p className="text-xl font-bold">{projectMetrics.totalTime}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Avg. Project Session</p>
-                  <p className="text-xl font-bold">{projectMetrics.averageSessionLength} min</p>
-                </div>
-              </div>
-            </>
-          )}
-          
-          {hasActiveSessions && (
-            <div className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              <div>
-                <p className="text-sm font-medium">Status</p>
-                <p className="text-xl font-bold">Active</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Current Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center">
+            <div className={`h-3 w-3 rounded-full mr-2 ${hasActiveSessions ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+            <p className="text-2xl font-bold">{hasActiveSessions ? 'Active' : 'Inactive'}</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
