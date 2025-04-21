@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { MapPin, MessageCircle, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
@@ -20,12 +19,14 @@ interface SessionHistoryProps {
   sessions: Session[];
   dateRange: DateRange | undefined;
   setDateRange: (range: DateRange | undefined) => void;
+  showProject?: boolean;
 }
 
 export const SessionHistory: React.FC<SessionHistoryProps> = ({
   sessions,
   dateRange,
   setDateRange,
+  showProject = false,
 }) => {
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
   const [sessionInterviews, setSessionInterviews] = useState<Record<string, Interview[]>>({});
@@ -157,6 +158,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-10"></TableHead>
+                  {showProject && <TableHead>Project</TableHead>}
                   <TableHead>Start Time</TableHead>
                   <TableHead>End Time</TableHead>
                   <TableHead>Duration</TableHead>
@@ -169,7 +171,7 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
               <TableBody>
                 {sessions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                    <TableCell colSpan={showProject ? 9 : 8} className="text-center py-6 text-muted-foreground">
                       No sessions recorded
                     </TableCell>
                   </TableRow>
@@ -192,6 +194,15 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                             </Button>
                           )}
                         </TableCell>
+                        {showProject && (
+                          <TableCell>
+                            {session.project_id ? (
+                              <ProjectName projectId={session.project_id} />
+                            ) : (
+                              <span className="text-muted-foreground">No project</span>
+                            )}
+                          </TableCell>
+                        )}
                         <TableCell>{formatDateTime(session.start_time)}</TableCell>
                         <TableCell>
                           {session.end_time ? formatDateTime(session.end_time) : (
@@ -291,4 +302,26 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
       />
     </>
   );
+};
+
+const ProjectName = ({ projectId }: { projectId: string }) => {
+  const [projectName, setProjectName] = useState<string>("");
+  
+  useEffect(() => {
+    const fetchProjectName = async () => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('name')
+        .eq('id', projectId)
+        .single();
+        
+      if (!error && data) {
+        setProjectName(data.name);
+      }
+    };
+    
+    fetchProjectName();
+  }, [projectId]);
+  
+  return <span>{projectName || "Loading..."}</span>;
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
@@ -6,16 +5,16 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { supabase } from "@/integrations/supabase/client";
-import { Session, Interviewer } from "@/types";
+import { Session, Interviewer, Interview } from "@/types";
 import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
 import { useSchedules } from "@/hooks/useSchedules";
 
-// Importing our new components
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
 import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
 import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
+import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,8 +27,9 @@ const InterviewerDashboard = () => {
     to: undefined
   });
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [allSessions, setAllSessions] = useState<Session[]>([]);
   
-  // Use our custom metrics hook
   const metrics = useInterviewerMetrics(id, sessions);
   const { schedules } = useSchedules(id);
   
@@ -40,7 +40,6 @@ const InterviewerDashboard = () => {
       try {
         setLoading(true);
         
-        // Fetch interviewer data
         const { data: interviewerData, error: interviewerError } = await supabase
           .from('interviewers')
           .select('*')
@@ -49,7 +48,6 @@ const InterviewerDashboard = () => {
           
         if (interviewerError) throw interviewerError;
         
-        // Properly map the database result to our Interviewer type
         const typedInterviewer: Interviewer = {
           id: interviewerData.id,
           code: interviewerData.code,
@@ -62,7 +60,6 @@ const InterviewerDashboard = () => {
         
         setInterviewer(typedInterviewer);
         
-        // Fetch sessions
         const { data: sessionsData, error: sessionsError } = await supabase
           .from('sessions')
           .select('*')
@@ -81,8 +78,25 @@ const InterviewerDashboard = () => {
         
         setSessions(transformedSessions || []);
         setFilteredSessions(transformedSessions || []);
+        
+        const { data: interviewsData, error: interviewsError } = await supabase
+          .from('interviews')
+          .select('*')
+          .in('session_id', sessionsData.map(s => s.id))
+          .order('start_time', { ascending: false });
+          
+        if (interviewsError) throw interviewsError;
+        
+        const { data: allSessionsData, error: allSessionsError } = await supabase
+          .from('sessions')
+          .select('*');
+          
+        if (allSessionsError) throw allSessionsError;
+        
+        setInterviews(interviewsData || []);
+        setAllSessions(allSessionsData || []);
       } catch (error) {
-        console.error("Error fetching interviewer data:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
@@ -91,7 +105,6 @@ const InterviewerDashboard = () => {
     fetchData();
   }, [id]);
   
-  // Apply date filter to sessions
   useEffect(() => {
     if (!dateRange || !dateRange.from) {
       setFilteredSessions(sessions);
@@ -103,7 +116,6 @@ const InterviewerDashboard = () => {
     const fromDate = new Date(dateRange.from);
     const toDate = dateRange.to ? new Date(dateRange.to) : fromDate;
     
-    // Set time to start of day for from date and end of day for to date
     fromDate.setHours(0, 0, 0, 0);
     toDate.setHours(23, 59, 59, 999);
     
@@ -115,7 +127,6 @@ const InterviewerDashboard = () => {
     setFilteredSessions(filtered);
   }, [dateRange, sessions]);
   
-  // Calculate total active time
   const calculateTotalTime = () => {
     if (!sessions.length) return "0h 0m";
     
@@ -135,7 +146,6 @@ const InterviewerDashboard = () => {
     return `${hours}h ${minutes}m`;
   };
   
-  // Active sessions
   const activeSessions = sessions.filter(session => session.is_active);
   
   return (
@@ -158,6 +168,7 @@ const InterviewerDashboard = () => {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="contact">Contact Information</TabsTrigger>
           </TabsList>
           
@@ -180,6 +191,15 @@ const InterviewerDashboard = () => {
               sessions={filteredSessions}
               dateRange={dateRange}
               setDateRange={setDateRange}
+              showProject={true}
+            />
+          </TabsContent>
+          
+          <TabsContent value="performance" className="pt-4">
+            <PerformanceMetrics
+              sessions={sessions}
+              interviews={interviews}
+              allInterviewersSessions={allSessions}
             />
           </TabsContent>
           
