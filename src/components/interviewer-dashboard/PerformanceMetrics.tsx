@@ -1,9 +1,9 @@
-
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Session, Interview } from "@/types";
 import { differenceInWeeks, startOfWeek, endOfWeek } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PerformanceMetricsProps {
   sessions: Session[];
@@ -16,7 +16,31 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   interviews,
   allInterviewersSessions = []
 }) => {
-  // Calculate weekly averages
+  const [selectedProject, setSelectedProject] = useState<string>("all");
+
+  const filteredSessions = useMemo(() => {
+    if (selectedProject === "all") return sessions;
+    return sessions.filter(session => session.project_id === selectedProject);
+  }, [sessions, selectedProject]);
+
+  const filteredInterviews = useMemo(() => {
+    if (selectedProject === "all") return interviews;
+    return interviews.filter(interview => interview.project_id === selectedProject);
+  }, [interviews, selectedProject]);
+
+  const filteredAllInterviewersSessions = useMemo(() => {
+    if (selectedProject === "all") return allInterviewersSessions;
+    return allInterviewersSessions.filter(session => session.project_id === selectedProject);
+  }, [allInterviewersSessions, selectedProject]);
+
+  const projectIds = useMemo(() => {
+    const ids = new Set<string>();
+    sessions.forEach(session => {
+      if (session.project_id) ids.add(session.project_id);
+    });
+    return Array.from(ids);
+  }, [sessions]);
+
   const calculateWeeklyAverage = (sessions: Session[]) => {
     if (sessions.length === 0) return 0;
     
@@ -35,14 +59,13 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
     
     return totalMinutes / weeks / 60; // Convert to hours
   };
-  
-  const weeklyAverage = calculateWeeklyAverage(sessions);
-  const allInterviewersWeeklyAverage = calculateWeeklyAverage(allInterviewersSessions);
-  
-  // Calculate average time per interview type
+
+  const weeklyAverage = calculateWeeklyAverage(filteredSessions);
+  const allInterviewersWeeklyAverage = calculateWeeklyAverage(filteredAllInterviewersSessions);
+
   const calculateAverageTimePerType = () => {
-    const responseInterviews = interviews.filter(i => i.result === 'response' && i.end_time);
-    const nonResponseInterviews = interviews.filter(i => i.result === 'non-response' && i.end_time);
+    const responseInterviews = filteredInterviews.filter(i => i.result === 'response' && i.end_time);
+    const nonResponseInterviews = filteredInterviews.filter(i => i.result === 'non-response' && i.end_time);
     
     const calcAverage = (interviews: Interview[]) => {
       if (interviews.length === 0) return 0;
@@ -59,15 +82,13 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
       nonResponse: calcAverage(nonResponseInterviews)
     };
   };
-  
+
   const averageTimePerType = calculateAverageTimePerType();
-  
-  // Calculate completion rate
-  const completionRate = interviews.length > 0 
-    ? (interviews.filter(i => i.result === 'response').length / interviews.length) * 100 
+
+  const completionRate = filteredInterviews.length > 0 
+    ? (filteredInterviews.filter(i => i.result === 'response').length / filteredInterviews.length) * 100 
     : 0;
 
-  // Prepare data for bar chart
   const interviewDurationData = [
     {
       name: 'Response',
@@ -78,9 +99,26 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
       minutes: averageTimePerType.nonResponse,
     },
   ];
-    
+
   return (
     <div className="space-y-6">
+      <div className="w-64 mb-4">
+        <Select 
+          value={selectedProject}
+          onValueChange={setSelectedProject}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Filter by Project" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Projects</SelectItem>
+            {projectIds.map(id => (
+              <SelectItem key={id} value={id}>{id}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Weekly Performance</CardTitle>
@@ -156,7 +194,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
             </div>
             <div className="p-4 rounded-lg bg-muted">
               <p className="text-sm text-muted-foreground">Total Interviews</p>
-              <p className="text-2xl font-bold">{interviews.length}</p>
+              <p className="text-2xl font-bold">{filteredInterviews.length}</p>
             </div>
           </div>
         </CardContent>
