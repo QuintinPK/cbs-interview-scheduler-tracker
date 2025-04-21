@@ -7,15 +7,21 @@ interface QuickStatsCardProps {
   sessions: Session[];
   interviewers: Interviewer[];
   loading?: boolean;
+  /** Optional override for total interviewers to reflect project+island filter */
+  totalInterviewersOverride?: number;
 }
 
 const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   sessions,
   interviewers,
-  loading = false
+  loading = false,
+  totalInterviewersOverride
 }) => {
-  // Calculate stats
-  const totalInterviewers = interviewers.length;
+  // Use the override (from Dashboard, if project filter is active), otherwise default to all interviewers
+  const totalInterviewers = typeof totalInterviewersOverride === "number"
+    ? totalInterviewersOverride
+    : interviewers.length;
+
   const activeSessions = sessions.filter(session => session.is_active).length;
   
   // Get today's sessions
@@ -32,10 +38,8 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   
   const calculateSessionDuration = (session: Session) => {
     if (!session.end_time || session.is_active) return 0;
-    
     const start = new Date(session.start_time).getTime();
     const end = new Date(session.end_time).getTime();
-    
     return (end - start) / (1000 * 60 * 60); // Convert to hours
   };
   

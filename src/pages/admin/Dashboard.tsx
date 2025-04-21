@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useMemo } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
 import QuickStatsCard from "@/components/admin/QuickStatsCard";
@@ -12,9 +12,16 @@ import { useDataFetching } from "@/hooks/useDataFetching";
 import { useFilter } from "@/contexts/FilterContext";
 
 const Dashboard = () => {
-  const { sessions, interviewers, loading } = useDataFetching();
+  const { sessions, interviewers, loading, allInterviewers } = useDataFetching();
   const { selectedProject, selectedIsland } = useFilter();
-  
+
+  // Only show interviewer count for those assigned to selected project if a filter is active
+  const totalInterviewersForProject = useMemo(() => {
+    if (!selectedProject) return undefined;
+    // Only show interviewers assigned to the selected project AND filtered by island if set
+    return interviewers.length;
+  }, [selectedProject, interviewers, selectedIsland]);
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -34,8 +41,9 @@ const Dashboard = () => {
         <div>
           <QuickStatsCard 
             sessions={sessions} 
-            interviewers={interviewers} 
-            loading={loading} 
+            interviewers={interviewers}
+            loading={loading}
+            totalInterviewersOverride={totalInterviewersForProject}
           />
         </div>
         
@@ -84,3 +92,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
