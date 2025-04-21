@@ -3,25 +3,7 @@ import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Session, Interview } from "@/types";
 import { differenceInWeeks, startOfWeek, endOfWeek } from "date-fns";
-import { 
-  Chart as ChartJS, 
-  CategoryScale, 
-  LinearScale, 
-  BarElement,
-  Title,
-  Tooltip,
-  Legend 
-} from 'chart.js';
-import { Bar } from 'recharts';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface PerformanceMetricsProps {
   sessions: Session[];
@@ -84,6 +66,18 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   const completionRate = interviews.length > 0 
     ? (interviews.filter(i => i.result === 'response').length / interviews.length) * 100 
     : 0;
+
+  // Prepare data for bar chart
+  const interviewDurationData = [
+    {
+      name: 'Response',
+      minutes: averageTimePerType.response,
+    },
+    {
+      name: 'Non-Response',
+      minutes: averageTimePerType.nonResponse,
+    },
+  ];
     
   return (
     <div className="space-y-6">
@@ -125,6 +119,27 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
               <p className="text-sm text-muted-foreground">Average Time per Non-Response</p>
               <p className="text-2xl font-bold">{averageTimePerType.nonResponse.toFixed(1)} minutes</p>
             </div>
+          </div>
+          
+          <div className="mt-6 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={interviewDurationData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis label={{ value: 'Minutes', angle: -90, position: 'insideLeft' }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="minutes" name="Average Duration (minutes)" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
