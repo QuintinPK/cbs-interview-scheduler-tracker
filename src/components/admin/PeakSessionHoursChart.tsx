@@ -127,7 +127,7 @@ const PeakSessionHoursChart: React.FC<PeakSessionHoursChartProps> = ({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Peak Session Hours (Week)</CardTitle>
+          <CardTitle className="text-lg font-semibold">Peak session hours (Week, Mon-Sun)</CardTitle>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
