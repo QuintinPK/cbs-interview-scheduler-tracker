@@ -9,6 +9,12 @@ import {
   Users, Award, Briefcase, MapPin
 } from "lucide-react";
 import CoordinatePopup from "../ui/CoordinatePopup";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ActivitySummaryProps {
   sessions: Session[];
@@ -63,6 +69,18 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 <h3 className="font-medium flex items-center text-primary mb-2">
                   <Calendar className="h-4 w-4 mr-2 opacity-70" />
                   Recent Activity
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-help">
+                          <Activity className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">The most recent time the interviewer was active in the field. This provides a quick reference for when they last conducted work.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 {sessions.length > 0 ? (
                   <div className="text-muted-foreground">
@@ -87,6 +105,18 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 <h3 className="font-medium flex items-center text-primary mb-2">
                   <Clock className="h-4 w-4 mr-2 opacity-70" />
                   Time Since Last Login
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-help">
+                          <Activity className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">Number of days that have passed since the interviewer last logged into the system. This helps track interviewer engagement and identify inactive interviewers who may need follow-up.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 <p className="text-muted-foreground">
                   {daysSinceLastActive === 0
@@ -103,6 +133,18 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 <h3 className="font-medium flex items-center text-primary mb-2">
                   <Briefcase className="h-4 w-4 mr-2 opacity-70" />
                   Days Worked
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-help">
+                          <Activity className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="text-xs">Shows how frequently the interviewer works, both as an average per week and the total number of days worked in the past month. This helps measure consistency and workload distribution.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -123,6 +165,18 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 <h3 className="font-medium flex items-center text-primary mb-2">
                   <Award className="h-4 w-4 mr-2 opacity-70" />
                   Sessions Metrics
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-help">
+                          <Activity className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <p className="text-xs">Metrics on session adherence to planned timeframes and average session duration. High adherence to planned times indicates good schedule discipline, while average duration helps understand typical workload.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 <div className="space-y-3">
                   <div>
@@ -153,6 +207,18 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 <h3 className="font-medium flex items-center text-primary mb-2">
                   <Clock className="h-4 w-4 mr-2 opacity-70" />
                   Working Hours
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-help">
+                          <Activity className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <p className="text-xs">Shows the typical working pattern of the interviewer by displaying the earliest they start work and the latest they finish. This helps understand their availability and productivity windows.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -175,6 +241,18 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 <h3 className="font-medium flex items-center text-primary mb-2">
                   <TrendingUp className="h-4 w-4 mr-2 opacity-70" />
                   Status Summary
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 cursor-help">
+                          <Activity className="h-3 w-3 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <p className="text-xs">Displays the interviewer's current status (active or inactive) and total number of sessions completed. This gives a quick overview of their current state and overall productivity.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

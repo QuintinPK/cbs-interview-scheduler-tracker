@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Session, Interview } from "@/types";
+import { Session, Interview, Interviewer } from "@/types";
 import { differenceInWeeks, startOfWeek, endOfWeek } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,21 +12,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, Compare } from "lucide-react";
+import { useInterviewers } from "@/hooks/useInterviewers";
+import { Button } from "@/components/ui/button";
 
 interface PerformanceMetricsProps {
   sessions: Session[];
   interviews: Interview[];
+  interviewer?: Interviewer;
   allInterviewersSessions?: Session[];
+  onCompare?: (interviewerId: string) => void;
 }
 
 export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   sessions,
   interviews,
-  allInterviewersSessions = []
+  interviewer,
+  allInterviewersSessions = [],
+  onCompare
 }) => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const { projects } = useProjects();
+  const { interviewers } = useInterviewers();
 
   const projectMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -118,6 +125,17 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
     },
   ];
 
+  // Get comparable interviewers (same island and project)
+  const comparableInterviewers = useMemo(() => {
+    if (!interviewer) return [];
+    
+    return interviewers.filter(i => 
+      i.id !== interviewer.id && 
+      i.island === interviewer.island &&
+      (selectedProject === "all" || sessions.some(s => s.project_id === selectedProject))
+    );
+  }, [interviewers, interviewer, selectedProject, sessions]);
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -132,21 +150,39 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="w-64 mb-4">
-        <Select 
-          value={selectedProject}
-          onValueChange={setSelectedProject}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Filter by Project" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
-            {projectIds.map(id => (
-              <SelectItem key={id} value={id}>{projectMap.get(id) || id}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex justify-between items-center">
+        <div className="w-64">
+          <Select 
+            value={selectedProject}
+            onValueChange={setSelectedProject}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Filter by Project" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projectIds.map(id => (
+                <SelectItem key={id} value={id}>{projectMap.get(id) || id}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {interviewer && comparableInterviewers.length > 0 && onCompare && (
+          <div className="flex gap-2 items-center">
+            <p className="text-sm text-muted-foreground">Compare with:</p>
+            <Select onValueChange={onCompare}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select interviewer" />
+              </SelectTrigger>
+              <SelectContent>
+                {comparableInterviewers.map(i => (
+                  <SelectItem key={i.id} value={i.id}>{i.first_name} {i.last_name} ({i.code})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <Card>
@@ -161,7 +197,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">Compares your weekly average session time with all interviewers</p>
+                  <p className="text-xs">This metric shows the average hours worked per week over all of the interviewer's sessions. A higher weekly average indicates greater productivity and availability, and you can compare against the all-interviewers average to see how this interviewer ranks among peers.</p>
                 </TooltipContent>
               </UITooltip>
             </TooltipProvider>
@@ -199,7 +235,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">Compares the average time spent on interviews with response versus non-response outcomes</p>
+                  <p className="text-xs">This chart shows how much time the interviewer typically spends on different types of interviews. Response interviews are those where the interviewer successfully completes the survey, while non-response interviews are unsuccessful attempts. Ideally, non-response interviews should be shorter than response interviews to maximize efficiency.</p>
                 </TooltipContent>
               </UITooltip>
             </TooltipProvider>
@@ -257,7 +293,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">Key performance indicators for interview success rates</p>
+                  <p className="text-xs">The response rate indicates how successful the interviewer is at completing surveys. A higher response rate (closer to 100%) suggests the interviewer is more effective at engaging participants and obtaining completed surveys. The total interviews count shows overall activity level.</p>
                 </TooltipContent>
               </UITooltip>
             </TooltipProvider>

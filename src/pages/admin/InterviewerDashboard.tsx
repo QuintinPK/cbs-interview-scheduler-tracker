@@ -18,11 +18,17 @@ import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistor
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
 import GlobalFilter from "@/components/GlobalFilter";
+import { Button } from "@/components/ui/button";
+import { X, Compare } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
   const { selectedProject, selectedIsland } = useFilter();
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
+  const [comparisonInterviewer, setComparisonInterviewer] = useState<Interviewer | null>(null);
+  const [comparisonSessions, setComparisonSessions] = useState<Session[]>([]);
+  const [comparisonInterviews, setComparisonInterviews] = useState<Interview[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -130,20 +136,16 @@ const InterviewerDashboard = () => {
         setSessions(globalFilteredSessions);
         setFilteredSessions(globalFilteredSessions);
         
-        // Only fetch interviews for sessions that pass the global filters
-        if (globalFilteredSessions.length > 0) {
-          const { data: interviewsData, error: interviewsError } = await supabase
-            .from('interviews')
-            .select('*')
-            .in('session_id', globalFilteredSessions.map(s => s.id))
-            .order('start_time', { ascending: false });
+        // Fetch interviews for all sessions
+        const { data: interviewsData, error: interviewsError } = await supabase
+          .from('interviews')
+          .select('*')
+          .in('session_id', (transformedSessions || []).map(s => s.id))
+          .order('start_time', { ascending: false });
             
-          if (interviewsError) throw interviewsError;
+        if (interviewsError) throw interviewsError;
           
-          setInterviews(interviewsData || []);
-        } else {
-          setInterviews([]);
-        }
+        setInterviews(interviewsData || []);
         
         const { data: allSessionsData, error: allSessionsError } = await supabase
           .from('sessions')
@@ -212,6 +214,82 @@ const InterviewerDashboard = () => {
     return project ? project.name : projectId;
   };
 
+  const handleCompare = async (comparisonId: string) => {
+    if (!comparisonId || comparisonId === id) {
+      setComparisonInterviewer(null);
+      setComparisonSessions([]);
+      setComparisonInterviews([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Fetch comparison interviewer
+      const { data: interviewerData, error: interviewerError } = await supabase
+        .from('interviewers')
+        .select('*')
+        .eq('id', comparisonId)
+        .single();
+        
+      if (interviewerError) throw interviewerError;
+      
+      const typedInterviewer: Interviewer = {
+        id: interviewerData.id,
+        code: interviewerData.code,
+        first_name: interviewerData.first_name,
+        last_name: interviewerData.last_name,
+        phone: interviewerData.phone || "",
+        email: interviewerData.email || "",
+        island: (interviewerData.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
+      };
+      
+      setComparisonInterviewer(typedInterviewer);
+
+      // Fetch comparison sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('interviewer_id', comparisonId)
+        .order('start_time', { ascending: false });
+        
+      if (sessionsError) throw sessionsError;
+      
+      const transformedSessions = sessionsData.map(session => ({
+        ...session,
+        start_latitude: session.start_latitude !== null ? Number(session.start_latitude) : null,
+        start_longitude: session.start_longitude !== null ? Number(session.start_longitude) : null,
+        end_latitude: session.end_latitude !== null ? Number(session.end_latitude) : null,
+        end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
+      }));
+      
+      // Apply global filters
+      const filteredSessions = applyGlobalFilters(transformedSessions || []);
+      setComparisonSessions(filteredSessions);
+      
+      // Fetch comparison interviews
+      const { data: interviewsData, error: interviewsError } = await supabase
+        .from('interviews')
+        .select('*')
+        .in('session_id', (transformedSessions || []).map(s => s.id))
+        .order('start_time', { ascending: false });
+          
+      if (interviewsError) throw interviewsError;
+        
+      setComparisonInterviews(interviewsData || []);
+    } catch (error) {
+      console.error("Error fetching comparison data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearComparison = () => {
+    setComparisonInterviewer(null);
+    setComparisonSessions([]);
+    setComparisonInterviews([]);
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -275,6 +353,7 @@ const InterviewerDashboard = () => {
                 setDateRange={setDateRange}
                 showProject={true}
                 projectNameResolver={getProjectName}
+                interviews={interviews}
               />
             ) : (
               <p className="text-center py-10 text-muted-foreground">No data available for the selected filters.</p>
@@ -285,11 +364,60 @@ const InterviewerDashboard = () => {
             {loading ? (
               <p className="text-center py-10 text-muted-foreground">Loading...</p>
             ) : !(selectedIsland && interviewer && interviewer.island !== selectedIsland) ? (
-              <PerformanceMetrics
-                sessions={sessions}
-                interviews={interviews}
-                allInterviewersSessions={allSessions}
-              />
+              <>
+                {comparisonInterviewer && (
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="text-lg font-semibold flex items-center">
+                        <Compare className="h-5 w-5 mr-2 text-primary" />
+                        Comparing with: {comparisonInterviewer.first_name} {comparisonInterviewer.last_name} ({comparisonInterviewer.code})
+                      </h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={clearComparison}
+                        className="flex items-center gap-1"
+                      >
+                        <X className="h-4 w-4" />
+                        Clear comparison
+                      </Button>
+                    </div>
+                    <Separator className="mb-6" />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="text-md font-medium mb-4">{interviewer?.first_name} {interviewer?.last_name}</h4>
+                        <PerformanceMetrics
+                          sessions={sessions}
+                          interviews={interviews}
+                          interviewer={interviewer}
+                          allInterviewersSessions={allSessions}
+                          onCompare={handleCompare}
+                        />
+                      </div>
+                      <div>
+                        <h4 className="text-md font-medium mb-4">{comparisonInterviewer.first_name} {comparisonInterviewer.last_name}</h4>
+                        <PerformanceMetrics
+                          sessions={comparisonSessions}
+                          interviews={comparisonInterviews}
+                          interviewer={comparisonInterviewer}
+                          allInterviewersSessions={allSessions}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {!comparisonInterviewer && (
+                  <PerformanceMetrics
+                    sessions={sessions}
+                    interviews={interviews}
+                    interviewer={interviewer}
+                    allInterviewersSessions={allSessions}
+                    onCompare={handleCompare}
+                  />
+                )}
+              </>
             ) : (
               <p className="text-center py-10 text-muted-foreground">No data available for the selected filters.</p>
             )}
