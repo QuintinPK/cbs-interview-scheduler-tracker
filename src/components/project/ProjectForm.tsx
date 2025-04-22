@@ -40,18 +40,20 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
 }) => {
   const allIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
 
-  // Create a specialized handler for the switch component
+  // Modified handler for the switch component that doesn't try to simulate a full React.ChangeEvent
   const handleSwitchChange = (checked: boolean) => {
-    const simulatedEvent = {
+    // Create a simpler custom event object with just the properties we need
+    const customEvent = {
       target: {
         name: 'show_response_rates',
         value: checked,
         type: 'checkbox',
         checked: checked
       }
-    } as React.ChangeEvent<HTMLInputElement>;
+    };
     
-    handleInputChange(simulatedEvent);
+    // Cast to unknown first, then to the expected type
+    handleInputChange(customEvent as unknown as React.ChangeEvent<HTMLInputElement>);
   };
 
   return (
