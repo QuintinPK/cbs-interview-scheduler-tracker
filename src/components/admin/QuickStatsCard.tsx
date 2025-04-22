@@ -88,27 +88,27 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
     { 
       label: "Active Sessions", 
       value: activeSessions,
-      tooltip: "Sessions that are currently active (not completed)" 
+      tooltip: "Sessions that are currently active (not completed), for the selected filters" 
     },
     { 
       label: "Sessions Today", 
       value: sessionsToday,
-      tooltip: "Total sessions started today" 
+      tooltip: "Total sessions started today, for the selected filters" 
     },
     { 
       label: "Total Hours This Week", 
       value: Math.round(totalHoursThisWeek),
-      tooltip: "Total hours of completed sessions this week" 
+      tooltip: "Total hours of completed sessions this week (Mon-Sun), for the selected filters" 
     },
     { 
       label: "Sessions This Week", 
       value: sessionsPerWeek,
-      tooltip: "Total sessions started this week" 
+      tooltip: "Total sessions started this week (Mon-Sun), for the selected filters" 
     },
     { 
       label: "Avg Sessions per Interviewer", 
       value: avgSessionsPerInterviewer,
-      tooltip: "Average number of sessions per active interviewer this week" 
+      tooltip: "Average number of sessions per active interviewer this week (Mon-Sun), for the selected filters" 
     }
   ];
   
