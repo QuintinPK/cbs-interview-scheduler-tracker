@@ -27,11 +27,13 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
   const chartData = useMemo(() => {
     // Get start of week
     const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+    const day = startOfWeek.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    startOfWeek.setDate(startOfWeek.getDate() + diff);
     startOfWeek.setHours(0, 0, 0, 0);
     
     // Initialize data for each day of the week
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const data = days.map((day, index) => {
       const date = new Date(startOfWeek);
       date.setDate(date.getDate() + index);
@@ -55,7 +57,8 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
       const dayIndex = sessionDate.getDay();
       
       if (data[dayIndex]) {
-        data[dayIndex].sessions += 1;
+        const index = (sessionDate.getDay() + 6) % 7;
+        data[index].sessions += 1;
       }
     });
     
