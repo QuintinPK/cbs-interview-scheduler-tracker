@@ -115,14 +115,14 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
               <Legend />
               <Line
                 type="monotone"
-                dataKey="sessions"
+                dataKey="Sessions"
                 stroke="var(--color-sessions)"
                 strokeWidth={2}
                 activeDot={{ r: 6 }}
               />
               <Line 
                 type="monotone" 
-                dataKey="average" 
+                dataKey="Week average" 
                 stroke="var(--color-average)" 
                 strokeWidth={2}
                 strokeDasharray="5 5" 
