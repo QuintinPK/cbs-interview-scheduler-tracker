@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,6 +5,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface ProjectFormProps {
   formData: {
@@ -13,6 +13,10 @@ interface ProjectFormProps {
     start_date: string;
     end_date: string;
     excluded_islands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+    hourly_rate: number;
+    show_response_rates: boolean;
+    response_rate: number;
+    non_response_rate: number;
   };
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDateChange: (name: 'start_date' | 'end_date', value: string) => void;
@@ -91,6 +95,80 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
             </div>
           ))}
         </div>
+      </div>
+      
+      <div className="space-y-4 border-t pt-4 mt-4">
+        <h3 className="text-lg font-medium">Cost Settings</h3>
+        
+        <div className="space-y-2">
+          <Label htmlFor="hourly_rate" className="text-sm font-medium">Hourly Rate ($)</Label>
+          <Input
+            id="hourly_rate"
+            name="hourly_rate"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.hourly_rate}
+            onChange={handleInputChange}
+            disabled={loading}
+            required
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="text-sm font-medium">Response Rates</Label>
+            <p className="text-[0.8rem] text-muted-foreground">
+              Enable bonus rates for responses and non-responses
+            </p>
+          </div>
+          <Switch
+            name="show_response_rates"
+            checked={formData.show_response_rates}
+            onCheckedChange={(checked) => {
+              const event = {
+                target: {
+                  name: 'show_response_rates',
+                  value: checked
+                }
+              } as React.ChangeEvent<HTMLInputElement>;
+              handleInputChange(event);
+            }}
+            disabled={loading}
+          />
+        </div>
+        
+        {formData.show_response_rates && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="response_rate" className="text-sm font-medium">Response Bonus ($)</Label>
+              <Input
+                id="response_rate"
+                name="response_rate"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.response_rate}
+                onChange={handleInputChange}
+                disabled={loading}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="non_response_rate" className="text-sm font-medium">Non-Response Bonus ($)</Label>
+              <Input
+                id="non_response_rate"
+                name="non_response_rate"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.non_response_rate}
+                onChange={handleInputChange}
+                disabled={loading}
+              />
+            </div>
+          </div>
+        )}
       </div>
       
       <DialogFooter className="pt-4">

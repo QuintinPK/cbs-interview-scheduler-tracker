@@ -1,38 +1,19 @@
-
 import React, { useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDataFetching } from "@/hooks/useDataFetching";
-import { useHourlyRate } from "@/hooks/useHourlyRate";
 import { useCostsCalculator } from "@/hooks/useCostsCalculator";
 import HourlyRateCard from "@/components/costs/HourlyRateCard";
 import TotalCostsCard from "@/components/costs/TotalCostsCard";
-import InterviewerCostsTable from "@/components/costs/InterviewerCostsTable";
+import ProjectCostsBreakdown from "@/components/costs/ProjectCostsBreakdown";
 import { supabase } from "@/integrations/supabase/client";
-import { Interview } from "@/types";
+import { Interview, Project } from "@/types";
 
 const Costs = () => {
-  const { sessions, interviewers, loading: dataLoading } = useDataFetching();
+  const { sessions, interviewers, projects, loading: dataLoading } = useDataFetching();
   const [interviews, setInterviews] = React.useState<Interview[]>([]);
   const [loadingInterviews, setLoadingInterviews] = React.useState(true);
-  
-  const { 
-    hourlyRate, setHourlyRate, 
-    responseRate, setResponseRate,
-    nonResponseRate, setNonResponseRate,
-    showResponseRates, setShowResponseRates,
-    isLoading, error, fetchHourlyRate 
-  } = useHourlyRate();
-  
-  const { calculatedCosts, calculateCosts } = useCostsCalculator(
-    sessions,
-    interviewers,
-    interviews,
-    hourlyRate,
-    responseRate,
-    nonResponseRate,
-    showResponseRates
-  );
+  const [selectedProject, setSelectedProject] = React.useState<Project | null>(null);
 
   useEffect(() => {
     const fetchInterviews = async () => {
@@ -44,13 +25,11 @@ const Costs = () => {
           
         if (error) throw error;
         
-        // Type assertion to handle the result field compatibility
         const typedInterviews = data?.map(interview => ({
           ...interview,
-          // Ensure result is one of the valid types or null
           result: interview.result === 'response' || interview.result === 'non-response' 
             ? interview.result 
-            : interview.result // Keep as string - our type now allows string
+            : interview.result
         })) as Interview[] || [];
         
         setInterviews(typedInterviews);
@@ -68,52 +47,30 @@ const Costs = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Costs Calculator</h1>
+          <h1 className="text-3xl font-bold">Project Costs</h1>
         </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Hourly and Response Rates Card */}
-          <HourlyRateCard
-            hourlyRate={hourlyRate}
-            responseRate={responseRate}
-            nonResponseRate={nonResponseRate}
-            showResponseRates={showResponseRates}
-            isLoading={isLoading}
-            error={error}
-            onRateChange={setHourlyRate}
-            onResponseRateChange={setResponseRate}
-            onNonResponseRateChange={setNonResponseRate}
-            onToggleResponseRates={setShowResponseRates}
-            recalculateCosts={calculateCosts}
-          />
-
-          {/* Total Cost Card */}
-          <TotalCostsCard
-            totalCost={calculatedCosts.totalCost}
-            totalHours={calculatedCosts.totalHours}
-            totalResponses={calculatedCosts.totalResponses}
-            totalNonResponses={calculatedCosts.totalNonResponses}
-            showResponseRates={showResponseRates}
-            onRecalculate={calculateCosts}
-          />
+        <div className="grid gap-6">
+          {projects.map(project => (
+            <ProjectCostsBreakdown
+              key={project.id}
+              project={project}
+              sessions={sessions.filter(s => s.project_id === project.id)}
+              interviewers={interviewers}
+              interviews={interviews.filter(i => i.project_id === project.id)}
+              loading={dataLoading || loadingInterviews}
+            />
+          ))}
+          
+          {projects.length === 0 && !dataLoading && (
+            <Alert>
+              <AlertTitle>No projects found</AlertTitle>
+              <AlertDescription>
+                Create a project to start tracking costs.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
-
-        {/* Costs Per Interviewer */}
-        <InterviewerCostsTable
-          interviewerCosts={calculatedCosts.interviewerCosts}
-          loading={dataLoading || isLoading || loadingInterviews}
-          hourlyRate={hourlyRate}
-          responseRate={responseRate}
-          nonResponseRate={nonResponseRate}
-          showResponseRates={showResponseRates}
-        />
       </div>
     </AdminLayout>
   );

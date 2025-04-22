@@ -173,27 +173,39 @@ export type Database = {
           created_at: string
           end_date: string
           excluded_islands: string[] | null
+          hourly_rate: number | null
           id: string
           island: Database["public"]["Enums"]["island"]
           name: string
+          non_response_rate: number | null
+          response_rate: number | null
+          show_response_rates: boolean | null
           start_date: string
         }
         Insert: {
           created_at?: string
           end_date: string
           excluded_islands?: string[] | null
+          hourly_rate?: number | null
           id?: string
           island: Database["public"]["Enums"]["island"]
           name: string
+          non_response_rate?: number | null
+          response_rate?: number | null
+          show_response_rates?: boolean | null
           start_date: string
         }
         Update: {
           created_at?: string
           end_date?: string
           excluded_islands?: string[] | null
+          hourly_rate?: number | null
           id?: string
           island?: Database["public"]["Enums"]["island"]
           name?: string
+          non_response_rate?: number | null
+          response_rate?: number | null
+          show_response_rates?: boolean | null
           start_date?: string
         }
         Relationships: []
