@@ -13,7 +13,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       <header className="bg-cbs text-white p-4 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
           <Link to="/" className="font-bold text-xl md:text-2xl">
-            FieldSync: CBS Interviewer Tracker
+            FieldSync 1.0
           </Link>
           
           {isAdminSection ? (
