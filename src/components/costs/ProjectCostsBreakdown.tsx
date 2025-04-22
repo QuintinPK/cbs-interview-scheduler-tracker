@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useCostsCalculator } from "@/hooks/useCostsCalculator";
 import InterviewerCostsTable from "./InterviewerCostsTable";
 import TotalCostsCard from "./TotalCostsCard";
+import { useNavigate } from "react-router-dom";
 
 interface ProjectCostsBreakdownProps {
   project: Project;
@@ -21,7 +22,8 @@ const ProjectCostsBreakdown: React.FC<ProjectCostsBreakdownProps> = ({
   interviews,
   loading
 }) => {
-  const { calculatedCosts, calculateCosts } = useCostsCalculator(
+  const navigate = useNavigate();
+  const { calculatedCosts } = useCostsCalculator(
     sessions,
     interviewers,
     interviews,
@@ -31,20 +33,24 @@ const ProjectCostsBreakdown: React.FC<ProjectCostsBreakdownProps> = ({
     project.show_response_rates || false
   );
 
+  const handleInterviewerClick = (interviewerId: string) => {
+    navigate(`/admin/interviewers/${interviewerId}`);
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{project.name}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="col-span-full">
           <TotalCostsCard
             totalCost={calculatedCosts.totalCost}
             totalHours={calculatedCosts.totalHours}
             totalResponses={calculatedCosts.totalResponses}
             totalNonResponses={calculatedCosts.totalNonResponses}
             showResponseRates={project.show_response_rates || false}
-            onRecalculate={calculateCosts}
+            showRecalculateButton={false}
           />
         </div>
 
@@ -55,6 +61,7 @@ const ProjectCostsBreakdown: React.FC<ProjectCostsBreakdownProps> = ({
           responseRate={project.response_rate || 0}
           nonResponseRate={project.non_response_rate || 0}
           showResponseRates={project.show_response_rates || false}
+          onInterviewerClick={handleInterviewerClick}
         />
       </CardContent>
     </Card>

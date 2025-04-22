@@ -20,13 +20,17 @@ export const useProjects = () => {
         
       if (error) throw error;
       
-      // Transform the data to ensure excluded_islands is properly typed
+      // Transform the data to ensure excluded_islands is properly typed and include cost fields
       const typedProjects: Project[] = (data || []).map(project => ({
         id: project.id,
         name: project.name,
         start_date: project.start_date,
         end_date: project.end_date,
-        excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+        excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[],
+        hourly_rate: project.hourly_rate,
+        response_rate: project.response_rate,
+        non_response_rate: project.non_response_rate,
+        show_response_rates: project.show_response_rates
       }));
       
       setProjects(typedProjects);
@@ -289,6 +293,10 @@ export const useProjects = () => {
           start_date: project.start_date,
           end_date: project.end_date,
           excluded_islands: project.excluded_islands,
+          hourly_rate: project.hourly_rate,
+          response_rate: project.response_rate,
+          non_response_rate: project.non_response_rate,
+          show_response_rates: project.show_response_rates,
           island: 'Bonaire' as 'Bonaire' | 'Saba' | 'Sint Eustatius'
         };
         
@@ -305,7 +313,11 @@ export const useProjects = () => {
           name: data.name,
           start_date: data.start_date,
           end_date: data.end_date,
-          excluded_islands: (data.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+          excluded_islands: (data.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[],
+          hourly_rate: data.hourly_rate,
+          response_rate: data.response_rate,
+          non_response_rate: data.non_response_rate,
+          show_response_rates: data.show_response_rates
         };
         
         toast({
@@ -336,8 +348,14 @@ export const useProjects = () => {
           start_date: project.start_date,
           end_date: project.end_date,
           excluded_islands: project.excluded_islands,
+          hourly_rate: project.hourly_rate,
+          response_rate: project.response_rate,
+          non_response_rate: project.non_response_rate,
+          show_response_rates: project.show_response_rates,
           island: 'Bonaire' as 'Bonaire' | 'Saba' | 'Sint Eustatius'
         };
+        
+        console.log("Updating project with data:", dbProject);
         
         const { error } = await supabase
           .from('projects')

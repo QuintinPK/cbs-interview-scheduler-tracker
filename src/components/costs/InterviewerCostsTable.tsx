@@ -1,17 +1,24 @@
 
 import React from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { 
+  Table, 
+  TableHeader, 
+  TableRow, 
+  TableHead, 
+  TableBody, 
+  TableCell 
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 interface InterviewerCost {
   id: string;
   name: string;
   hours: number;
-  responses?: number;
-  nonResponses?: number;
+  responses: number;
+  nonResponses: number;
   hourlyCost: number;
-  responseCost?: number;
-  nonResponseCost?: number;
+  responseCost: number;
+  nonResponseCost: number;
   totalCost: number;
 }
 
@@ -19,79 +26,89 @@ interface InterviewerCostsTableProps {
   interviewerCosts: InterviewerCost[];
   loading: boolean;
   hourlyRate: number;
-  responseRate?: number;
-  nonResponseRate?: number;
+  responseRate: number;
+  nonResponseRate: number;
   showResponseRates: boolean;
+  onInterviewerClick?: (interviewerId: string) => void;
 }
 
 const InterviewerCostsTable: React.FC<InterviewerCostsTableProps> = ({
   interviewerCosts,
   loading,
   hourlyRate,
-  responseRate = 0,
-  nonResponseRate = 0,
-  showResponseRates
+  responseRate,
+  nonResponseRate,
+  showResponseRates,
+  onInterviewerClick
 }) => {
+  if (loading) {
+    return <div className="text-center py-8 text-muted-foreground">Loading interviewer costs...</div>;
+  }
+
+  if (interviewerCosts.length === 0) {
+    return <div className="text-center py-4 text-muted-foreground">No data available</div>;
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold">Costs Per Interviewer</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <p className="text-center py-4 text-muted-foreground">Loading...</p>
-        ) : interviewerCosts.length === 0 ? (
-          <p className="text-center py-4 text-muted-foreground">No data available</p>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Interviewer</TableHead>
-                  <TableHead>Total Hours</TableHead>
-                  {showResponseRates && (
-                    <>
-                      <TableHead>Responses</TableHead>
-                      <TableHead>Non-Responses</TableHead>
-                    </>
-                  )}
-                  <TableHead>Hourly Cost (${hourlyRate}/hour)</TableHead>
-                  {showResponseRates && (
-                    <>
-                      <TableHead>Response Bonus (${responseRate}/resp)</TableHead>
-                      <TableHead>Non-Resp Bonus (${nonResponseRate}/non-resp)</TableHead>
-                    </>
-                  )}
-                  <TableHead>Total Cost</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {interviewerCosts.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.hours.toFixed(2)}</TableCell>
-                    {showResponseRates && (
-                      <>
-                        <TableCell>{item.responses}</TableCell>
-                        <TableCell>{item.nonResponses}</TableCell>
-                      </>
-                    )}
-                    <TableCell>${item.hourlyCost.toFixed(2)}</TableCell>
-                    {showResponseRates && (
-                      <>
-                        <TableCell>${item.responseCost?.toFixed(2)}</TableCell>
-                        <TableCell>${item.nonResponseCost?.toFixed(2)}</TableCell>
-                      </>
-                    )}
-                    <TableCell className="font-bold">${item.totalCost.toFixed(2)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="overflow-x-auto">
+      <h3 className="font-medium text-lg mb-3">Interviewer Costs</h3>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Interviewer</TableHead>
+            <TableHead className="text-right">Hours</TableHead>
+            {showResponseRates && (
+              <>
+                <TableHead className="text-right">Responses</TableHead>
+                <TableHead className="text-right">Non-Responses</TableHead>
+              </>
+            )}
+            <TableHead className="text-right">Hourly Cost (${hourlyRate}/h)</TableHead>
+            {showResponseRates && (
+              <>
+                <TableHead className="text-right">Response Bonus (${responseRate})</TableHead>
+                <TableHead className="text-right">Non-Response Bonus (${nonResponseRate})</TableHead>
+              </>
+            )}
+            <TableHead className="text-right">Total Cost</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {interviewerCosts.map((cost) => (
+            <TableRow key={cost.id}>
+              <TableCell>
+                {onInterviewerClick ? (
+                  <Button 
+                    variant="link" 
+                    className="p-0 h-auto font-normal text-left"
+                    onClick={() => onInterviewerClick(cost.id)}
+                  >
+                    {cost.name}
+                  </Button>
+                ) : (
+                  cost.name
+                )}
+              </TableCell>
+              <TableCell className="text-right">{cost.hours.toFixed(2)}</TableCell>
+              {showResponseRates && (
+                <>
+                  <TableCell className="text-right">{cost.responses}</TableCell>
+                  <TableCell className="text-right">{cost.nonResponses}</TableCell>
+                </>
+              )}
+              <TableCell className="text-right">${cost.hourlyCost.toFixed(2)}</TableCell>
+              {showResponseRates && (
+                <>
+                  <TableCell className="text-right">${cost.responseCost.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${cost.nonResponseCost.toFixed(2)}</TableCell>
+                </>
+              )}
+              <TableCell className="font-medium text-right">${cost.totalCost.toFixed(2)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 };
 
