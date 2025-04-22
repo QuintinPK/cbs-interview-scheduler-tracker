@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
@@ -19,7 +18,7 @@ import { ContactInformation } from "@/components/interviewer-dashboard/ContactIn
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
 import GlobalFilter from "@/components/GlobalFilter";
 import { Button } from "@/components/ui/button";
-import { X, Compare } from "lucide-react";
+import { X, Scale } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 const InterviewerDashboard = () => {
@@ -44,17 +43,12 @@ const InterviewerDashboard = () => {
   const metrics = useInterviewerMetrics(id, sessions);
   const { schedules } = useSchedules(id);
 
-  // Apply filters based on global filter context
   const applyGlobalFilters = (sessionsToFilter: Session[]) => {
     let filtered = [...sessionsToFilter];
     
-    // Filter by project if selected
     if (selectedProject) {
       filtered = filtered.filter(session => session.project_id === selectedProject.id);
     }
-    
-    // Filter by island is not needed here since we're already
-    // looking at a specific interviewer (island is per interviewer, not per session)
     
     return filtered;
   };
@@ -86,7 +80,6 @@ const InterviewerDashboard = () => {
         
         setInterviewer(typedInterviewer);
         
-        // Skip fetching further data if this interviewer doesn't match the island filter
         if (selectedIsland && typedInterviewer.island !== selectedIsland) {
           setSessions([]);
           setFilteredSessions([]);
@@ -96,14 +89,12 @@ const InterviewerDashboard = () => {
           return;
         }
         
-        // Fetch projects for display names
         const { data: projectsData, error: projectsError } = await supabase
           .from('projects')
           .select('*');
           
         if (projectsError) throw projectsError;
         
-        // Cast excluded_islands to the correct type
         const typedProjects: Project[] = (projectsData || []).map(project => ({
           id: project.id,
           name: project.name,
@@ -130,13 +121,11 @@ const InterviewerDashboard = () => {
           end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
         }));
         
-        // Apply global filters to sessions
         const globalFilteredSessions = applyGlobalFilters(transformedSessions || []);
         
         setSessions(globalFilteredSessions);
         setFilteredSessions(globalFilteredSessions);
         
-        // Fetch interviews for all sessions
         const { data: interviewsData, error: interviewsError } = await supabase
           .from('interviews')
           .select('*')
@@ -153,7 +142,6 @@ const InterviewerDashboard = () => {
           
         if (allSessionsError) throw allSessionsError;
         
-        // Apply global filters to all sessions too
         const globalFilteredAllSessions = applyGlobalFilters(allSessionsData || []);
         setAllSessions(globalFilteredAllSessions);
       } catch (error) {
@@ -225,7 +213,6 @@ const InterviewerDashboard = () => {
     try {
       setLoading(true);
 
-      // Fetch comparison interviewer
       const { data: interviewerData, error: interviewerError } = await supabase
         .from('interviewers')
         .select('*')
@@ -246,7 +233,6 @@ const InterviewerDashboard = () => {
       
       setComparisonInterviewer(typedInterviewer);
 
-      // Fetch comparison sessions
       const { data: sessionsData, error: sessionsError } = await supabase
         .from('sessions')
         .select('*')
@@ -263,11 +249,9 @@ const InterviewerDashboard = () => {
         end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
       }));
       
-      // Apply global filters
       const filteredSessions = applyGlobalFilters(transformedSessions || []);
       setComparisonSessions(filteredSessions);
       
-      // Fetch comparison interviews
       const { data: interviewsData, error: interviewsError } = await supabase
         .from('interviews')
         .select('*')
@@ -369,7 +353,7 @@ const InterviewerDashboard = () => {
                   <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="text-lg font-semibold flex items-center">
-                        <Compare className="h-5 w-5 mr-2 text-primary" />
+                        <Scale className="h-5 w-5 mr-2 text-primary" />
                         Comparing with: {comparisonInterviewer.first_name} {comparisonInterviewer.last_name} ({comparisonInterviewer.code})
                       </h3>
                       <Button 
