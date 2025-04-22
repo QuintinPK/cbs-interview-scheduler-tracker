@@ -49,8 +49,8 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Session History</h3>
         <DateRangePicker
-          date={dateRange}
-          onDateChange={setDateRange}
+          value={dateRange}
+          onChange={setDateRange}
         />
       </div>
       
@@ -88,9 +88,9 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
                           {session.project_id ? projectNameResolver(session.project_id) : "—"}
                         </TableCell>
                       )}
-                      <TableCell>{formatDateTime(startTime)}</TableCell>
+                      <TableCell>{formatDateTime(session.start_time)}</TableCell>
                       <TableCell>
-                        {endTime ? formatDateTime(endTime) : "Active"}
+                        {endTime ? formatDateTime(session.end_time as string) : "Active"}
                       </TableCell>
                       <TableCell>
                         {duration

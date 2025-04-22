@@ -97,7 +97,16 @@ const InterviewerDashboard = () => {
           
         if (projectsError) throw projectsError;
         
-        setProjects(projectsData || []);
+        // Cast excluded_islands to the correct type
+        const typedProjects: Project[] = (projectsData || []).map(project => ({
+          id: project.id,
+          name: project.name,
+          start_date: project.start_date,
+          end_date: project.end_date,
+          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+        }));
+        
+        setProjects(typedProjects);
         
         const { data: sessionsData, error: sessionsError } = await supabase
           .from('sessions')
