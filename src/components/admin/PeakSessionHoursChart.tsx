@@ -87,7 +87,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               : 'At average'}
         </p>
 
-        {/* 🔽 Add your legend here */}
+        {/* 🟩 Color legend */}
         <div className="mt-2 text-xs text-muted-foreground border-t pt-2 space-y-1">
           <p><span className="text-[#10b981]">■</span> High activity - green</p>
           <p><span className="text-[#6366f1]">■</span> Above average - indigo</p>
@@ -96,8 +96,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       </div>
     );
   }
-  
-    return null;
+
+  return null;
+};
   };
   
   // Colors for bars
