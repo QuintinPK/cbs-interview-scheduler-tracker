@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session } from "@/types";
@@ -75,18 +74,40 @@ const PeakSessionHoursChart: React.FC<PeakSessionHoursChartProps> = ({
   
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const value = payload[0].value;
+      const diffFromAverage = value - averageSessionsPerHour;
+      
+      let activityStatus = '';
+      let activityColor = '';
+      
+      if (value > averageSessionsPerHour * 1.5) {
+        activityStatus = 'High activity';
+        activityColor = '#10b981'; // Green
+      } else if (value > averageSessionsPerHour) {
+        activityStatus = 'Above average';
+        activityColor = '#6366f1'; // Indigo
+      } else if (value > 0) {
+        activityStatus = 'Below average';
+        activityColor = '#8884d8'; // Purple
+      }
+      
       return (
         <div className="bg-background border border-border rounded-md shadow-md p-3">
           <p className="font-medium text-sm">{`${label}`}</p>
-          <p className="text-primary text-sm">{`Sessions: ${payload[0].value}`}</p>
+          <p className="text-primary text-sm">{`Sessions: ${value}`}</p>
           <p className="text-muted-foreground text-xs">
-            {payload[0].value > averageSessionsPerHour 
+            {value > averageSessionsPerHour 
               ? `${((payload[0].value / averageSessionsPerHour - 1) * 100).toFixed(0)}% above average`
-              : payload[0].value < averageSessionsPerHour 
+              : value < averageSessionsPerHour 
                 ? `${((1 - payload[0].value / averageSessionsPerHour) * 100).toFixed(0)}% below average` 
                 : 'At average'
             }
           </p>
+          <div style={{ marginTop: '10px' }}>
+            <p style={{ color: activityColor, fontSize: '12px' }}>
+              {activityStatus} <span style={{ color: activityColor }}>●</span>
+            </p>
+          </div>
         </div>
       );
     }
