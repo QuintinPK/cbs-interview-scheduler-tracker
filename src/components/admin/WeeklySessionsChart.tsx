@@ -27,13 +27,11 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
   const chartData = useMemo(() => {
     // Get start of week
     const startOfWeek = new Date();
-    const day = startOfWeek.getDay(); // 0 (Sun) to 6 (Sat)
-    const diffToMonday = (day === 0 ? -6 : 1) - day;
-    startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
     startOfWeek.setHours(0, 0, 0, 0);
     
     // Initialize data for each day of the week
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const data = days.map((day, index) => {
       const date = new Date(startOfWeek);
       date.setDate(date.getDate() + index);
@@ -92,7 +90,7 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Sessions this week (Mon-Sun)</CardTitle>
+        <CardTitle className="text-lg font-semibold">Sessions This Week</CardTitle>
       </CardHeader>
       <CardContent className="h-[300px]">
         {loading ? (
@@ -121,7 +119,7 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
               />
               <Line 
                 type="monotone" 
-                dataKey="Week average" 
+                dataKey="average" 
                 stroke="var(--color-average)" 
                 strokeWidth={2}
                 strokeDasharray="5 5" 
