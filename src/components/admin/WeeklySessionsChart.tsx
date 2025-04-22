@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session } from "@/types";
@@ -112,7 +111,17 @@ const WeeklySessionsChart: React.FC<WeeklySessionsChartProps> = ({
               />
               <YAxis allowDecimals={false} />
               <Tooltip content={<ChartTooltipContent />} />
-              <Legend />
+              <Legend 
+                formatter={(value) => {
+                  if (value === 'sessions') {
+                    return 'Sessions'; // Custom name for sessions
+                  }
+                  if (value === 'average') {
+                    return 'Week average'; // Custom name for average
+                  }
+                  return value; // Default for other values
+                }}
+              />
               <Line
                 type="monotone"
                 dataKey="sessions"
