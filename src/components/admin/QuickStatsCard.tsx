@@ -2,6 +2,13 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface QuickStatsCardProps {
   sessions: Session[];
@@ -66,13 +73,41 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   const avgSessionsPerInterviewer = activeInterviewersThisWeek.size > 0
     ? (thisWeekSessions.length / activeInterviewersThisWeek.size).toFixed(1)
     : "0";
+    
+  // Calculate sessions per week (new metric)
+  const sessionsPerWeek = thisWeekSessions.length;
   
   const statsItems = [
-    { label: "Total Interviewers", value: totalInterviewers },
-    { label: "Active Sessions", value: activeSessions },
-    { label: "Sessions Today", value: sessionsToday },
-    { label: "Total Hours This Week", value: Math.round(totalHoursThisWeek) },
-    { label: "Avg Sessions per Interviewer", value: avgSessionsPerInterviewer }
+    { 
+      label: "Total Interviewers", 
+      value: totalInterviewers,
+      tooltip: "The total number of interviewers available for the selected filters" 
+    },
+    { 
+      label: "Active Sessions", 
+      value: activeSessions,
+      tooltip: "Sessions that are currently active (not completed)" 
+    },
+    { 
+      label: "Sessions Today", 
+      value: sessionsToday,
+      tooltip: "Total sessions started today" 
+    },
+    { 
+      label: "Total Hours This Week", 
+      value: Math.round(totalHoursThisWeek),
+      tooltip: "Total hours of completed sessions this week" 
+    },
+    { 
+      label: "Sessions This Week", 
+      value: sessionsPerWeek,
+      tooltip: "Total sessions started this week" 
+    },
+    { 
+      label: "Avg Sessions per Interviewer", 
+      value: avgSessionsPerInterviewer,
+      tooltip: "Average number of sessions per active interviewer this week" 
+    }
   ];
   
   return (
@@ -87,8 +122,22 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {statsItems.map((item, index) => (
               <div key={index} className="bg-gray-50 p-4 rounded-md">
-                <p className="text-sm text-muted-foreground">{item.label}</p>
-                <p className="text-2xl font-bold text-primary mt-1">{item.value}</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-muted-foreground">{item.label}</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">
+                          <Info className="h-3.5 w-3.5 text-muted-foreground/70" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p className="text-xs">{item.tooltip}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <p className="text-2xl font-bold text-primary">{item.value}</p>
               </div>
             ))}
           </div>

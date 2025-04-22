@@ -8,10 +8,19 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  Cell
 } from "recharts";
-import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer } from "@/components/ui/chart";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface PeakSessionHoursChartProps {
   sessions: Session[];
@@ -22,7 +31,7 @@ const PeakSessionHoursChart: React.FC<PeakSessionHoursChartProps> = ({
   sessions,
   loading = false
 }) => {
-  const chartData = useMemo(() => {
+  const { chartData, averageSessionsPerHour, maxValue } = useMemo(() => {
     // Get start of week
     const startOfWeek = new Date();
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
@@ -50,23 +59,67 @@ const PeakSessionHoursChart: React.FC<PeakSessionHoursChartProps> = ({
       data[hour].sessions += 1;
     });
     
-    return data;
+    // Calculate average sessions per hour
+    const totalSessions = currentWeekSessions.length;
+    const avgPerHour = totalSessions / 24;
+    
+    // Find max value for scaling
+    const max = Math.max(...data.map(item => item.sessions));
+    
+    return { 
+      chartData: data,
+      averageSessionsPerHour: avgPerHour,
+      maxValue: max > 0 ? max : 5 // Default scale if no data
+    };
   }, [sessions]);
   
-  const chartConfig = {
-    sessions: {
-      label: "Sessions",
-      theme: {
-        light: "#059669",
-        dark: "#10b981"
-      }
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border border-border rounded-md shadow-md p-3">
+          <p className="font-medium text-sm">{`${label}`}</p>
+          <p className="text-primary text-sm">{`Sessions: ${payload[0].value}`}</p>
+          <p className="text-muted-foreground text-xs">
+            {payload[0].value > averageSessionsPerHour 
+              ? `${((payload[0].value / averageSessionsPerHour - 1) * 100).toFixed(0)}% above average`
+              : payload[0].value < averageSessionsPerHour 
+                ? `${((1 - payload[0].value / averageSessionsPerHour) * 100).toFixed(0)}% below average` 
+                : 'At average'
+            }
+          </p>
+        </div>
+      );
     }
+  
+    return null;
+  };
+  
+  // Colors for bars
+  const getBarColor = (value: number) => {
+    if (value > averageSessionsPerHour * 1.5) return "#10b981"; // High activity - green
+    if (value > averageSessionsPerHour) return "#6366f1"; // Above average - indigo
+    if (value > 0) return "#8884d8"; // Below average - purple
+    return "#d1d5db"; // No activity - gray
   };
   
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Peak Session Hours (Week)</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold">Peak Session Hours (Week)</CardTitle>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help">
+                  <Info className="h-4 w-4 text-muted-foreground/70" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                <p className="text-xs">Shows the distribution of sessions by hour of day for the current week. The horizontal line represents the average.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </CardHeader>
       <CardContent className="h-[300px]">
         {loading ? (
@@ -74,26 +127,44 @@ const PeakSessionHoursChart: React.FC<PeakSessionHoursChartProps> = ({
         ) : chartData.length === 0 ? (
           <p className="text-muted-foreground text-center py-10">No data available</p>
         ) : (
-          <ChartContainer 
-            config={chartConfig} 
-            className="h-full w-full"
-          >
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 10, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
               <XAxis 
                 dataKey="label" 
                 tick={{ fontSize: 10 }}
                 interval={2} // Show every third label to avoid crowding
               />
-              <YAxis allowDecimals={false} />
-              <Tooltip content={<ChartTooltipContent />} />
-              <Bar 
-                dataKey="sessions" 
-                fill="var(--color-sessions)" 
-                name="Sessions"
+              <YAxis 
+                allowDecimals={false} 
+                domain={[0, Math.ceil(maxValue * 1.2)]} // Add 20% padding to top
               />
+              <RechartsTooltip content={<CustomTooltip />} />
+              <ReferenceLine 
+                y={averageSessionsPerHour} 
+                stroke="#ff7c43" 
+                strokeDasharray="3 3"
+                label={{ 
+                  value: 'Avg', 
+                  position: 'right', 
+                  fill: '#ff7c43', 
+                  fontSize: 10 
+                }} 
+              />
+              <Bar 
+                dataKey="sessions"
+                name="Sessions"
+                radius={[4, 4, 0, 0]}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={getBarColor(entry.sessions)}
+                  />
+                ))}
+              </Bar>
             </BarChart>
-          </ChartContainer>
+          </ResponsiveContainer>
         )}
       </CardContent>
     </Card>

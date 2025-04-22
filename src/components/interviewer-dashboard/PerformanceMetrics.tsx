@@ -1,9 +1,18 @@
+
 import React, { useState, useMemo } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Session, Interview } from "@/types";
 import { differenceInWeeks, startOfWeek, endOfWeek } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useProjects } from "@/hooks/useProjects";
+import {
+  Tooltip as UITooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface PerformanceMetricsProps {
   sessions: Session[];
@@ -17,6 +26,23 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   allInterviewersSessions = []
 }) => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const { projects } = useProjects();
+
+  const projectMap = useMemo(() => {
+    const map = new Map<string, string>();
+    projects.forEach(project => {
+      map.set(project.id, project.name);
+    });
+    return map;
+  }, [projects]);
+
+  const projectIds = useMemo(() => {
+    const ids = new Set<string>();
+    sessions.forEach(session => {
+      if (session.project_id) ids.add(session.project_id);
+    });
+    return Array.from(ids);
+  }, [sessions]);
 
   const filteredSessions = useMemo(() => {
     if (selectedProject === "all") return sessions;
@@ -32,14 +58,6 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
     if (selectedProject === "all") return allInterviewersSessions;
     return allInterviewersSessions.filter(session => session.project_id === selectedProject);
   }, [allInterviewersSessions, selectedProject]);
-
-  const projectIds = useMemo(() => {
-    const ids = new Set<string>();
-    sessions.forEach(session => {
-      if (session.project_id) ids.add(session.project_id);
-    });
-    return Array.from(ids);
-  }, [sessions]);
 
   const calculateWeeklyAverage = (sessions: Session[]) => {
     if (sessions.length === 0) return 0;
@@ -100,6 +118,18 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
     },
   ];
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border border-border rounded-md shadow-md p-3">
+          <p className="font-medium text-sm">{`${label} Interviews`}</p>
+          <p className="text-primary text-sm">{`Average Duration: ${payload[0].value.toFixed(1)} minutes`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="w-64 mb-4">
@@ -113,7 +143,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           <SelectContent>
             <SelectItem value="all">All Projects</SelectItem>
             {projectIds.map(id => (
-              <SelectItem key={id} value={id}>{id}</SelectItem>
+              <SelectItem key={id} value={id}>{projectMap.get(id) || id}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -121,7 +151,21 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
 
       <Card>
         <CardHeader>
-          <CardTitle>Weekly Performance</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Weekly Performance</CardTitle>
+            <TooltipProvider>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">
+                    <Info className="h-4 w-4 text-muted-foreground/70" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">Compares your weekly average session time with all interviewers</p>
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -145,7 +189,21 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
       
       <Card>
         <CardHeader>
-          <CardTitle>Interview Duration Analysis</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Interview Duration Analysis</CardTitle>
+            <TooltipProvider>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">
+                    <Info className="h-4 w-4 text-muted-foreground/70" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">Compares the average time spent on interviews with response versus non-response outcomes</p>
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -170,12 +228,17 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
                   bottom: 5,
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                 <XAxis dataKey="name" />
                 <YAxis label={{ value: 'Minutes', angle: -90, position: 'insideLeft' }} />
-                <Tooltip />
+                <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Bar dataKey="minutes" name="Average Duration (minutes)" fill="#8884d8" />
+                <Bar 
+                  dataKey="minutes" 
+                  name="Average Duration (minutes)" 
+                  fill="#8884d8" 
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -184,7 +247,21 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
       
       <Card>
         <CardHeader>
-          <CardTitle>Additional Metrics</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Additional Metrics</CardTitle>
+            <TooltipProvider>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help">
+                    <Info className="h-4 w-4 text-muted-foreground/70" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">Key performance indicators for interview success rates</p>
+                </TooltipContent>
+              </UITooltip>
+            </TooltipProvider>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
