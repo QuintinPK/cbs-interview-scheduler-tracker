@@ -144,7 +144,7 @@ const TopInterviewersChart: React.FC<TopInterviewersChartProps> = ({
             onChange={setDateRange}
           />
         </div>
-        <CardDescription className="mt-2">
+        <CardDescription className="mt-3">
           Interviewers with fewer than half the average sessions {dateRange?.from && dateRange?.to && 
             `(${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()})`}
         </CardDescription>
