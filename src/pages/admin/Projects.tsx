@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Project, Interviewer } from "@/types";
@@ -37,10 +36,13 @@ const Projects = () => {
     name: "",
     start_date: format(new Date(), 'yyyy-MM-dd'),
     end_date: format(new Date(), 'yyyy-MM-dd'),
-    excluded_islands: [] as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+    excluded_islands: [] as ('Bonaire' | 'Saba' | 'Sint Eustatius')[],
+    hourly_rate: 10,
+    show_response_rates: false,
+    response_rate: 0,
+    non_response_rate: 0
   });
   
-  // Handle island selector changes with correct typing
   const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius' | 'all' | undefined) => {
     if (island === 'all') {
       setSelectedLocalIsland(undefined);
@@ -61,10 +63,10 @@ const Projects = () => {
   });
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
     }));
   };
   
@@ -91,7 +93,11 @@ const Projects = () => {
       name: "",
       start_date: format(new Date(), 'yyyy-MM-dd'),
       end_date: format(new Date(), 'yyyy-MM-dd'),
-      excluded_islands: []
+      excluded_islands: [],
+      hourly_rate: 10,
+      show_response_rates: false,
+      response_rate: 0,
+      non_response_rate: 0
     });
     setShowAddEditDialog(true);
   };
@@ -103,7 +109,11 @@ const Projects = () => {
       name: project.name,
       start_date: project.start_date,
       end_date: project.end_date,
-      excluded_islands: project.excluded_islands
+      excluded_islands: project.excluded_islands,
+      hourly_rate: project.hourly_rate ?? 10,
+      show_response_rates: project.show_response_rates ?? false,
+      response_rate: project.response_rate ?? 0,
+      non_response_rate: project.non_response_rate ?? 0
     });
     setShowAddEditDialog(true);
   };
@@ -121,14 +131,22 @@ const Projects = () => {
           name: formData.name,
           start_date: formData.start_date,
           end_date: formData.end_date,
-          excluded_islands: formData.excluded_islands
+          excluded_islands: formData.excluded_islands,
+          hourly_rate: formData.hourly_rate,
+          show_response_rates: formData.show_response_rates,
+          response_rate: formData.response_rate,
+          non_response_rate: formData.non_response_rate
         });
       } else {
         await addProject({
           name: formData.name,
           start_date: formData.start_date,
           end_date: formData.end_date,
-          excluded_islands: formData.excluded_islands
+          excluded_islands: formData.excluded_islands,
+          hourly_rate: formData.hourly_rate,
+          show_response_rates: formData.show_response_rates,
+          response_rate: formData.response_rate,
+          non_response_rate: formData.non_response_rate
         });
       }
       

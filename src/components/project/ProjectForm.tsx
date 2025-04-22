@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,20 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
   onCancel
 }) => {
   const allIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = ['Bonaire', 'Saba', 'Sint Eustatius'];
+
+  // Create a specialized handler for the switch component
+  const handleSwitchChange = (checked: boolean) => {
+    const simulatedEvent = {
+      target: {
+        name: 'show_response_rates',
+        value: checked,
+        type: 'checkbox',
+        checked: checked
+      }
+    } as React.ChangeEvent<HTMLInputElement>;
+    
+    handleInputChange(simulatedEvent);
+  };
 
   return (
     <div className="space-y-4 py-2">
@@ -125,15 +140,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
           <Switch
             name="show_response_rates"
             checked={formData.show_response_rates}
-            onCheckedChange={(checked) => {
-              const event = {
-                target: {
-                  name: 'show_response_rates',
-                  value: checked
-                }
-              } as React.ChangeEvent<HTMLInputElement>;
-              handleInputChange(event);
-            }}
+            onCheckedChange={handleSwitchChange}
             disabled={loading}
           />
         </div>
