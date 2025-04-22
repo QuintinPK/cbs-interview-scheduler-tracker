@@ -74,28 +74,22 @@ const PeakSessionHoursChart: React.FC<PeakSessionHoursChartProps> = ({
   }, [sessions]);
   
 const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-background border border-border rounded-md shadow-md p-3">
-        <p className="font-medium text-sm">{`${label}`}</p>
-        <p className="text-primary text-sm">{`Sessions: ${payload[0].value}`}</p>
-        <p className="text-muted-foreground text-xs mb-2">
-          {payload[0].value > averageSessionsPerHour 
-            ? `${((payload[0].value / averageSessionsPerHour - 1) * 100).toFixed(0)}% above average`
-            : payload[0].value < averageSessionsPerHour 
-              ? `${((1 - payload[0].value / averageSessionsPerHour) * 100).toFixed(0)}% below average` 
-              : 'At average'}
-        </p>
-
-        {/* 🟩 Color legend */}
-        <div className="mt-2 text-xs text-muted-foreground border-t pt-2 space-y-1">
-          <p><span className="text-[#10b981]">■</span> High activity - green</p>
-          <p><span className="text-[#6366f1]">■</span> Above average - indigo</p>
-          <p><span className="text-[#8884d8]">■</span> Below average - purple</p>
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border border-border rounded-md shadow-md p-3">
+          <p className="font-medium text-sm">{`${label}`}</p>
+          <p className="text-primary text-sm">{`Sessions: ${payload[0].value}`}</p>
+          <p className="text-muted-foreground text-xs">
+            {payload[0].value > averageSessionsPerHour 
+              ? `${((payload[0].value / averageSessionsPerHour - 1) * 100).toFixed(0)}% above average`
+              : payload[0].value < averageSessionsPerHour 
+                ? `${((1 - payload[0].value / averageSessionsPerHour) * 100).toFixed(0)}% below average` 
+                : 'At average'
+            }
+          </p>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
   return null;
 };
