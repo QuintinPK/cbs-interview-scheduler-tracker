@@ -39,9 +39,11 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
   }).length;
   
   // Calculate total hours this week
-  const startOfWeek = new Date();
-  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
-  startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date();
+    const day = startOfWeek.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToMonday = (day === 0 ? -6 : 1) - day;
+    startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+    startOfWeek.setHours(0, 0, 0, 0);
   
   const calculateSessionDuration = (session: Session) => {
     if (!session.end_time || session.is_active) return 0;
