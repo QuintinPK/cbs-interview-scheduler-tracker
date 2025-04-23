@@ -16,10 +16,10 @@ export const useSessions = (
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
-  const { interviewers } = useDataFetching();
+  const { interviewers, projects } = useDataFetching();
+  const { selectedProject, selectedIsland } = useFilter();
   
-  // Load sessions directly from Supabase when date range is provided
+  // Set up real-time listener for sessions
   useEffect(() => {
     const loadSessions = async () => {
       try {
@@ -41,12 +41,11 @@ export const useSessions = (
           query = query.lte('start_time', `${endDate}T23:59:59`);
         }
         
-        const { data, error } = await query.order('start_time');
+        const { data, error } = await query.order('start_time', { ascending: false });
           
         if (error) throw error;
         
         setSessions(data || []);
-        setFilteredSessions(data || []);
       } catch (error) {
         console.error("Error loading sessions:", error);
         toast({
@@ -60,6 +59,34 @@ export const useSessions = (
     };
     
     loadSessions();
+    
+    // Set up real-time listener for new sessions
+    const channel = supabase
+      .channel('public:sessions')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'sessions' 
+      }, payload => {
+        if (payload.eventType === 'INSERT') {
+          setSessions(current => [payload.new as Session, ...current]);
+        } else if (payload.eventType === 'UPDATE') {
+          setSessions(current => 
+            current.map(session => 
+              session.id === payload.new.id ? payload.new as Session : session
+            )
+          );
+        } else if (payload.eventType === 'DELETE') {
+          setSessions(current => 
+            current.filter(session => session.id !== payload.old.id)
+          );
+        }
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [interviewerId, startDate, endDate, toast]);
   
   // Initialize session filters
@@ -81,7 +108,7 @@ export const useSessions = (
   } = useSessionActions(
     sessions, 
     setSessions,
-    filteredSessions,
+    filterResults,
     setLoading,
     toast
   );
@@ -92,14 +119,40 @@ export const useSessions = (
     return interviewer ? interviewer.code : "Unknown";
   };
   
-  // Wrapper for applying filters
+  // Filter sessions based on global filters and session-specific filters
+  const filteredSessions = filterResults.filter(session => {
+    // Apply global project filter if set
+    const matchesProject = !selectedProject || session.project_id === selectedProject.id;
+    
+    // Apply global island filter if set
+    let matchesIsland = true;
+    if (selectedIsland) {
+      const sessionInterviewer = interviewers.find(i => i.id === session.interviewer_id);
+      matchesIsland = sessionInterviewer?.island === selectedIsland;
+    }
+    
+    // Apply interviewer code filter
+    let matchesInterviewerCode = true;
+    if (interviewerCodeFilter.trim()) {
+      const interviewerCode = getInterviewerCode(session.interviewer_id);
+      matchesInterviewerCode = interviewerCode.toLowerCase().includes(interviewerCodeFilter.toLowerCase());
+    }
+    
+    return matchesProject && matchesIsland && matchesInterviewerCode;
+  });
+  
+  // Apply filters function wrapper
   const applyFilters = () => {
     applySessionFilters(interviewers);
   };
   
+  // Effect to auto-apply filters when interviewer code changes
+  useEffect(() => {
+    applyFilters();
+  }, [interviewerCodeFilter, selectedProject, selectedIsland]);
+  
   return { 
     sessions: filteredSessions,
-    filteredSessions,
     loading, 
     interviewerCodeFilter,
     setInterviewerCodeFilter,
