@@ -46,9 +46,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
 
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Initialize the grid data
   useEffect(() => {
-    // DAY VIEW: same as before
     if (viewMode === "day" || !weekDates) {
       const newGrid: Record<string, Record<number, CellState>> = {};
       interviewers.forEach(interviewer => {
@@ -69,7 +67,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         });
       });
 
-      // Add schedules
       schedules.forEach(schedule => {
         const scheduleDate = parseISO(schedule.start_time);
         const scheduleHour = scheduleDate.getHours();
@@ -87,7 +84,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         }
       });
 
-      // Add sessions
       sessions.forEach(session => {
         if (!session.start_time || !session.end_time) return;
         const sessionStart = parseISO(session.start_time);
@@ -105,9 +101,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       });
 
       setGrid(newGrid);
-    }
-    // WEEK VIEW: (single interviewer, multiple days)
-    else if (weekDates && interviewers.length === 1) {
+    } else if (weekDates && interviewers.length === 1) {
       const interviewerId = interviewers[0].id;
       const newGrid: Record<number, Record<number, CellState>> = {};
       weekDates.forEach((dateObj, dIdx) => {
@@ -126,7 +120,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         });
       });
 
-      // Add schedules
       schedules.forEach(schedule => {
         const scheduleDate = parseISO(schedule.start_time);
         const scheduleHour = scheduleDate.getHours();
@@ -142,7 +135,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
           }
         });
       });
-      // Add sessions
       sessions.forEach(session => {
         if (!session.start_time || !session.end_time) return;
         const sessionStart = parseISO(session.start_time);
@@ -162,9 +154,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   }, [currentDate, weekDates, interviewers, schedules, sessions, viewMode]);
 
-  // Mouse event handlers for drag to schedule (for both day/week)
-  // (Logic for handling drag selection stays the same except for grid structure)
-
   const handleMouseDown = (interviewerId: string, hour: number) => {
     setIsDragging(true);
     setDragStartCell({ interviewerId, hour });
@@ -182,7 +171,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       setLoading(true);
       
       try {
-        // Determine the rectangle of selected cells
         const startInterviewerIndex = interviewers.findIndex(i => i.id === dragStartCell.interviewerId);
         const endInterviewerIndex = interviewers.findIndex(i => i.id === dragEndCell.interviewerId);
         
@@ -192,7 +180,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         const minHour = Math.min(dragStartCell.hour, dragEndCell.hour);
         const maxHour = Math.max(dragStartCell.hour, dragEndCell.hour);
         
-        // Get all cells in the selection
         const selectedCells: { interviewerId: string; hour: number; cell: CellState }[] = [];
         
         for (let i = minInterviewerIndex; i <= maxInterviewerIndex; i++) {
@@ -209,23 +196,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
           }
         }
         
-        // Check if we need to schedule or unschedule
-        // If most cells are already scheduled, we'll unschedule all
-        // Otherwise, we'll schedule all unscheduled cells
         const scheduledCount = selectedCells.filter(({ cell }) => cell.isScheduled).length;
         const shouldUnschedule = scheduledCount > selectedCells.length / 2;
         
         const operations = [];
         
         if (shouldUnschedule) {
-          // Unschedule all scheduled cells
           for (const { cell } of selectedCells) {
             if (cell.isScheduled && cell.scheduleId) {
               operations.push(onUnscheduleSlot(cell.scheduleId));
             }
           }
         } else {
-          // Schedule all unscheduled cells
           for (const { interviewerId, cell } of selectedCells) {
             if (!cell.isScheduled) {
               operations.push(onScheduleSlot(interviewerId, cell.startTime, cell.endTime));
@@ -264,7 +246,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
-  // Helper to determine if a cell is in the current drag selection
   const isCellInDragSelection = (interviewerId: string, hour: number) => {
     if (!isDragging || !dragStartCell || !dragEndCell) return false;
     
@@ -286,7 +267,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     );
   };
 
-  // Helper for week mode 
   const isCellInDragSelectionWeek = (dayIdx: number, hour: number) => {
     if (!isDragging || !dragStartCell || !dragEndCell) return false;
     const { dayIdx: startDayIdx, hour: startHour } = dragStartCell;
@@ -303,7 +283,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     );
   };
 
-  // Mouse handlers for week view
   const handleMouseDownWeek = (dayIdx: number, hour: number) => {
     setIsDragging(true);
     setDragStartCell({ dayIdx, hour });
@@ -316,11 +295,10 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     if (isDragging && dragStartCell && dragEndCell) {
       setLoading(true);
       try {
-        // Rectangle select
         const minDay = Math.min(dragStartCell.dayIdx, dragEndCell.dayIdx);
         const maxDay = Math.max(dragStartCell.dayIdx, dragEndCell.dayIdx);
         const minHour = Math.min(dragStartCell.hour, dragEndCell.hour);
-        const maxHour = Math.max(dragStartCell.hour, endHour);
+        const maxHour = Math.max(dragStartCell.hour, dragEndCell.hour);
         const selectedCells: { dayIdx: number; hour: number; cell: CellState }[] = [];
         for (let d = minDay; d <= maxDay; d++) {
           for (let h = minHour; h <= maxHour; h++) {
@@ -329,7 +307,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
             }
           }
         }
-        // Most are scheduled? unschedule, otherwise schedule all unscheduled
         const scheduledCount = selectedCells.filter(({ cell }) => cell.isScheduled).length;
         const shouldUnschedule = scheduledCount > selectedCells.length / 2;
         const operations = [];
@@ -357,7 +334,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
-  // Click cell in week view
   const handleCellClickWeek = async (dayIdx: number, hour: number) => {
     if (loading) return;
     const cell = grid[dayIdx][hour];
@@ -375,7 +351,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
-  // --- Main render ---
   if (viewMode === "week" && weekDates && interviewers.length === 1 && Object.keys(grid).length > 0) {
     return (
       <div
@@ -385,7 +360,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         ref={gridRef}
       >
         <div className="min-w-full">
-          {/* Header row with days */}
           <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
             <div className="p-2 text-center font-medium border-r">Time</div>
             {weekDates.map((dateObj, dIdx) => (
@@ -394,7 +368,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
               </div>
             ))}
           </div>
-          {/* Grid rows (hour blocks) */}
           {hours.map(hour => (
             <div key={hour} className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
               <div className="p-2 border-r text-sm font-medium text-center">{hour}:00</div>
@@ -468,7 +441,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       </div>
     );
   }
-  // DAY VIEW as before
+
   return (
     <div 
       className={`relative overflow-x-auto ${loading ? 'opacity-70 pointer-events-none' : ''}`}
@@ -477,7 +450,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       ref={gridRef}
     >
       <div className="min-w-[768px]">
-        {/* Header row with hours */}
         <div className="grid grid-cols-[150px_repeat(11,1fr)] border-b">
           <div className="p-2 text-center font-medium border-r">Interviewer</div>
           {hours.map(hour => (
@@ -487,7 +459,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
           ))}
         </div>
         
-        {/* Grid rows */}
         {interviewers.map(interviewer => (
           <div key={interviewer.id} className="grid grid-cols-[150px_repeat(11,1fr)] border-b">
             <div className="p-2 border-r text-sm font-medium truncate">
