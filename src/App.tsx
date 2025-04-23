@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +19,7 @@ import Settings from "./pages/admin/Settings";
 import Projects from "./pages/admin/Projects"; 
 import ProjectAssign from "./pages/admin/ProjectAssign";
 import NotFound from "./pages/NotFound";
+import InteractiveScheduling from "./pages/admin/InteractiveScheduling";
 
 const queryClient = new QueryClient();
 
@@ -43,7 +43,7 @@ const AppRoutes = () => {
       <Route path="/" element={<Index />} />
       <Route path="/admin/login" element={<Login />} />
       
-      {/* Protected Admin Routes - Wrapped with FilterProvider for all admin routes */}
+      {/* Protected Admin Routes */}
       <Route 
         path="/admin/*" 
         element={
@@ -59,6 +59,7 @@ const AppRoutes = () => {
                 <Route path="scheduling" element={<Scheduling />} />
                 <Route path="costs" element={<Costs />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </FilterProvider>

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import GlobalFilter from '@/components/GlobalFilter';
 import { 
   BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X, DollarSign, Settings, Folder
+  LogOut, Home, Menu, X, DollarSign, Settings, Folder, Grid2X2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,10 +31,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
     { path: "/admin/projects", label: "Projects", icon: <Folder className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
+    { path: "/admin/interactive-scheduling", label: "Interactive Scheduling", icon: <Grid2X2 className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
   ];
   
-  // Determine if we should show filters based on the current route
   const shouldShowFilters = () => {
     if (!showFilters) return false;
     
@@ -52,7 +52,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
   
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Mobile Header */}
       <header className="lg:hidden bg-cbs text-white p-4 flex justify-between items-center">
         <Link to="/admin/dashboard" className="font-bold text-xl">
           CBS Admin
@@ -62,7 +61,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
         </button>
       </header>
       
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="lg:hidden bg-cbs text-white p-4">
           <nav className="space-y-2">
@@ -83,7 +81,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
               </Link>
             ))}
             
-            {/* Settings link moved above logout */}
             <Link
               to="/admin/settings"
               className={cn(
@@ -119,7 +116,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
       )}
       
       <div className="flex-1 flex">
-        {/* Desktop Sidebar */}
         <aside className="hidden lg:block w-64 bg-cbs text-white p-4 h-screen sticky top-0">
           <div className="flex flex-col h-full">
             <Link to="/admin/dashboard" className="font-bold text-xl mb-6">
@@ -145,7 +141,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
             </nav>
             
             <div className="pt-4 border-t border-white/20 space-y-1">
-              {/* Settings link moved above logout */}
               <Link
                 to="/admin/settings"
                 className={cn(
@@ -179,7 +174,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
           </div>
         </aside>
         
-        {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 bg-background min-h-screen">
           {shouldShowFilters() && (
             <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
