@@ -36,12 +36,11 @@ const SessionFilters: React.FC<SessionFiltersProps> = ({
   return (
     <div className="space-y-4">
       <div className="bg-white p-4 rounded-lg shadow-sm border">
-        <h2 className="font-semibold mb-4">Global Filters</h2>
+        <h2 className="font-semibold mb-4">Filters</h2>
         <GlobalFilter />
       </div>
       
       <div className="bg-white p-4 rounded-lg shadow-sm border">
-        <h2 className="font-semibold mb-4">Session Filters</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="interviewer-filter">Interviewer Code</Label>
