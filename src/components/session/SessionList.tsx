@@ -30,6 +30,12 @@ const SessionList: React.FC<SessionListProps> = ({
   onStopSession,
   onDeleteSession
 }) => {
+  // This async function wraps the empty function to return a Promise
+  const refreshInterviews = async () => {
+    // This is now an async function that returns a Promise<void>
+    return Promise.resolve();
+  };
+  
   return (
     <Card className="border shadow-sm">
       <CardContent className="p-0">
@@ -126,7 +132,7 @@ const SessionList: React.FC<SessionListProps> = ({
                 {session.interviews && session.interviews.length > 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="p-0 border-t-0">
-                      <InterviewsList sessions={[session]} refreshInterviews={() => {}} />
+                      <InterviewsList sessions={[session]} refreshInterviews={refreshInterviews} />
                     </TableCell>
                   </TableRow>
                 )}
