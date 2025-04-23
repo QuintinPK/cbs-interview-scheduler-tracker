@@ -1,9 +1,7 @@
 
-import React, { useState, useEffect } from "react";
-import { format } from "date-fns";
+import React from "react";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Session } from "@/types";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
 import GlobalFilter from "@/components/GlobalFilter";
@@ -38,7 +36,7 @@ const Sessions = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div className="bg-white p-4 rounded-lg shadow-sm border">
-          <h2 className="font-semibold mb-4">Filters</h2>
+          <h2 className="font-semibold mb-4">Global Filters</h2>
           <GlobalFilter />
         </div>
 
