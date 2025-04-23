@@ -1,11 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Schedule } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { startOfWeek, endOfWeek, parseISO, differenceInHours } from "date-fns";
 
-export const useSchedules = (interviewerId?: string) => {
+export const useSchedules = (
+  interviewerId?: string,
+  startDate?: string,
+  endDate?: string
+) => {
   const { toast } = useToast();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +23,14 @@ export const useSchedules = (interviewerId?: string) => {
         
       if (interviewerId) {
         query = query.eq('interviewer_id', interviewerId);
+      }
+      
+      if (startDate) {
+        query = query.gte('start_time', `${startDate}T00:00:00`);
+      }
+      
+      if (endDate) {
+        query = query.lte('start_time', `${endDate}T23:59:59`);
       }
       
       const { data, error } = await query.order('start_time');
@@ -51,7 +62,7 @@ export const useSchedules = (interviewerId?: string) => {
 
   useEffect(() => {
     loadSchedules();
-  }, [interviewerId]);
+  }, [interviewerId, startDate, endDate]);
 
   const addSchedule = async (schedule: Omit<Schedule, 'id'>) => {
     try {

@@ -34,7 +34,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       
       <footer className="bg-gray-100 py-4 border-t">
         <div className="container mx-auto text-center text-sm text-gray-600">
-          © {new Date().getFullYear()} FieldSynq
+          © {new Date().getFullYear()} FieldSync
         </div>
       </footer>
     </div>

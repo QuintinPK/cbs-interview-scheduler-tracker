@@ -14,41 +14,53 @@ export const useSessions = (
   endDate?: string
 ) => {
   const { toast } = useToast();
-  const { sessions: allSessions, interviewers, loading: fetchLoading } = useDataFetching();
-  const { selectedProject, selectedIsland, filterSessions } = useFilter();
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
+  const { interviewers } = useDataFetching();
   
-  // Initialize with sessions specific to the interviewer if ID is provided
+  // Load sessions directly from Supabase when date range is provided
   useEffect(() => {
-    if (interviewerId) {
-      const interviewerSessions = allSessions.filter(
-        session => session.interviewer_id === interviewerId
-      );
-      setSessions(interviewerSessions);
-    } else {
-      setSessions(allSessions);
-    }
-    setLoading(fetchLoading);
-  }, [allSessions, interviewerId, fetchLoading]);
-  
-  // Apply global filters (project and island)
-  useEffect(() => {
-    // First filter by selected project
-    let filtered = filterSessions(sessions);
+    const loadSessions = async () => {
+      try {
+        setLoading(true);
+        
+        let query = supabase
+          .from('sessions')
+          .select('*');
+          
+        if (interviewerId) {
+          query = query.eq('interviewer_id', interviewerId);
+        }
+        
+        if (startDate) {
+          query = query.gte('start_time', `${startDate}T00:00:00`);
+        }
+        
+        if (endDate) {
+          query = query.lte('start_time', `${endDate}T23:59:59`);
+        }
+        
+        const { data, error } = await query.order('start_time');
+          
+        if (error) throw error;
+        
+        setSessions(data || []);
+        setFilteredSessions(data || []);
+      } catch (error) {
+        console.error("Error loading sessions:", error);
+        toast({
+          title: "Error",
+          description: "Could not load sessions",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    // Then filter by selected island if needed
-    if (selectedIsland) {
-      filtered = filtered.filter(session => {
-        const interviewer = interviewers.find(i => i.id === session.interviewer_id);
-        return interviewer && interviewer.island === selectedIsland;
-      });
-    }
-    
-    // Apply the component's own filters
-    applyComponentFilters(filtered);
-  }, [sessions, selectedProject, selectedIsland, interviewers]);
+    loadSessions();
+  }, [interviewerId, startDate, endDate, toast]);
   
   // Initialize session filters
   const {
@@ -60,17 +72,6 @@ export const useSessions = (
     applyFilters: applySessionFilters,
     resetFilters: resetSessionFilters
   } = useSessionFilters(sessions);
-  
-  // Apply component-specific filters
-  const applyComponentFilters = (sessionsToFilter: Session[]) => {
-    // We call this whenever we need to reapply the component filters
-    applySessionFilters(sessionsToFilter);
-  };
-  
-  // Apply filters whenever filter results change
-  useEffect(() => {
-    setFilteredSessions(filterResults);
-  }, [filterResults]);
   
   // Initialize session actions
   const { 
@@ -91,14 +92,14 @@ export const useSessions = (
     return interviewer ? interviewer.code : "Unknown";
   };
   
-  // Wrapper for applying filters with interviewers
+  // Wrapper for applying filters
   const applyFilters = () => {
     applySessionFilters(interviewers);
   };
   
   return { 
-    sessions: filteredSessions,  // Original property for backward compatibility
-    filteredSessions,           // New property with the filtered results
+    sessions: filteredSessions,
+    filteredSessions,
     loading, 
     interviewerCodeFilter,
     setInterviewerCodeFilter,
