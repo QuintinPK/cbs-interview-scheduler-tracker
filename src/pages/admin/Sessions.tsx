@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Session, Interview } from "@/types";
@@ -33,7 +32,7 @@ const Sessions = () => {
   const { toast } = useToast();
   const { projects } = useProjects();
   const { 
-    sessions, // Updated property name here
+    sessions, 
     loading, 
     interviewerCodeFilter,
     setInterviewerCodeFilter,
@@ -174,7 +173,7 @@ const Sessions = () => {
   };
   
   const handleExport = () => {
-    const exportData = sessions.map(session => ({ // Updated to use sessions instead of filteredSessions
+    const exportData = sessions.map(session => ({
       InterviewerCode: getInterviewerCode(session.interviewer_id),
       StartTime: formatDateTime(session.start_time),
       EndTime: session.end_time ? formatDateTime(session.end_time) : 'Active',
@@ -219,7 +218,7 @@ const Sessions = () => {
         />
         
         <SessionList
-          sessions={sessions} // Updated to use sessions instead of filteredSessions
+          sessions={sessions}
           loading={loading}
           getInterviewerCode={getInterviewerCode}
           getSessionInterviews={getSessionInterviews}

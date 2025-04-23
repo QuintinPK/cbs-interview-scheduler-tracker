@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { format, parseISO, isSameDay, isSameHour, isSameMinute } from "date-fns";
+import { format, parseISO, isSameDay } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Schedule, Session } from "@/types";
 import { Info, AlertCircle } from "lucide-react";
@@ -13,6 +13,7 @@ interface InteractiveScheduleGridProps {
   onScheduleSlot: (interviewerId: string, startTime: Date, endTime: Date) => Promise<void>;
   onUnscheduleSlot: (scheduleId: string) => Promise<void>;
   viewMode?: "day" | "week";
+  hours?: number[];
 }
 
 interface CellState {
@@ -26,7 +27,7 @@ interface CellState {
   notes?: string;
 }
 
-const hours = Array.from({ length: 11 }, (_, i) => i + 8); // 8:00 to 18:00
+const defaultHours = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 to 20:00
 
 export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = ({
   currentDate,
@@ -36,7 +37,8 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   sessions,
   onScheduleSlot,
   onUnscheduleSlot,
-  viewMode = "day"
+  viewMode = "day",
+  hours = defaultHours,
 }) => {
   const [grid, setGrid] = useState<any>({});
   const [isDragging, setIsDragging] = useState(false);
@@ -152,7 +154,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
 
       setGrid(newGrid);
     }
-  }, [currentDate, weekDates, interviewers, schedules, sessions, viewMode]);
+  }, [currentDate, weekDates, interviewers, schedules, sessions, viewMode, hours]);
 
   const handleMouseDown = (interviewerId: string, hour: number) => {
     setIsDragging(true);
@@ -169,22 +171,20 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   const handleMouseUp = async () => {
     if (isDragging && dragStartCell && dragEndCell) {
       setLoading(true);
-      
       try {
         const startInterviewerIndex = interviewers.findIndex(i => i.id === dragStartCell.interviewerId);
         const endInterviewerIndex = interviewers.findIndex(i => i.id === dragEndCell.interviewerId);
-        
+
         const minInterviewerIndex = Math.min(startInterviewerIndex, endInterviewerIndex);
         const maxInterviewerIndex = Math.max(startInterviewerIndex, endInterviewerIndex);
-        
+
         const minHour = Math.min(dragStartCell.hour, dragEndCell.hour);
         const maxHour = Math.max(dragStartCell.hour, dragEndCell.hour);
-        
+
         const selectedCells: { interviewerId: string; hour: number; cell: CellState }[] = [];
-        
+
         for (let i = minInterviewerIndex; i <= maxInterviewerIndex; i++) {
           const interviewerId = interviewers[i].id;
-          
           for (let hour = minHour; hour <= maxHour; hour++) {
             if (grid[interviewerId] && grid[interviewerId][hour]) {
               selectedCells.push({
@@ -195,27 +195,26 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
             }
           }
         }
-        
-        const scheduledCount = selectedCells.filter(({ cell }) => cell.isScheduled).length;
-        const shouldUnschedule = scheduledCount > selectedCells.length / 2;
-        
-        const operations = [];
-        
-        if (shouldUnschedule) {
-          for (const { cell } of selectedCells) {
-            if (cell.isScheduled && cell.scheduleId) {
-              operations.push(onUnscheduleSlot(cell.scheduleId));
-            }
-          }
-        } else {
-          for (const { interviewerId, cell } of selectedCells) {
-            if (!cell.isScheduled) {
-              operations.push(onScheduleSlot(interviewerId, cell.startTime, cell.endTime));
-            }
+
+        const scheduleOps = [];
+        let anyDeleted = false;
+        for (const { cell } of selectedCells) {
+          if (cell.isScheduled && cell.scheduleId) {
+            scheduleOps.push(onUnscheduleSlot(cell.scheduleId));
+            anyDeleted = true;
           }
         }
-        
-        await Promise.all(operations);
+        await Promise.all(scheduleOps);
+
+        if (!anyDeleted) {
+          const addOps = [];
+          for (const { interviewerId, cell } of selectedCells) {
+            if (!cell.isScheduled) {
+              addOps.push(onScheduleSlot(interviewerId, cell.startTime, cell.endTime));
+            }
+          }
+          await Promise.all(addOps);
+        }
       } catch (error) {
         console.error("Error processing batch schedule operation:", error);
       } finally {
@@ -288,9 +287,11 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     setDragStartCell({ dayIdx, hour });
     setDragEndCell({ dayIdx, hour });
   };
+
   const handleMouseOverWeek = (dayIdx: number, hour: number) => {
     if (isDragging) setDragEndCell({ dayIdx, hour });
   };
+
   const handleMouseUpWeek = async () => {
     if (isDragging && dragStartCell && dragEndCell) {
       setLoading(true);
@@ -307,22 +308,23 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
             }
           }
         }
-        const scheduledCount = selectedCells.filter(({ cell }) => cell.isScheduled).length;
-        const shouldUnschedule = scheduledCount > selectedCells.length / 2;
-        const operations = [];
-        const interviewerId = interviewers[0].id;
-        if (shouldUnschedule) {
-          for (const { cell } of selectedCells) {
-            if (cell.isScheduled && cell.scheduleId)
-              operations.push(onUnscheduleSlot(cell.scheduleId));
-          }
-        } else {
+        const scheduleOps = [];
+        let anyDeleted = false;
+        for (const { cell } of selectedCells) {
+          if (cell.isScheduled && cell.scheduleId)
+            scheduleOps.push(onUnscheduleSlot(cell.scheduleId));
+            anyDeleted = true;
+        }
+        await Promise.all(scheduleOps);
+
+        if (!anyDeleted) {
+          const addOps = [];
           for (const { cell } of selectedCells) {
             if (!cell.isScheduled)
-              operations.push(onScheduleSlot(interviewerId, cell.startTime, cell.endTime));
+              addOps.push(onScheduleSlot(interviewers[0].id, cell.startTime, cell.endTime));
           }
+          await Promise.all(addOps);
         }
-        await Promise.all(operations);
       } catch (error) {
         console.error("Error processing batch schedule operation:", error);
       } finally {
@@ -351,10 +353,12 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
+  const gridStyle = isDragging ? "user-select-none" : "";
+
   if (viewMode === "week" && weekDates && interviewers.length === 1 && Object.keys(grid).length > 0) {
     return (
       <div
-        className={`relative overflow-x-auto ${loading ? "opacity-70 pointer-events-none" : ""}`}
+        className={`relative overflow-x-auto ${loading ? "opacity-70 pointer-events-none" : ""} ${gridStyle}`}
         onMouseLeave={() => setIsDragging(false)}
         onMouseUp={handleMouseUpWeek}
         ref={gridRef}
@@ -444,13 +448,13 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
 
   return (
     <div 
-      className={`relative overflow-x-auto ${loading ? 'opacity-70 pointer-events-none' : ''}`}
+      className={`relative overflow-x-auto ${loading ? 'opacity-70 pointer-events-none' : ''} ${gridStyle}`}
       onMouseLeave={() => setIsDragging(false)}
       onMouseUp={handleMouseUp}
       ref={gridRef}
     >
       <div className="min-w-[768px]">
-        <div className="grid grid-cols-[150px_repeat(11,1fr)] border-b">
+        <div className={`grid grid-cols-[150px_repeat(${hours.length},1fr)] border-b`}>
           <div className="p-2 text-center font-medium border-r">Interviewer</div>
           {hours.map(hour => (
             <div key={hour} className="p-2 text-center font-medium">
@@ -460,7 +464,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         </div>
         
         {interviewers.map(interviewer => (
-          <div key={interviewer.id} className="grid grid-cols-[150px_repeat(11,1fr)] border-b">
+          <div key={interviewer.id} className={`grid grid-cols-[150px_repeat(${hours.length},1fr)] border-b`}>
             <div className="p-2 border-r text-sm font-medium truncate">
               {interviewer.code}: {interviewer.first_name} {interviewer.last_name}
             </div>
