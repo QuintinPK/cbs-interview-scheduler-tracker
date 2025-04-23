@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { 
   Table, 
   TableBody, 
@@ -25,18 +25,18 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Interview, Session } from "@/types";
+import { Interview } from "@/types";
 import { MapPin, Clock, CheckCircle, XCircle, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CoordinatePopup from "../ui/CoordinatePopup";
 
 interface InterviewsListProps {
-  sessions: Session[];
+  interviews: Interview[];
   refreshInterviews: () => Promise<void>;
 }
 
-const InterviewsList: React.FC<InterviewsListProps> = ({ sessions, refreshInterviews }) => {
+const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInterviews }) => {
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -48,11 +48,6 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ sessions, refreshInterv
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
-
-  // Combine all interviews from all sessions
-  const interviews = sessions.flatMap(session => 
-    session.interviews ? session.interviews : []
-  );
 
   const getResultBadge = (result: string | null) => {
     if (!result) return null;

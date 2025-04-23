@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Schedule, Session } from "@/types";
 import { Info, AlertCircle } from "lucide-react";
-import { SessionViewDialog } from "./SessionViewDialog";
 
 interface InteractiveScheduleGridProps {
   currentDate: Date;
@@ -27,7 +25,6 @@ interface CellState {
   endTime: Date;
   status?: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
-  session?: Session;
 }
 
 const defaultHours = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 to 20:00
@@ -48,8 +45,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   const [dragStartCell, setDragStartCell] = useState<any>(null);
   const [dragEndCell, setDragEndCell] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -103,7 +98,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
             ...newGrid[session.interviewer_id][sessionStartHour],
             isSession: true,
             sessionId: session.id,
-            session: session,
           };
         }
       });
@@ -153,7 +147,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
               ...newGrid[dIdx][sessionStartHour],
               isSession: true,
               sessionId: session.id,
-              session: session,
             };
           }
         });
@@ -205,7 +198,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
 
         const scheduleOps = [];
         let anyDeleted = false;
-        for (const { cell, interviewerId } of selectedCells) {
+        for (const { cell } of selectedCells) {
           if (cell.isScheduled && cell.scheduleId) {
             scheduleOps.push(onUnscheduleSlot(cell.scheduleId));
             anyDeleted = true;
@@ -237,14 +230,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     if (loading) return;
     
     const cell = grid[interviewerId][hour];
-    
-    // If it's a session, open the session dialog instead of toggling the schedule
-    if (cell.isSession && cell.session) {
-      setSelectedSession(cell.session);
-      setIsDialogOpen(true);
-      return;
-    }
-    
     setLoading(true);
     
     try {
@@ -258,11 +243,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleViewSession = (session: Session) => {
-    setSelectedSession(session);
-    setIsDialogOpen(true);
   };
 
   const isCellInDragSelection = (interviewerId: string, hour: number) => {
@@ -331,19 +311,17 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         const scheduleOps = [];
         let anyDeleted = false;
         for (const { cell } of selectedCells) {
-          if (cell.isScheduled && cell.scheduleId) {
+          if (cell.isScheduled && cell.scheduleId)
             scheduleOps.push(onUnscheduleSlot(cell.scheduleId));
             anyDeleted = true;
-          }
         }
         await Promise.all(scheduleOps);
 
         if (!anyDeleted) {
           const addOps = [];
           for (const { cell } of selectedCells) {
-            if (!cell.isScheduled) {
+            if (!cell.isScheduled)
               addOps.push(onScheduleSlot(interviewers[0].id, cell.startTime, cell.endTime));
-            }
           }
           await Promise.all(addOps);
         }
@@ -361,14 +339,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   const handleCellClickWeek = async (dayIdx: number, hour: number) => {
     if (loading) return;
     const cell = grid[dayIdx][hour];
-    
-    // If it's a session, open the session dialog instead of toggling the schedule
-    if (cell.isSession && cell.session) {
-      setSelectedSession(cell.session);
-      setIsDialogOpen(true);
-      return;
-    }
-    
     setLoading(true);
     try {
       if (cell.isScheduled && cell.scheduleId) {
@@ -383,157 +353,37 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
-  // Apply user-select-none to prevent text selection during drag
   const gridStyle = isDragging ? "user-select-none" : "";
 
   if (viewMode === "week" && weekDates && interviewers.length === 1 && Object.keys(grid).length > 0) {
     return (
-      <>
-        <div
-          className={`relative overflow-x-auto ${loading ? "opacity-70 pointer-events-none" : ""} ${gridStyle}`}
-          onMouseLeave={() => setIsDragging(false)}
-          onMouseUp={handleMouseUpWeek}
-          ref={gridRef}
-        >
-          <div className="min-w-full">
-            <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
-              <div className="p-2 text-center font-medium border-r">Time</div>
-              {weekDates.map((dateObj, dIdx) => (
-                <div key={dIdx} className="p-2 text-center font-medium whitespace-nowrap">
-                  {format(dateObj, "E, MMM d")}
-                </div>
-              ))}
-            </div>
-            {hours.map(hour => (
-              <div key={hour} className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
-                <div className="p-2 border-r text-sm font-medium text-center">{hour}:00</div>
-                {weekDates.map((dateObj, dIdx) => {
-                  const cell = grid[dIdx]?.[hour];
-                  if (!cell) return <div key={dIdx} className="p-2 h-12 border-r"></div>;
-                  const inDragSelection = isCellInDragSelectionWeek(dIdx, hour);
-                  let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
-                  if (cell.isScheduled) {
-                    if (cell.status === "completed") {
-                      cellClass += " bg-green-100 border border-green-300";
-                    } else if (cell.status === "cancelled") {
-                      cellClass += " bg-gray-100 border border-gray-300 opacity-60";
-                    } else {
-                      cellClass += " bg-cbs-light/20 border border-cbs-light/40";
-                    }
-                  } else if (cell.isSession) {
-                    cellClass += " bg-green-50 border border-green-200";
-                  } else {
-                    cellClass += " bg-gray-50 hover:bg-gray-100";
-                  }
-                  if (inDragSelection) {
-                    cellClass += " ring-2 ring-cbs-light ring-opacity-70";
-                  }
-                  return (
-                    <TooltipProvider key={dIdx}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div
-                            className={cellClass}
-                            onMouseDown={() => handleMouseDownWeek(dIdx, hour)}
-                            onMouseOver={() => handleMouseOverWeek(dIdx, hour)}
-                            onClick={() => handleCellClickWeek(dIdx, hour)}
-                          >
-                            <div className="text-xs">
-                              {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-                            </div>
-                            {(cell.isScheduled || cell.isSession) && (
-                              <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
-                                {cell.isScheduled && <Info size={12} className="text-cbs" />}
-                                {cell.isSession && <AlertCircle size={12} className="text-green-500" />}
-                              </div>
-                            )}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="space-y-1 p-1">
-                            <p className="font-semibold">
-                              {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-                            </p>
-                            {cell.isScheduled && (
-                              <>
-                                <p>Status: {cell.status}</p>
-                                {cell.notes && <p>Notes: {cell.notes}</p>}
-                              </>
-                            )}
-                            {cell.isSession && (
-                              <>
-                                <p>Session activity registered</p>
-                                <button 
-                                  className="text-xs text-blue-600 hover:underline"
-                                  onClick={(e) => {
-                                    e.stopPropagation(); // Prevent cell click handler
-                                    if (cell.session) handleViewSession(cell.session);
-                                  }}
-                                >
-                                  View session
-                                </button>
-                              </>
-                            )}
-                            {!cell.isScheduled && !cell.isSession && <p>Available slot</p>}
-                            <p className="text-xs text-muted-foreground">
-                              {cell.isScheduled ? "Click to unschedule" : "Click to schedule"}
-                            </p>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-        <SessionViewDialog 
-          open={isDialogOpen} 
-          onOpenChange={setIsDialogOpen} 
-          session={selectedSession}
-        />
-      </>
-    );
-  }
-
-  return (
-    <>
-      <div 
-        className={`relative overflow-x-auto ${loading ? 'opacity-70 pointer-events-none' : ''} ${gridStyle}`}
+      <div
+        className={`relative overflow-x-auto ${loading ? "opacity-70 pointer-events-none" : ""} ${gridStyle}`}
         onMouseLeave={() => setIsDragging(false)}
-        onMouseUp={handleMouseUp}
+        onMouseUp={handleMouseUpWeek}
         ref={gridRef}
       >
-        <div className="min-w-[768px]">
-          <div className={`grid grid-cols-[150px_repeat(${hours.length},1fr)] border-b`}>
-            <div className="p-2 text-center font-medium border-r">Interviewer</div>
-            {hours.map(hour => (
-              <div key={hour} className="p-2 text-center font-medium">
-                {hour}:00
+        <div className="min-w-full">
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
+            <div className="p-2 text-center font-medium border-r">Time</div>
+            {weekDates.map((dateObj, dIdx) => (
+              <div key={dIdx} className="p-2 text-center font-medium whitespace-nowrap">
+                {format(dateObj, "E, MMM d")}
               </div>
             ))}
           </div>
-          
-          {interviewers.map(interviewer => (
-            <div key={interviewer.id} className={`grid grid-cols-[150px_repeat(${hours.length},1fr)] border-b`}>
-              <div className="p-2 border-r text-sm font-medium truncate">
-                {interviewer.code}: {interviewer.first_name} {interviewer.last_name}
-              </div>
-              
-              {hours.map(hour => {
-                const cell = grid[interviewer.id]?.[hour];
-                
-                if (!cell) return <div key={hour} className="p-2 h-12 border-r"></div>;
-                
-                const inDragSelection = isCellInDragSelection(interviewer.id, hour);
-                
+          {hours.map(hour => (
+            <div key={hour} className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
+              <div className="p-2 border-r text-sm font-medium text-center">{hour}:00</div>
+              {weekDates.map((dateObj, dIdx) => {
+                const cell = grid[dIdx]?.[hour];
+                if (!cell) return <div key={dIdx} className="p-2 h-12 border-r"></div>;
+                const inDragSelection = isCellInDragSelectionWeek(dIdx, hour);
                 let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
-                
                 if (cell.isScheduled) {
-                  if (cell.status === 'completed') {
+                  if (cell.status === "completed") {
                     cellClass += " bg-green-100 border border-green-300";
-                  } else if (cell.status === 'cancelled') {
+                  } else if (cell.status === "cancelled") {
                     cellClass += " bg-gray-100 border border-gray-300 opacity-60";
                   } else {
                     cellClass += " bg-cbs-light/20 border border-cbs-light/40";
@@ -543,20 +393,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
                 } else {
                   cellClass += " bg-gray-50 hover:bg-gray-100";
                 }
-                
                 if (inDragSelection) {
                   cellClass += " ring-2 ring-cbs-light ring-opacity-70";
                 }
-                
                 return (
-                  <TooltipProvider key={hour}>
+                  <TooltipProvider key={dIdx}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div 
+                        <div
                           className={cellClass}
-                          onMouseDown={() => handleMouseDown(interviewer.id, hour)}
-                          onMouseOver={() => handleMouseOver(interviewer.id, hour)}
-                          onClick={() => handleCellClick(interviewer.id, hour)}
+                          onMouseDown={() => handleMouseDownWeek(dIdx, hour)}
+                          onMouseOver={() => handleMouseOverWeek(dIdx, hour)}
+                          onClick={() => handleCellClickWeek(dIdx, hour)}
                         >
                           <div className="text-xs">
                             {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
@@ -580,20 +428,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
                               {cell.notes && <p>Notes: {cell.notes}</p>}
                             </>
                           )}
-                          {cell.isSession && (
-                            <>
-                              <p>Session activity registered</p>
-                              <button 
-                                className="text-xs text-blue-600 hover:underline"
-                                onClick={(e) => {
-                                  e.stopPropagation(); // Prevent cell click handler
-                                  if (cell.session) handleViewSession(cell.session);
-                                }}
-                              >
-                                View session
-                              </button>
-                            </>
-                          )}
+                          {cell.isSession && <p>Session activity detected</p>}
                           {!cell.isScheduled && !cell.isSession && <p>Available slot</p>}
                           <p className="text-xs text-muted-foreground">
                             {cell.isScheduled ? "Click to unschedule" : "Click to schedule"}
@@ -608,11 +443,105 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
           ))}
         </div>
       </div>
-      <SessionViewDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen} 
-        session={selectedSession}
-      />
-    </>
+    );
+  }
+
+  return (
+    <div 
+      className={`relative overflow-x-auto ${loading ? 'opacity-70 pointer-events-none' : ''} ${gridStyle}`}
+      onMouseLeave={() => setIsDragging(false)}
+      onMouseUp={handleMouseUp}
+      ref={gridRef}
+    >
+      <div className="min-w-[768px]">
+        <div className={`grid grid-cols-[150px_repeat(${hours.length},1fr)] border-b`}>
+          <div className="p-2 text-center font-medium border-r">Interviewer</div>
+          {hours.map(hour => (
+            <div key={hour} className="p-2 text-center font-medium">
+              {hour}:00
+            </div>
+          ))}
+        </div>
+        
+        {interviewers.map(interviewer => (
+          <div key={interviewer.id} className={`grid grid-cols-[150px_repeat(${hours.length},1fr)] border-b`}>
+            <div className="p-2 border-r text-sm font-medium truncate">
+              {interviewer.code}: {interviewer.first_name} {interviewer.last_name}
+            </div>
+            
+            {hours.map(hour => {
+              const cell = grid[interviewer.id]?.[hour];
+              
+              if (!cell) return <div key={hour} className="p-2 h-12 border-r"></div>;
+              
+              const inDragSelection = isCellInDragSelection(interviewer.id, hour);
+              
+              let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
+              
+              if (cell.isScheduled) {
+                if (cell.status === 'completed') {
+                  cellClass += " bg-green-100 border border-green-300";
+                } else if (cell.status === 'cancelled') {
+                  cellClass += " bg-gray-100 border border-gray-300 opacity-60";
+                } else {
+                  cellClass += " bg-cbs-light/20 border border-cbs-light/40";
+                }
+              } else if (cell.isSession) {
+                cellClass += " bg-green-50 border border-green-200";
+              } else {
+                cellClass += " bg-gray-50 hover:bg-gray-100";
+              }
+              
+              if (inDragSelection) {
+                cellClass += " ring-2 ring-cbs-light ring-opacity-70";
+              }
+              
+              return (
+                <TooltipProvider key={hour}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className={cellClass}
+                        onMouseDown={() => handleMouseDown(interviewer.id, hour)}
+                        onMouseOver={() => handleMouseOver(interviewer.id, hour)}
+                        onClick={() => handleCellClick(interviewer.id, hour)}
+                      >
+                        <div className="text-xs">
+                          {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
+                        </div>
+                        {(cell.isScheduled || cell.isSession) && (
+                          <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
+                            {cell.isScheduled && <Info size={12} className="text-cbs" />}
+                            {cell.isSession && <AlertCircle size={12} className="text-green-500" />}
+                          </div>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="space-y-1 p-1">
+                        <p className="font-semibold">
+                          {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
+                        </p>
+                        {cell.isScheduled && (
+                          <>
+                            <p>Status: {cell.status}</p>
+                            {cell.notes && <p>Notes: {cell.notes}</p>}
+                          </>
+                        )}
+                        {cell.isSession && <p>Session activity detected</p>}
+                        {!cell.isScheduled && !cell.isSession && <p>Available slot</p>}
+                        <p className="text-xs text-muted-foreground">
+                          {cell.isScheduled ? "Click to unschedule" : "Click to schedule"}
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };

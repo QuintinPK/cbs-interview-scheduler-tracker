@@ -12,7 +12,6 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useSessions } from "@/hooks/useSessions";
 import { useFilter } from "@/contexts/FilterContext";
 import { Button } from "@/components/ui/button";
-import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
 import {
   Select,
   SelectContent,
@@ -28,6 +27,35 @@ function getMonday(date: Date) {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 }
+
+// Week picker utility for week view
+const WeekPicker: React.FC<{
+  currentDate: Date;
+  onWeekSelect: (date: Date) => void;
+}> = ({ currentDate, onWeekSelect }) => {
+  // List of the current, past 4, and next 4 weeks
+  const thisMonday = getMonday(new Date());
+  const weekOptions = Array.from({ length: 9 }, (_, i) =>
+    addDays(thisMonday, (i - 4) * 7)
+  );
+  return (
+    <Select
+      value={getMonday(currentDate).toISOString()}
+      onValueChange={v => onWeekSelect(new Date(v))}
+    >
+      <SelectTrigger className="w-[230px]">
+        <SelectValue placeholder="Select week" />
+      </SelectTrigger>
+      <SelectContent>
+        {weekOptions.map((start, idx) => (
+          <SelectItem key={idx} value={start.toISOString()}>
+            {format(start, "LLLL d, yyyy")}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
 
 const InteractiveScheduling = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -162,21 +190,21 @@ const InteractiveScheduling = () => {
         </div>
 
         {/* Date Navigator (always show, controls current day or week) */}
-        {viewMode === "day" && (
-          <DateNavigator
-            currentDate={currentDate}
-            onDateChange={handleDateChange}
-            onResetToToday={resetToToday}
-          />
-        )}
+        <DateNavigator
+          currentDate={currentDate}
+          onDateChange={handleDateChange}
+          onResetToToday={resetToToday}
+        />
 
-        {/* Use the same WeekNavigator as in Scheduling for week view */}
+        {/* Week picker for week view */}
         {viewMode === "week" && (
-          <WeekNavigator
-            currentWeekStart={weekStart}
-            onWeekChange={(newDate) => setCurrentDate(newDate)}
-            onResetToCurrentWeek={resetToToday}
-          />
+          <div className="flex gap-2 items-center mb-2">
+            <div className="font-medium text-sm">Select week:</div>
+            <WeekPicker
+              currentDate={currentDate}
+              onWeekSelect={(date) => setCurrentDate(getMonday(date))}
+            />
+          </div>
         )}
 
         {/* In week view, show interviewer selector */}

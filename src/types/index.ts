@@ -22,7 +22,6 @@ export interface Session {
   end_longitude: number | null;
   end_address: string | null;
   is_active: boolean;
-  interviews?: Interview[]; // Add interviews property to Session
 }
 
 export interface Interview {
