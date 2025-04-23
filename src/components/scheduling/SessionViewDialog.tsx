@@ -56,13 +56,13 @@ export const SessionViewDialog: React.FC<SessionViewDialogProps> = ({
     }
   };
 
-  // Count interviews
+  // Count interviews with null check
   const countInterviews = () => {
     if (!session.interviews) return 0;
     return session.interviews.length;
   };
 
-  // Count interview results
+  // Count interview results with null check
   const countInterviewsByResult = (result: string | null) => {
     if (!session.interviews) return 0;
     return session.interviews.filter(i => i.result === result).length;
@@ -155,7 +155,7 @@ export const SessionViewDialog: React.FC<SessionViewDialogProps> = ({
             </div>
           )}
 
-          {/* Interview stats */}
+          {/* Interview stats - only show if interviews exist */}
           {session.interviews && session.interviews.length > 0 && (
             <div className="border rounded-md p-4 space-y-3">
               <h3 className="font-medium text-md">Interview Statistics</h3>
@@ -196,3 +196,5 @@ export const SessionViewDialog: React.FC<SessionViewDialogProps> = ({
     </Dialog>
   );
 };
+
+export default SessionViewDialog;

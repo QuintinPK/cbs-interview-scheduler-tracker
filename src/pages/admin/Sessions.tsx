@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
@@ -12,7 +13,7 @@ import { useSessions } from "@/hooks/useSessions";
 import SessionList from "@/components/session/SessionList";
 import InterviewsList from "@/components/session/InterviewsList";
 import SessionFilters from "@/components/session/SessionFilters";
-import { SessionTotals } from "@/components/session/SessionTotals";
+import SessionTotals from "@/components/session/SessionTotals"; // Fixed import statement
 import { useFilter } from "@/contexts/FilterContext";
 
 const Sessions = () => {
@@ -31,7 +32,8 @@ const Sessions = () => {
     resetFilters,
     stopSession,
     updateSession,
-    deleteSession
+    deleteSession,
+    getInterviewerCode
   } = useSessions();
   
   // Get projects and filters from the global filter context
@@ -50,7 +52,7 @@ const Sessions = () => {
   const totalSessions = sessions.length;
   const activeSessions = sessions.filter(s => s.is_active).length;
   
-  // Calculate interviews stats
+  // Calculate interviews stats - safely checking if interviews exist
   const countInterviewsByResult = (result: "completed" | "not_home" | "refused" | null) => {
     let count = 0;
     sessions.forEach(session => {
@@ -68,7 +70,7 @@ const Sessions = () => {
   const notHomeInterviews = countInterviewsByResult("not_home");
   
   // Display active tabs based on data availability
-  const hasInterviews = sessions.some(session => session.interviews && session.interviews.length > 0);
+  const hasInterviews = sessions.some(session => session?.interviews && session.interviews.length > 0);
   
   return (
     <AdminLayout>
@@ -83,8 +85,6 @@ const Sessions = () => {
               </span>
             </div>
           </div>
-          
-          {/* Remove duplicate GlobalFilter here, keeping only the one in AdminLayout */}
         </div>
         
         {/* Display applied filters */}
@@ -98,11 +98,9 @@ const Sessions = () => {
         
         {/* Session stats */}
         <SessionTotals
-          totalSessions={totalSessions}
-          activeSessions={activeSessions}
-          completedInterviews={completedInterviews}
-          refusedInterviews={refusedInterviews}
-          notHomeInterviews={notHomeInterviews}
+          sessions={sessions}
+          loading={loading}
+          getInterviewerCode={getInterviewerCode}
         />
         
         {/* Session filters */}
@@ -113,6 +111,7 @@ const Sessions = () => {
           setDateFilter={setDateFilter}
           applyFilters={applyFilters}
           resetFilters={resetFilters}
+          loading={loading}
         />
         
         {/* Tabs for sessions and interviews */}
@@ -150,11 +149,14 @@ const Sessions = () => {
             ) : activeTabIndex === 0 ? (
               <SessionList 
                 sessions={sessions}
-                onStopSession={stopSession}
                 onDeleteSession={deleteSession}
+                onStopSession={stopSession}
               />
             ) : (
-              <InterviewsList sessions={sessions} />
+              <InterviewsList 
+                sessions={sessions}
+                refreshInterviews={async () => {}} // Providing a no-op function for now
+              />
             )}
           </div>
         </div>
