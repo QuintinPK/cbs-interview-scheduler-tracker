@@ -3,6 +3,7 @@ import { format, parseISO, isSameDay } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Schedule, Session } from "@/types";
 import { Info, AlertCircle } from "lucide-react";
+import { InteractiveGridCell } from './InteractiveGridCell';
 
 interface InteractiveScheduleGridProps {
   currentDate: Date;
@@ -353,6 +354,33 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
+  const renderCell = (cell: CellState, dayIdx: number, hour: number) => {
+    if (!cell) return <div className="p-2 h-12 border-r"></div>;
+    
+    const inDragSelection = viewMode === 'week' 
+      ? isCellInDragSelectionWeek(dayIdx, hour)
+      : isCellInDragSelection(interviewer.id, hour);
+
+    return (
+      <InteractiveGridCell
+        cell={cell}
+        inDragSelection={inDragSelection}
+        onMouseDown={() => viewMode === 'week' 
+          ? handleMouseDownWeek(dayIdx, hour)
+          : handleMouseDown(interviewer.id, hour)
+        }
+        onMouseOver={() => viewMode === 'week'
+          ? handleMouseOverWeek(dayIdx, hour)
+          : handleMouseOver(interviewer.id, hour)
+        }
+        onClick={() => viewMode === 'week'
+          ? handleCellClickWeek(dayIdx, hour)
+          : handleCellClick(interviewer.id, hour)
+        }
+      />
+    );
+  };
+
   const gridStyle = isDragging ? "user-select-none" : "";
 
   if (viewMode === "week" && weekDates && interviewers.length === 1 && Object.keys(grid).length > 0) {
@@ -377,67 +405,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
               <div className="p-2 border-r text-sm font-medium text-center">{hour}:00</div>
               {weekDates.map((dateObj, dIdx) => {
                 const cell = grid[dIdx]?.[hour];
-                if (!cell) return <div key={dIdx} className="p-2 h-12 border-r"></div>;
-                const inDragSelection = isCellInDragSelectionWeek(dIdx, hour);
-                let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
-                if (cell.isScheduled) {
-                  if (cell.status === "completed") {
-                    cellClass += " bg-green-100 border border-green-300";
-                  } else if (cell.status === "cancelled") {
-                    cellClass += " bg-gray-100 border border-gray-300 opacity-60";
-                  } else {
-                    cellClass += " bg-cbs-light/20 border border-cbs-light/40";
-                  }
-                } else if (cell.isSession) {
-                  cellClass += " bg-green-50 border border-green-200";
-                } else {
-                  cellClass += " bg-gray-50 hover:bg-gray-100";
-                }
-                if (inDragSelection) {
-                  cellClass += " ring-2 ring-cbs-light ring-opacity-70";
-                }
-                return (
-                  <TooltipProvider key={dIdx}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={cellClass}
-                          onMouseDown={() => handleMouseDownWeek(dIdx, hour)}
-                          onMouseOver={() => handleMouseOverWeek(dIdx, hour)}
-                          onClick={() => handleCellClickWeek(dIdx, hour)}
-                        >
-                          <div className="text-xs">
-                            {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-                          </div>
-                          {(cell.isScheduled || cell.isSession) && (
-                            <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
-                              {cell.isScheduled && <Info size={12} className="text-cbs" />}
-                              {cell.isSession && <AlertCircle size={12} className="text-green-500" />}
-                            </div>
-                          )}
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <div className="space-y-1 p-1">
-                          <p className="font-semibold">
-                            {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-                          </p>
-                          {cell.isScheduled && (
-                            <>
-                              <p>Status: {cell.status}</p>
-                              {cell.notes && <p>Notes: {cell.notes}</p>}
-                            </>
-                          )}
-                          {cell.isSession && <p>Session activity detected</p>}
-                          {!cell.isScheduled && !cell.isSession && <p>Available slot</p>}
-                          <p className="text-xs text-muted-foreground">
-                            {cell.isScheduled ? "Click to unschedule" : "Click to schedule"}
-                          </p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                );
+                return cell ? renderCell(cell, dIdx, hour) : null;
               })}
             </div>
           ))}
@@ -471,73 +439,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
             
             {hours.map(hour => {
               const cell = grid[interviewer.id]?.[hour];
-              
-              if (!cell) return <div key={hour} className="p-2 h-12 border-r"></div>;
-              
-              const inDragSelection = isCellInDragSelection(interviewer.id, hour);
-              
-              let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
-              
-              if (cell.isScheduled) {
-                if (cell.status === 'completed') {
-                  cellClass += " bg-green-100 border border-green-300";
-                } else if (cell.status === 'cancelled') {
-                  cellClass += " bg-gray-100 border border-gray-300 opacity-60";
-                } else {
-                  cellClass += " bg-cbs-light/20 border border-cbs-light/40";
-                }
-              } else if (cell.isSession) {
-                cellClass += " bg-green-50 border border-green-200";
-              } else {
-                cellClass += " bg-gray-50 hover:bg-gray-100";
-              }
-              
-              if (inDragSelection) {
-                cellClass += " ring-2 ring-cbs-light ring-opacity-70";
-              }
-              
-              return (
-                <TooltipProvider key={hour}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div 
-                        className={cellClass}
-                        onMouseDown={() => handleMouseDown(interviewer.id, hour)}
-                        onMouseOver={() => handleMouseOver(interviewer.id, hour)}
-                        onClick={() => handleCellClick(interviewer.id, hour)}
-                      >
-                        <div className="text-xs">
-                          {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-                        </div>
-                        {(cell.isScheduled || cell.isSession) && (
-                          <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
-                            {cell.isScheduled && <Info size={12} className="text-cbs" />}
-                            {cell.isSession && <AlertCircle size={12} className="text-green-500" />}
-                          </div>
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="space-y-1 p-1">
-                        <p className="font-semibold">
-                          {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-                        </p>
-                        {cell.isScheduled && (
-                          <>
-                            <p>Status: {cell.status}</p>
-                            {cell.notes && <p>Notes: {cell.notes}</p>}
-                          </>
-                        )}
-                        {cell.isSession && <p>Session activity detected</p>}
-                        {!cell.isScheduled && !cell.isSession && <p>Available slot</p>}
-                        <p className="text-xs text-muted-foreground">
-                          {cell.isScheduled ? "Click to unschedule" : "Click to schedule"}
-                        </p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              );
+              return cell ? renderCell(cell, 0, hour) : null;
             })}
           </div>
         ))}
