@@ -9,14 +9,18 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useSessions } from "@/hooks/useSessions";
 import { useFilter } from "@/contexts/FilterContext";
 import { InteractiveScheduleGrid } from "@/components/scheduling/InteractiveScheduleGrid";
-import { InterviewerSelector } from "@/components/scheduling/InterviewerSelector";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
 
 const InteractiveScheduling = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
-  const [selectedInterviewerCode, setSelectedInterviewerCode] = useState<string>("");
 
   // Fetch interviewers using the hook
   const { interviewers, loading: interviewersLoading } = useInterviewers();
@@ -30,16 +34,10 @@ const InteractiveScheduling = () => {
   const weekStartStr = format(currentWeekStart, "yyyy-MM-dd");
   const weekEndStr = format(addDays(currentWeekStart, 6), "yyyy-MM-dd");
 
-  // Set default interviewer if none selected and update interviewer code
+  // Set default interviewer if none selected
   useEffect(() => {
     if (filteredInterviewers.length > 0 && !selectedInterviewerId) {
       setSelectedInterviewerId(filteredInterviewers[0].id);
-      setSelectedInterviewerCode(filteredInterviewers[0].code);
-    } else if (selectedInterviewerId) {
-      const interviewer = filteredInterviewers.find(i => i.id === selectedInterviewerId);
-      if (interviewer) {
-        setSelectedInterviewerCode(interviewer.code);
-      }
     }
   }, [filteredInterviewers, selectedInterviewerId]);
 
@@ -56,30 +54,8 @@ const InteractiveScheduling = () => {
     loading: sessionsLoading 
   } = useSessions(selectedInterviewerId ?? undefined, weekStartStr, weekEndStr);
 
-  // Get work hours metrics
-  const { 
-    workedHours,
-    loading: workHoursLoading,
-    calculateWorkHoursForWeek
-  } = useInterviewerWorkHours(selectedInterviewerCode);
-
-  // Calculate scheduled hours for the current week
-  const scheduledHours = schedules.reduce((total, schedule) => {
-    const startTime = new Date(schedule.start_time);
-    const endTime = new Date(schedule.end_time);
-    const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-    return total + hours;
-  }, 0);
-
-  // Update work hours when interviewer or week changes
-  useEffect(() => {
-    if (selectedInterviewerCode) {
-      calculateWorkHoursForWeek(currentWeekStart);
-    }
-  }, [selectedInterviewerCode, currentWeekStart, calculateWorkHoursForWeek]);
-
   // Combined loading state
-  const isLoading = interviewersLoading || schedulesLoading || sessionsLoading || workHoursLoading;
+  const isLoading = interviewersLoading || schedulesLoading || sessionsLoading;
 
   // Navigate to previous/next week
   const navigateToNextWeek = () => {
@@ -98,15 +74,6 @@ const InteractiveScheduling = () => {
   // Handler for when schedules change
   const handleSchedulesChanged = () => {
     refreshSchedules();
-  };
-
-  // Handle interviewer change
-  const handleInterviewerChange = (interviewerId: string) => {
-    setSelectedInterviewerId(interviewerId);
-    const interviewer = filteredInterviewers.find(i => i.id === interviewerId);
-    if (interviewer) {
-      setSelectedInterviewerCode(interviewer.code);
-    }
   };
 
   return (
@@ -158,15 +125,26 @@ const InteractiveScheduling = () => {
           </Button>
         </div>
 
-        {/* Interviewer selector with metrics */}
+        {/* Interviewer selector */}
         {filteredInterviewers.length > 0 && (
-          <InterviewerSelector
-            interviewers={filteredInterviewers}
-            selectedInterviewerCode={selectedInterviewerId || ""}
-            onInterviewerChange={handleInterviewerChange}
-            scheduledHours={Math.round(scheduledHours)}
-            workedHours={workedHours}
-          />
+          <div className="flex gap-2 items-center bg-white p-4 rounded-lg border">
+            <label className="font-medium text-sm">Interviewer:</label>
+            <Select
+              value={selectedInterviewerId ?? ""}
+              onValueChange={setSelectedInterviewerId}
+            >
+              <SelectTrigger className="w-[240px]">
+                <SelectValue placeholder="Select interviewer" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredInterviewers.map(i => (
+                  <SelectItem key={i.id} value={i.id}>
+                    {i.code}: {i.first_name} {i.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
         {isLoading ? (
