@@ -33,8 +33,8 @@ interface CellState {
 interface InteractiveGridCellProps {
   cell: CellState;
   inDragSelection: boolean;
-  onMouseDown: () => void;
-  onMouseOver: () => void;
+  onMouseDown: (e: React.MouseEvent) => void;
+  onMouseOver: (e: React.MouseEvent) => void;
   onClick: () => void;
 }
 
