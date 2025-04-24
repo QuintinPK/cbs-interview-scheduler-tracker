@@ -70,7 +70,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   } else if (cell.isSession) {
     cellClass += " bg-green-50 border border-green-200";
   } else {
-    cellClass += " bg-gray-50 hover:bg-gray-100";
+    cellClass += " hover:bg-gray-100";
   }
   
   if (inDragSelection) {
@@ -102,9 +102,6 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             onMouseOver={onMouseOver}
             onClick={onClick}
           >
-            <div className="text-xs">
-              {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-            </div>
             {(cell.isScheduled || cell.isSession) && (
               <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
                 {cell.isScheduled && <Info size={12} className="text-cbs" />}

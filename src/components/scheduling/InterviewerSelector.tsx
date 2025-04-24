@@ -23,9 +23,14 @@ export const InterviewerSelector = ({
   interviewers,
   selectedInterviewerCode,
   onInterviewerChange,
-  scheduledHours,
-  workedHours,
+  scheduledHours = 0,
+  workedHours = 0,
 }: InterviewerSelectorProps) => {
+  // Calculate efficiency percentage
+  const efficiency = scheduledHours > 0 
+    ? Math.round((workedHours / scheduledHours) * 100) 
+    : 0;
+
   return (
     <Card className="bg-white">
       <CardContent className="pt-4">
@@ -49,23 +54,19 @@ export const InterviewerSelector = ({
             </Select>
           </div>
           
-          {selectedInterviewerCode && scheduledHours !== undefined && workedHours !== undefined && (
+          {selectedInterviewerCode && (
             <div className="bg-gray-50 p-4 rounded-lg flex flex-col md:flex-row gap-4">
               <div className="text-center">
                 <div className="text-sm font-medium text-gray-500">Scheduled</div>
                 <div className="text-2xl font-bold text-cbs">{scheduledHours}h</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-medium text-gray-500">Actual</div>
+                <div className="text-sm font-medium text-gray-500">Worked</div>
                 <div className="text-2xl font-bold text-green-600">{workedHours}h</div>
               </div>
               <div className="text-center">
                 <div className="text-sm font-medium text-gray-500">Efficiency</div>
-                <div className="text-2xl font-bold text-indigo-600">
-                  {scheduledHours > 0 
-                    ? Math.round((workedHours / scheduledHours) * 100) 
-                    : 0}%
-                </div>
+                <div className="text-2xl font-bold text-indigo-600">{efficiency}%</div>
               </div>
             </div>
           )}
