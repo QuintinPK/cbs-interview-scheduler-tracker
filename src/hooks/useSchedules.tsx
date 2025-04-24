@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Schedule } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ export const useSchedules = (
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const loadSchedules = async () => {
+  const loadSchedules = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -45,7 +45,8 @@ export const useSchedules = (
         start_time: schedule.start_time,
         end_time: schedule.end_time,
         status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
-        notes: schedule.notes || undefined
+        notes: schedule.notes || undefined,
+        project_id: schedule.project_id
       }));
       
       setSchedules(formattedSchedules);
@@ -59,9 +60,9 @@ export const useSchedules = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [interviewerId, startDate, endDate, toast]);
 
-  // Initial load
+  // Initial load and setup realtime subscriptions
   useEffect(() => {
     loadSchedules();
     
@@ -71,12 +72,17 @@ export const useSchedules = (
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'schedules'
+        table: 'schedules',
+        filter: interviewerId ? `interviewer_id=eq.${interviewerId}` : undefined
       }, payload => {
-        // Only process changes within our current filter
-        const isRelevant = checkIfScheduleIsRelevant(payload.new || payload.old, interviewerId, startDate, endDate);
+        // Verify this change is relevant to our current date filter
+        const isRelevantDate = checkIfScheduleIsInDateRange(
+          payload.new || payload.old, 
+          startDate, 
+          endDate
+        );
         
-        if (!isRelevant) return;
+        if (!isRelevantDate) return;
         
         if (payload.eventType === 'INSERT') {
           setSchedules(current => [...current, formatScheduleData(payload.new)]);
@@ -92,40 +98,38 @@ export const useSchedules = (
           );
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          console.error("Failed to subscribe to schedules changes:", status);
+        }
+      });
       
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [interviewerId, startDate, endDate]); // Re-subscribe when filters change
+  }, [interviewerId, startDate, endDate, loadSchedules]);
 
-  // Helper to check if a schedule matches our current filters
-  const checkIfScheduleIsRelevant = (scheduleData: any, interviewerId?: string, startDate?: string, endDate?: string): boolean => {
-    if (!scheduleData) return false;
+  // Helper to check if schedule is within date range
+  const checkIfScheduleIsInDateRange = (
+    scheduleData: any, 
+    startDate?: string, 
+    endDate?: string
+  ): boolean => {
+    if (!scheduleData?.start_time) return false;
     
-    // Check interviewer filter
-    if (interviewerId && scheduleData.interviewer_id !== interviewerId) {
-      return false;
-    }
+    const scheduleDate = parseISO(scheduleData.start_time);
+    const scheduleDateStr = scheduleDate.toISOString().split('T')[0];
     
     // Check date range
-    if (startDate || endDate) {
-      const scheduleDate = parseISO(scheduleData.start_time);
-      const scheduleStartStr = scheduleDate.toISOString().split('T')[0];
-      
-      if (startDate && scheduleStartStr < startDate) {
-        return false;
-      }
-      
-      if (endDate && scheduleStartStr > endDate) {
-        return false;
-      }
+    if ((startDate && scheduleDateStr < startDate) || 
+        (endDate && scheduleDateStr > endDate)) {
+      return false;
     }
     
     return true;
   };
 
-  // Helper to format schedule data consistently
+  // Helper to consistently format schedule data from realtime events
   const formatScheduleData = (data: any): Schedule => ({
     id: data.id,
     interviewer_id: data.interviewer_id,
@@ -133,6 +137,7 @@ export const useSchedules = (
     end_time: data.end_time,
     status: data.status as 'scheduled' | 'completed' | 'cancelled',
     notes: data.notes || undefined,
+    project_id: data.project_id
   });
 
   const addSchedule = async (schedule: Omit<Schedule, 'id'>) => {
@@ -143,7 +148,12 @@ export const useSchedules = (
         
       if (error) throw error;
       
-      // Note: We don't need to refresh manually here anymore since the realtime subscription will update state
+      // Real-time subscription will handle updating state
+      toast({
+        title: "Success",
+        description: "Schedule created successfully",
+      });
+      
       return true;
     } catch (error) {
       console.error("Error adding schedule:", error);
@@ -156,10 +166,8 @@ export const useSchedules = (
     }
   };
 
-  const updateSchedule = async (id: string, schedule: Omit<Schedule, 'id'>) => {
+  const updateSchedule = async (id: string, schedule: Partial<Omit<Schedule, 'id'>>) => {
     try {
-      setLoading(true);
-      
       const { error } = await supabase
         .from('schedules')
         .update(schedule)
@@ -172,7 +180,7 @@ export const useSchedules = (
         description: "Schedule updated successfully",
       });
       
-      // Note: We don't need to refresh manually here anymore since the realtime subscription will update state
+      // Real-time subscription will handle updating state
     } catch (error) {
       console.error("Error updating schedule:", error);
       toast({
@@ -181,15 +189,11 @@ export const useSchedules = (
         variant: "destructive",
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const deleteSchedule = async (id: string) => {
     try {
-      setLoading(true);
-      
       const { error } = await supabase
         .from('schedules')
         .delete()
@@ -197,14 +201,12 @@ export const useSchedules = (
         
       if (error) throw error;
       
-      // Optimistic UI update (realtime subscription will confirm)
-      setSchedules(schedules.filter(s => s.id !== id));
-      
       toast({
         title: "Success",
         description: "Schedule deleted successfully",
       });
       
+      // Real-time subscription will handle updating state
       return true;
     } catch (error) {
       console.error("Error deleting schedule:", error);
@@ -214,8 +216,6 @@ export const useSchedules = (
         variant: "destructive",
       });
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 

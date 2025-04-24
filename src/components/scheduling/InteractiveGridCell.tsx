@@ -37,6 +37,7 @@ interface InteractiveGridCellProps {
   onMouseOver: (e: React.MouseEvent) => void;
   onClick: () => void;
   isProcessing?: boolean;
+  isTransitioning?: boolean;
 }
 
 export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
@@ -45,7 +46,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   onMouseDown,
   onMouseOver,
   onClick,
-  isProcessing = false
+  isProcessing = false,
+  isTransitioning = false
 }) => {
   const [showSessionDialog, setShowSessionDialog] = React.useState(false);
   const navigate = useNavigate();
@@ -53,7 +55,16 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   // Determine cell appearance based on state
   let cellClass = "p-1 h-12 border-r cursor-pointer transition-all relative";
   
-  if (cell.isScheduled) {
+  if (isTransitioning) {
+    // Transition state - show immediate visual feedback
+    if (inDragSelection) {
+      // If being scheduled
+      cellClass += " bg-green-300/70 border border-green-400";
+    } else {
+      // If being unscheduled
+      cellClass += " bg-gray-100 border border-gray-200";
+    }
+  } else if (cell.isScheduled) {
     if (cell.status === 'completed') {
       cellClass += " bg-green-100 border border-green-300";
     } else if (cell.status === 'cancelled') {
