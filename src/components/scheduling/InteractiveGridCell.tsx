@@ -33,8 +33,8 @@ interface CellState {
     isEnd: boolean;
     actualStartTime: Date;
     actualEndTime: Date;
-    startOffset?: number;
-    endOffset?: number;
+    startMinute?: number;
+    endMinute?: number;
   };
 }
 
@@ -116,8 +116,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     position: 'absolute' as const,
     top: 0,
     bottom: 0,
-    left: cell.sessionSpanData.isStart ? `${cell.sessionSpanData.startOffset}%` : 0,
-    right: cell.sessionSpanData.isEnd ? `${100 - (cell.sessionSpanData.endOffset || 100)}%` : 0,
+    left: cell.sessionSpanData.isStart ? `${(cell.sessionSpanData.startMinute || 0) * (100/60)}%` : 0,
+    right: cell.sessionSpanData.isEnd ? `${(100 - ((cell.sessionSpanData.endMinute || 60) * (100/60)))}%` : 0,
     backgroundColor: 'rgb(240 253 244)',
     borderLeft: cell.sessionSpanData.isStart ? '1px solid rgb(187 247 208)' : 'none',
     borderRight: cell.sessionSpanData.isEnd ? '1px solid rgb(187 247 208)' : 'none',
