@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { format } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
@@ -46,7 +47,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   onMouseOver,
   onClick,
   isProcessing = false,
-  isTransitioning = false
+  isTransitioning = false,
+  showRealised = true
 }) => {
   const [showSessionDialog, setShowSessionDialog] = React.useState(false);
   const navigate = useNavigate();
@@ -67,7 +69,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     } else {
       cellClass += " bg-cbs-light/20 border border-cbs-light/40";
     }
-  } else if (cell.isSession) {
+  } else if (cell.isSession && showRealised) {
     cellClass += " bg-green-50 border border-green-200";
   } else {
     cellClass += " hover:bg-gray-100";
@@ -102,10 +104,16 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             onMouseOver={onMouseOver}
             onClick={onClick}
           >
-            {(cell.isScheduled || cell.isSession) && (
+            {cell.isSession && showRealised && cell.session && (
+              <div className="text-xs text-gray-600">
+                {format(new Date(cell.session.start_time), "HH:mm")} 
+                {cell.session.end_time && ` - ${format(new Date(cell.session.end_time), "HH:mm")}`}
+              </div>
+            )}
+            {(cell.isScheduled || (cell.isSession && showRealised)) && (
               <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
                 {cell.isScheduled && <Info size={12} className="text-cbs" />}
-                {cell.isSession && (
+                {cell.isSession && showRealised && (
                   <button 
                     onClick={handleViewSession}
                     onMouseDown={(e) => e.stopPropagation()}

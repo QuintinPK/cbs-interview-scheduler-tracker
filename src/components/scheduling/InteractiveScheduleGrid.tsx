@@ -1,10 +1,11 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { format, isSameDay } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface InteractiveScheduleGridProps {
   weekDates: Date[];
@@ -37,6 +38,8 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   hours = Array.from({ length: 13 }, (_, i) => i + 8), // 8:00 to 20:00
   onSchedulesChanged
 }) => {
+  const [showRealised, setShowRealised] = useState(true);
+  
   // State for grid data
   const [grid, setGrid] = useState<CellData[][]>([]);
   
@@ -358,51 +361,63 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   }, [isDragging, dragStartCell, dragEndCell, dragMode, dragSelectionCells, grid]);
 
   return (
-    <div 
-      className={`relative overflow-auto ${isProcessing ? "opacity-70" : ""} ${isDragging ? "select-none" : ""}`}
-      onMouseLeave={handleMouseLeave}
-      ref={gridRef}
-    >
-      <div className="min-w-full">
-        <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
-          <div className="p-2 text-center font-medium border-r">Time</div>
-          {weekDates.map((date, dayIdx) => (
-            <div key={dayIdx} className="p-2 text-center font-medium whitespace-nowrap">
-              {format(date, "E, MMM d")}
+    <div className="space-y-4">
+      <div className="flex items-center space-x-2 ml-auto w-fit">
+        <Switch 
+          id="show-realised" 
+          checked={showRealised}
+          onCheckedChange={setShowRealised}
+        />
+        <Label htmlFor="show-realised">Show realised sessions</Label>
+      </div>
+      
+      <div 
+        className={`relative overflow-auto ${isProcessing ? "opacity-70" : ""} ${isDragging ? "select-none" : ""}`}
+        onMouseLeave={handleMouseLeave}
+        ref={gridRef}
+      >
+        <div className="min-w-full">
+          <div className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
+            <div className="p-2 text-center font-medium border-r">Time</div>
+            {weekDates.map((date, dayIdx) => (
+              <div key={dayIdx} className="p-2 text-center font-medium whitespace-nowrap">
+                {format(date, "E, MMM d")}
+              </div>
+            ))}
+          </div>
+          
+          {hours.map(hour => (
+            <div key={hour} className={`grid grid-cols-[100px_repeat(7,1fr)] border-b ${hour % 2 === 0 ? 'bg-gray-50/50' : ''}`}>
+              <div className="p-2 border-r text-sm font-medium text-center">{hour}:00</div>
+              {weekDates.map((_, dayIndex) => {
+                const cell = grid[dayIndex]?.[hour];
+                
+                if (!cell) {
+                  return <div key={`empty-${dayIndex}-${hour}`} className="p-2 h-12 border-r"></div>;
+                }
+                
+                const cellProcessing = isCellProcessing(dayIndex, hour);
+                const cellInDragSelection = isCellInDragSelection(dayIndex, hour);
+                const cellTransitioning = isCellTransitioning(dayIndex, hour);
+                
+                return (
+                  <div key={`${dayIndex}-${hour}`}>
+                    <InteractiveGridCell
+                      cell={cell}
+                      inDragSelection={cellInDragSelection}
+                      isProcessing={cellProcessing}
+                      isTransitioning={cellTransitioning}
+                      showRealised={showRealised}
+                      onMouseDown={(e) => handleMouseDown(dayIndex, hour, e)}
+                      onMouseOver={(e) => handleMouseOver(dayIndex, hour, e)}
+                      onClick={() => handleCellClick(dayIndex, hour)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           ))}
         </div>
-        
-        {hours.map(hour => (
-          <div key={hour} className="grid grid-cols-[100px_repeat(7,1fr)] border-b">
-            <div className="p-2 border-r text-sm font-medium text-center">{hour}:00</div>
-            {weekDates.map((_, dayIndex) => {
-              const cell = grid[dayIndex]?.[hour];
-              
-              if (!cell) {
-                return <div key={`empty-${dayIndex}-${hour}`} className="p-2 h-12 border-r"></div>;
-              }
-              
-              const cellProcessing = isCellProcessing(dayIndex, hour);
-              const cellInDragSelection = isCellInDragSelection(dayIndex, hour);
-              const cellTransitioning = isCellTransitioning(dayIndex, hour);
-              
-              return (
-                <div key={`${dayIndex}-${hour}`}>
-                  <InteractiveGridCell
-                    cell={cell}
-                    inDragSelection={cellInDragSelection}
-                    isProcessing={cellProcessing}
-                    isTransitioning={cellTransitioning}
-                    onMouseDown={(e) => handleMouseDown(dayIndex, hour, e)}
-                    onMouseOver={(e) => handleMouseOver(dayIndex, hour, e)}
-                    onClick={() => handleCellClick(dayIndex, hour)}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ))}
       </div>
     </div>
   );
