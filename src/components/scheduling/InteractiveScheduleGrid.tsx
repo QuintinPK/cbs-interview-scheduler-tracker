@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, isWithinInterval, setHours, setMinutes } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
@@ -100,22 +100,40 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       }
     });
     
-    // Add sessions
+    // Add sessions - checking for sessions that span multiple hour slots
     sessions.forEach(session => {
       if (!session.start_time) return;
       
-      const startTime = new Date(session.start_time);
-      const dayIndex = weekDates.findIndex(date => isSameDay(date, startTime));
-      const hour = startTime.getHours();
+      const sessionStart = new Date(session.start_time);
+      const sessionEnd = session.end_time ? new Date(session.end_time) : new Date();
       
-      if (dayIndex >= 0 && hours.includes(hour)) {
-        newGrid[dayIndex][hour] = {
-          ...newGrid[dayIndex][hour],
-          isSession: true,
-          sessionId: session.id,
-          session,
-        };
-      }
+      weekDates.forEach((date, dayIndex) => {
+        // Only process if session happens on this day
+        if (isSameDay(date, sessionStart)) {
+          hours.forEach(hour => {
+            const hourStart = new Date(date);
+            hourStart.setHours(hour, 0, 0, 0);
+            
+            const hourEnd = new Date(date);
+            hourEnd.setHours(hour + 1, 0, 0, 0);
+            
+            // Check if this hour slot overlaps with the session duration
+            const sessionStartsInThisHour = isWithinInterval(sessionStart, { start: hourStart, end: hourEnd });
+            const sessionEndsInThisHour = session.end_time && isWithinInterval(new Date(session.end_time), { start: hourStart, end: hourEnd });
+            const sessionSpansThisHour = sessionStart < hourStart && (!session.end_time || new Date(session.end_time) > hourEnd);
+            
+            if (sessionStartsInThisHour || sessionEndsInThisHour || sessionSpansThisHour) {
+              // This hour slot is part of the session
+              newGrid[dayIndex][hour] = {
+                ...newGrid[dayIndex][hour],
+                isSession: true,
+                sessionId: session.id,
+                session,
+              };
+            }
+          });
+        }
+      });
     });
     
     setGrid(newGrid);
@@ -342,6 +360,11 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
+  // When a session is updated, refresh the data
+  const handleSessionUpdated = () => {
+    onSchedulesChanged();
+  };
+
   // Global mouseup handler
   useEffect(() => {
     const handleDocumentMouseUp = () => {
@@ -397,6 +420,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
                     onMouseDown={(e) => handleMouseDown(dayIndex, hour, e)}
                     onMouseOver={(e) => handleMouseOver(dayIndex, hour, e)}
                     onClick={() => handleCellClick(dayIndex, hour)}
+                    onSessionUpdated={handleSessionUpdated}
                   />
                 </div>
               );
