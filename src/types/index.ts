@@ -1,3 +1,4 @@
+
 export interface Interviewer {
   id: string;
   code: string;
@@ -21,7 +22,6 @@ export interface Session {
   end_longitude: number | null;
   end_address: string | null;
   is_active: boolean;
-  notes?: string;
 }
 
 export interface Interview {
