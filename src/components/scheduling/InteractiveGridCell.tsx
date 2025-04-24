@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { format } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
@@ -52,16 +51,12 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   const [showSessionDialog, setShowSessionDialog] = React.useState(false);
   const navigate = useNavigate();
 
-  // Determine cell appearance based on state
   let cellClass = "p-1 h-12 border-r cursor-pointer transition-all relative";
   
   if (isTransitioning) {
-    // Transition state - show immediate visual feedback
     if (inDragSelection) {
-      // If being scheduled
       cellClass += " bg-green-300/70 border border-green-400";
     } else {
-      // If being unscheduled
       cellClass += " bg-gray-100 border border-gray-200";
     }
   } else if (cell.isScheduled) {
@@ -93,7 +88,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
 
   const handleGoToSession = () => {
     if (cell.session?.id) {
-      navigate(`/admin/sessions/${cell.session.id}`);
+      navigate(`/admin/sessions?session=${cell.session.id}`);
     }
   };
 
@@ -138,7 +133,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             )}
             {cell.isSession && (
               <>
-                <p>Session activity detected</p>
+                <p>Session activity registered</p>
                 <Button 
                   variant="link" 
                   className="p-0 h-auto text-xs"
@@ -164,24 +159,18 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
           <div className="space-y-4">
             <div>
               <h3 className="font-medium">Time</h3>
-              <p>{format(cell.startTime, "PPpp")} - {format(cell.endTime, "PPpp")}</p>
+              <p>Started: {format(cell.session?.start_time ? new Date(cell.session.start_time) : cell.startTime, "PPpp")}</p>
+              <p>Ended: {cell.session?.end_time ? format(new Date(cell.session.end_time), "PPpp") : "Session ongoing"}</p>
             </div>
-            {cell.session && (
-              <>
-                <div>
-                  <h3 className="font-medium">Location</h3>
-                  <p>Start: {cell.session.start_address || 'Not recorded'}</p>
-                  <p>End: {cell.session.end_address || 'Not recorded'}</p>
-                </div>
-                <div>
-                  <h3 className="font-medium">Status</h3>
-                  <p>{cell.session.is_active ? 'Active' : 'Completed'}</p>
-                </div>
-                <Button onClick={handleGoToSession} className="w-full">
-                  Go to Session Details
-                </Button>
-              </>
+            {cell.session?.project_id && (
+              <div>
+                <h3 className="font-medium">Project</h3>
+                <p>{cell.session.project_id}</p>
+              </div>
             )}
+            <Button onClick={handleGoToSession} className="w-full">
+              View in Session Logs
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
