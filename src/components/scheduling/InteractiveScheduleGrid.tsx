@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format, isSameDay, getHours, getMinutes, parseISO } from 'date-fns';
+import { format, isSameDay, getHours, parseISO } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
@@ -33,8 +33,6 @@ interface CellData {
     isEnd: boolean;
     actualStartTime: Date;
     actualEndTime: Date;
-    startMinute: number;
-    endMinute: number;
   };
 }
 
@@ -117,32 +115,16 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         
         for (let hour = startHour; hour <= endHour; hour++) {
           if (hours.includes(hour)) {
-            const isStart = hour === startHour;
-            const isEnd = hour === endHour;
-            
-            let startMinute = 0;
-            let endMinute = 60;
-            
-            if (isStart) {
-              startMinute = getMinutes(sessionStart);
-            }
-            
-            if (isEnd) {
-              endMinute = getMinutes(sessionEnd);
-            }
-            
             newGrid[dayIndex][hour] = {
               ...newGrid[dayIndex][hour],
               isSession: true,
               sessionId: session.id,
               session,
               sessionSpanData: {
-                isStart,
-                isEnd,
+                isStart: hour === startHour,
+                isEnd: hour === endHour,
                 actualStartTime: sessionStart,
-                actualEndTime: sessionEnd,
-                startMinute: isStart ? startMinute : 0,
-                endMinute: isEnd ? endMinute : 60
+                actualEndTime: sessionEnd
               }
             };
           }
