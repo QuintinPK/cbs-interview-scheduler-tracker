@@ -162,7 +162,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
         const endPercent = (endMinuteOffset / 60) * 100;
         style.top = '0%';
         style.height = `${endPercent}%`;
-        style.borderTop = 'none';
+        // Fix: Always add top border for end segments
+        style.borderTop = '3px solid rgb(134 239 172)';
         style.borderBottom = '3px solid rgb(134 239 172)';
       }
     }
