@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useRouter } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface CellState {
   isScheduled: boolean;
@@ -46,7 +46,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   onClick,
 }) => {
   const [showSessionDialog, setShowSessionDialog] = React.useState(false);
-  const router = useRouter();
+  const navigate = useNavigate();
 
   let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
   
@@ -75,7 +75,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
 
   const handleGoToSession = () => {
     if (cell.session?.id) {
-      router.push(`/admin/sessions/${cell.session.id}`);
+      navigate(`/admin/sessions/${cell.session.id}`);
     }
   };
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,6 +27,7 @@ interface CellState {
   endTime: Date;
   status?: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
+  session?: Session;
 }
 
 const defaultHours = Array.from({ length: 13 }, (_, i) => i + 8); // 8:00 to 20:00
@@ -359,7 +361,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     
     const inDragSelection = viewMode === 'week' 
       ? isCellInDragSelectionWeek(dayIdx, hour)
-      : isCellInDragSelection(interviewer.id, hour);
+      : isCellInDragSelection(interviewers[0].id, hour);
 
     return (
       <InteractiveGridCell
@@ -367,15 +369,15 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         inDragSelection={inDragSelection}
         onMouseDown={() => viewMode === 'week' 
           ? handleMouseDownWeek(dayIdx, hour)
-          : handleMouseDown(interviewer.id, hour)
+          : handleMouseDown(interviewers[0].id, hour)
         }
         onMouseOver={() => viewMode === 'week'
           ? handleMouseOverWeek(dayIdx, hour)
-          : handleMouseOver(interviewer.id, hour)
+          : handleMouseOver(interviewers[0].id, hour)
         }
         onClick={() => viewMode === 'week'
           ? handleCellClickWeek(dayIdx, hour)
-          : handleCellClick(interviewer.id, hour)
+          : handleCellClick(interviewers[0].id, hour)
         }
       />
     );
