@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { format, differenceInMinutes } from 'date-fns';
+import { format } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
 import {
   Tooltip,
@@ -37,7 +36,7 @@ interface CellState {
     endMinuteOffset?: number;
     isFullHour: boolean;
     isMiddleHour?: boolean;
-    spanId: string; // Added to help identify the same session span across hours
+    spanId: string;
   };
 }
 
@@ -126,43 +125,35 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
       zIndex: 10,
     };
 
-    // Calculate positions based on minute offsets
     if (isMiddleHour) {
-      // This is a middle hour in a multi-hour session span
       style.top = '0%';
       style.height = '100%';
       style.borderTop = 'none';
       style.borderBottom = 'none';
     } else if (isFullHour) {
-      // This is a single full hour
       style.top = '0%';
       style.height = '100%';
       style.borderTop = '3px solid rgb(134 239 172)';
       style.borderBottom = '3px solid rgb(134 239 172)';
     } else {
-      // This is either start or end hour of a session
       if (isStart) {
         const startPercent = (startMinuteOffset / 60) * 100;
         style.top = `${startPercent}%`;
         
         if (isEnd) {
-          // Session starts and ends in the same hour
           const endPercent = (endMinuteOffset / 60) * 100;
           style.height = `${endPercent - startPercent}%`;
           style.borderTop = '3px solid rgb(134 239 172)';
           style.borderBottom = '3px solid rgb(134 239 172)';
         } else {
-          // Session starts in this hour but continues
           style.height = `${100 - startPercent}%`;
           style.borderTop = '3px solid rgb(134 239 172)';
           style.borderBottom = 'none';
         }
       } else if (isEnd) {
-        // Session ends in this hour
         const endPercent = (endMinuteOffset / 60) * 100;
         style.top = '0%';
         style.height = `${endPercent}%`;
-        // Fix: Always add top border for end segments
         style.borderTop = '3px solid rgb(134 239 172)';
         style.borderBottom = '3px solid rgb(134 239 172)';
       }
@@ -172,86 +163,56 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   };
 
   const renderSessionTime = () => {
-    if (!cell.sessionSpanData || !showRealised || !cell.session) return null;
-
-    // Only show time info on the start segment
-    if (!cell.sessionSpanData.isStart) return null;
-    
-    const startTime = cell.sessionSpanData.actualStartTime;
-    const endTime = cell.sessionSpanData.actualEndTime;
-    
-    return (
-      <div className="text-xs text-gray-600 p-1 z-20">
-        {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
-      </div>
-    );
+    return null;
   };
 
   return (
     <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
+      <div 
+        className={cellClass}
+        onMouseDown={onMouseDown}
+        onMouseOver={onMouseOver}
+        onClick={onClick}
+      >
+        {cell.isSession && showRealised && cell.session && cell.sessionSpanData && (
           <div 
-            className={cellClass}
-            onMouseDown={onMouseDown}
-            onMouseOver={onMouseOver}
-            onClick={onClick}
+            style={getSessionStyle()}
+            className="flex flex-col justify-between"
           >
-            {cell.isSession && showRealised && cell.session && cell.sessionSpanData && (
-              <div 
-                style={getSessionStyle()}
-                className="flex flex-col justify-between"
-              >
-                {renderSessionTime()}
-                {cell.sessionSpanData.isStart && (
-                  <div className="absolute top-0.5 right-0.5 z-20">
-                    <button 
-                      onClick={handleViewSession}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <AlertCircle size={12} className="text-green-500" />
-                    </button>
-                  </div>
-                )}
+            {cell.sessionSpanData.isStart && (
+              <div className="absolute top-0.5 right-0.5 z-20">
+                <button 
+                  onClick={handleViewSession}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <AlertCircle size={12} className="text-green-500" />
+                </button>
               </div>
             )}
-            {cell.isScheduled && (
+          </div>
+        )}
+        {cell.isScheduled && (
+          <Tooltip>
+            <TooltipTrigger asChild>
               <div className="absolute top-0.5 right-0.5">
                 <Info size={12} className="text-cbs" />
               </div>
-            )}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <div className="space-y-1 p-1">
-            <p className="font-semibold">
-              {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
-            </p>
-            {cell.isScheduled && (
-              <>
-                <p>Status: {cell.status}</p>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="space-y-1 p-1">
+                <p className="font-semibold">
+                  {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
+                </p>
+                {cell.status && <p>Status: {cell.status}</p>}
                 {cell.notes && <p>Notes: {cell.notes}</p>}
-              </>
-            )}
-            {cell.isSession && (
-              <>
-                <p>Session activity registered</p>
-                <Button 
-                  variant="link" 
-                  className="p-0 h-auto text-xs"
-                  onClick={handleViewSession}
-                >
-                  View session details
-                </Button>
-              </>
-            )}
-            {!cell.isScheduled && !cell.isSession && <p>Available slot</p>}
-            <p className="text-xs text-muted-foreground">
-              {cell.isScheduled ? "Click to unschedule" : "Click to schedule"}
-            </p>
-          </div>
-        </TooltipContent>
-      </Tooltip>
+                <p className="text-xs text-muted-foreground">
+                  Click to unschedule
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
 
       <Dialog open={showSessionDialog} onOpenChange={setShowSessionDialog}>
         <DialogContent>
