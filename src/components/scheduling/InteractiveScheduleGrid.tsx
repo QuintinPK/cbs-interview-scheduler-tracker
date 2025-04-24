@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, getHours, parseISO } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
@@ -28,6 +28,12 @@ interface CellData {
   status?: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
   session?: Session;
+  sessionSpanData?: {
+    isStart: boolean;
+    isEnd: boolean;
+    actualStartTime: Date;
+    actualEndTime: Date;
+  };
 }
 
 export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = ({
@@ -35,36 +41,30 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   interviewerId,
   schedules,
   sessions,
-  hours = Array.from({ length: 13 }, (_, i) => i + 8), // 8:00 to 20:00
+  hours = Array.from({ length: 13 }, (_, i) => i + 8),
   onSchedulesChanged
 }) => {
   const [showRealised, setShowRealised] = useState(true);
   
-  // State for grid data
   const [grid, setGrid] = useState<CellData[][]>([]);
   
-  // State for drag selection
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartCell, setDragStartCell] = useState<{ dayIndex: number, hour: number } | null>(null);
   const [dragEndCell, setDragEndCell] = useState<{ dayIndex: number, hour: number } | null>(null);
   const [dragMode, setDragMode] = useState<'schedule' | 'unschedule' | null>(null);
   const [dragSelectionCells, setDragSelectionCells] = useState<Set<string>>(new Set());
   
-  // Visual feedback states
   const [processingCellKeys, setProcessingCellKeys] = useState<Set<string>>(new Set());
   const [transitioningCellKeys, setTransitioningCellKeys] = useState<Set<string>>(new Set());
   
   const { toast } = useToast();
   const { isProcessing, addSchedulesBatch, deleteSchedulesBatch } = useScheduleOperations();
   
-  // References
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Build the initial grid from schedules and sessions
   useEffect(() => {
     const newGrid: CellData[][] = [];
     
-    // Initialize empty grid
     weekDates.forEach((date, dayIndex) => {
       newGrid[dayIndex] = [];
       
@@ -86,7 +86,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       });
     });
     
-    // Add scheduled slots
     schedules.forEach(schedule => {
       const startTime = new Date(schedule.start_time);
       const dayIndex = weekDates.findIndex(date => isSameDay(date, startTime));
@@ -103,34 +102,44 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       }
     });
     
-    // Add sessions
     sessions.forEach(session => {
-      if (!session.start_time) return;
+      if (!session.start_time || !session.end_time) return;
       
-      const startTime = new Date(session.start_time);
-      const dayIndex = weekDates.findIndex(date => isSameDay(date, startTime));
-      const hour = startTime.getHours();
+      const sessionStart = parseISO(session.start_time);
+      const sessionEnd = parseISO(session.end_time);
+      const dayIndex = weekDates.findIndex(date => isSameDay(date, sessionStart));
       
-      if (dayIndex >= 0 && hours.includes(hour)) {
-        newGrid[dayIndex][hour] = {
-          ...newGrid[dayIndex][hour],
-          isSession: true,
-          sessionId: session.id,
-          session,
-        };
+      if (dayIndex >= 0) {
+        const startHour = getHours(sessionStart);
+        const endHour = getHours(sessionEnd);
+        
+        for (let hour = startHour; hour <= endHour; hour++) {
+          if (hours.includes(hour)) {
+            newGrid[dayIndex][hour] = {
+              ...newGrid[dayIndex][hour],
+              isSession: true,
+              sessionId: session.id,
+              session,
+              sessionSpanData: {
+                isStart: hour === startHour,
+                isEnd: hour === endHour,
+                actualStartTime: sessionStart,
+                actualEndTime: sessionEnd
+              }
+            };
+          }
+        }
       }
     });
     
     setGrid(newGrid);
     
-    // Clear visual states when data changes
     if (!isProcessing) {
       setProcessingCellKeys(new Set());
       setTransitioningCellKeys(new Set());
     }
   }, [weekDates, schedules, sessions, hours, isProcessing]);
 
-  // Handle mouse down - start drag selection
   const handleMouseDown = (dayIndex: number, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
     if (isProcessing) return;
@@ -144,17 +153,14 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     setDragStartCell({ dayIndex, hour });
     setDragEndCell({ dayIndex, hour });
     
-    // Determine drag mode based on first cell
     const newDragMode = cell.isScheduled ? 'unschedule' : 'schedule';
     setDragMode(newDragMode);
     
-    // Initialize selection set
     const newSelection = new Set<string>();
     newSelection.add(cellKey);
     setDragSelectionCells(newSelection);
   };
 
-  // Handle mouse over during drag
   const handleMouseOver = (dayIndex: number, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
     
@@ -162,13 +168,11 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       setDragEndCell({ dayIndex, hour });
       
       if (dragStartCell) {
-        // Calculate current selection rectangle
         const minDay = Math.min(dragStartCell.dayIndex, dayIndex);
         const maxDay = Math.max(dragStartCell.dayIndex, dayIndex);
         const minHour = Math.min(dragStartCell.hour, hour);
         const maxHour = Math.max(dragStartCell.hour, hour);
         
-        // Collect all cells in the selection rectangle
         const newSelection = new Set<string>();
         
         for (let d = minDay; d <= maxDay; d++) {
@@ -185,7 +189,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
-  // Handle mouse up - end drag selection and process changes
   const handleMouseUp = async () => {
     if (!isDragging || !dragMode) {
       setIsDragging(false);
@@ -197,12 +200,9 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
     
     try {
-      // Prepare visual transition
       setTransitioningCellKeys(new Set([...dragSelectionCells]));
       
-      // Process cells based on drag mode
       if (dragMode === 'schedule') {
-        // Filter cells that need scheduling
         const cellsToSchedule = Array.from(dragSelectionCells)
           .map(key => {
             const [dayIndex, hour] = key.split('-').map(Number);
@@ -210,7 +210,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
           })
           .filter(cell => cell && !cell.isScheduled);
         
-        // Create schedule objects
         const newSchedules = cellsToSchedule.map(cell => ({
           interviewer_id: interviewerId,
           start_time: cell!.startTime.toISOString(),
@@ -219,15 +218,12 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         }));
         
         if (newSchedules.length > 0) {
-          // Track cells being processed
           const processingKeys = new Set(cellsToSchedule.map(cell => `${cell!.dayIndex}-${cell!.hour}`));
           setProcessingCellKeys(processingKeys);
           
-          // Perform batch operation
           await addSchedulesBatch(newSchedules);
         }
       } else {
-        // Filter cells that need unscheduling
         const cellsToUnschedule = Array.from(dragSelectionCells)
           .map(key => {
             const [dayIndex, hour] = key.split('-').map(Number);
@@ -235,20 +231,16 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
           })
           .filter(cell => cell && cell.isScheduled && cell.scheduleId);
         
-        // Extract schedule IDs
         const scheduleIds = cellsToUnschedule.map(cell => cell!.scheduleId!);
         
         if (scheduleIds.length > 0) {
-          // Track cells being processed
           const processingKeys = new Set(cellsToUnschedule.map(cell => `${cell!.dayIndex}-${cell!.hour}`));
           setProcessingCellKeys(processingKeys);
           
-          // Perform batch operation
           await deleteSchedulesBatch(scheduleIds);
         }
       }
       
-      // Notify parent component that schedules have been updated
       onSchedulesChanged();
       
     } catch (error) {
@@ -259,21 +251,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         variant: "destructive",
       });
     } finally {
-      // Reset drag selection states
       setIsDragging(false);
       setDragStartCell(null);
       setDragEndCell(null);
       setDragSelectionCells(new Set());
       setDragMode(null);
       
-      // Clear visual states after a delay
       setTimeout(() => {
         setTransitioningCellKeys(new Set());
       }, 300);
     }
   };
 
-  // Handle single cell click
   const handleCellClick = async (dayIndex: number, hour: number) => {
     if (isProcessing || isDragging) return;
     
@@ -283,15 +272,12 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     const cellKey = `${dayIndex}-${hour}`;
     
     try {
-      // Apply immediate visual transition
       setTransitioningCellKeys(new Set([cellKey]));
       
       if (cell.isScheduled && cell.scheduleId) {
-        // Unschedule
         setProcessingCellKeys(new Set([cellKey]));
         await deleteSchedulesBatch([cell.scheduleId]);
       } else if (!cell.isScheduled) {
-        // Schedule
         setProcessingCellKeys(new Set([cellKey]));
         await addSchedulesBatch([{
           interviewer_id: interviewerId,
@@ -301,7 +287,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         }]);
       }
       
-      // Notify parent component that schedules have been updated
       onSchedulesChanged();
       
     } catch (error) {
@@ -312,29 +297,24 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         variant: "destructive",
       });
     } finally {
-      // Clear visual states after a delay
       setTimeout(() => {
         setTransitioningCellKeys(new Set());
       }, 300);
     }
   };
 
-  // Check if a cell is in the current drag selection
   const isCellInDragSelection = (dayIndex: number, hour: number) => {
     return dragSelectionCells.has(`${dayIndex}-${hour}`);
   };
 
-  // Check if a cell is in processing state
   const isCellProcessing = (dayIndex: number, hour: number) => {
     return processingCellKeys.has(`${dayIndex}-${hour}`);
   };
 
-  // Check if a cell is in transitioning state (visual feedback)
   const isCellTransitioning = (dayIndex: number, hour: number) => {
     return transitioningCellKeys.has(`${dayIndex}-${hour}`);
   };
 
-  // Handle mouse leave to cancel drag operation
   const handleMouseLeave = () => {
     if (isDragging) {
       setIsDragging(false);
@@ -345,7 +325,6 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   };
 
-  // Global mouseup handler
   useEffect(() => {
     const handleDocumentMouseUp = () => {
       if (isDragging) {

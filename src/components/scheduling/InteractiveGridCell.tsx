@@ -27,6 +27,12 @@ interface CellState {
   status?: 'scheduled' | 'completed' | 'cancelled';
   notes?: string;
   session?: Session;
+  sessionSpanData?: {
+    isStart: boolean;
+    isEnd: boolean;
+    actualStartTime: Date;
+    actualEndTime: Date;
+  };
 }
 
 interface InteractiveGridCellProps {
@@ -70,7 +76,16 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
       cellClass += " bg-cbs-light/20 border border-cbs-light/40";
     }
   } else if (cell.isSession && showRealised) {
-    cellClass += " bg-green-50 border border-green-200";
+    cellClass += " bg-green-50";
+    if (cell.sessionSpanData?.isStart) {
+      cellClass += " border-t border-l border-green-200";
+    }
+    if (cell.sessionSpanData?.isEnd) {
+      cellClass += " border-b border-r border-green-200";
+    }
+    if (!cell.sessionSpanData?.isStart && !cell.sessionSpanData?.isEnd) {
+      cellClass += " border-l border-r border-green-200";
+    }
   } else {
     cellClass += " hover:bg-gray-100";
   }
@@ -104,16 +119,15 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             onMouseOver={onMouseOver}
             onClick={onClick}
           >
-            {cell.isSession && showRealised && cell.session && (
+            {cell.isSession && showRealised && cell.session && cell.sessionSpanData?.isStart && (
               <div className="text-xs text-gray-600">
-                {format(new Date(cell.session.start_time), "HH:mm")} 
-                {cell.session.end_time && ` - ${format(new Date(cell.session.end_time), "HH:mm")}`}
+                {format(cell.sessionSpanData.actualStartTime, "HH:mm")} - {format(cell.sessionSpanData.actualEndTime, "HH:mm")}
               </div>
             )}
             {(cell.isScheduled || (cell.isSession && showRealised)) && (
               <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
                 {cell.isScheduled && <Info size={12} className="text-cbs" />}
-                {cell.isSession && showRealised && (
+                {cell.isSession && showRealised && cell.sessionSpanData?.isStart && (
                   <button 
                     onClick={handleViewSession}
                     onMouseDown={(e) => e.stopPropagation()}
