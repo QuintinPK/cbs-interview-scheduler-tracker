@@ -47,9 +47,13 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   const [dragEndCell, setDragEndCell] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [processingCells, setProcessingCells] = useState<string[]>([]);
-
+  const [batchMode, setBatchMode] = useState<'schedule' | 'unschedule' | null>(null);
+  const [currentlyProcessingBatch, setCurrentlyProcessingBatch] = useState(false);
+  
   const gridRef = useRef<HTMLDivElement>(null);
+  const selectedCellsRef = useRef<{[key: string]: boolean}>({});
 
+  // Build grid from schedules and sessions
   useEffect(() => {
     if (viewMode === "day") {
       const newGrid: Record<string, Record<number, CellState>> = {};
@@ -174,20 +178,40 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
 
   // Clear processing cells when schedules or sessions change
   useEffect(() => {
-    setProcessingCells([]);
-  }, [schedules, sessions]);
+    if (!currentlyProcessingBatch) {
+      setProcessingCells([]);
+      setBatchMode(null);
+    }
+  }, [schedules, sessions, currentlyProcessingBatch]);
 
   const handleMouseDown = (interviewerId: string, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
+    if (loading) return;
+    
     setIsDragging(true);
     setDragStartCell({ interviewerId, hour });
     setDragEndCell({ interviewerId, hour });
+    
+    // Reset selected cells tracking
+    selectedCellsRef.current = {};
+    
+    // Determine operation type based on first cell
+    const cell = grid[interviewerId][hour];
+    if (cell?.isScheduled) {
+      setBatchMode('unschedule');
+    } else {
+      setBatchMode('schedule');
+    }
   };
 
   const handleMouseOver = (interviewerId: string, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
     if (isDragging) {
       setDragEndCell({ interviewerId, hour });
+      
+      // Track this cell as part of the selection
+      const cellKey = `${interviewerId}-${hour}`;
+      selectedCellsRef.current[cellKey] = true;
     }
   };
 
@@ -195,6 +219,8 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     if (!isDragging || !dragStartCell || !dragEndCell) return;
     
     setLoading(true);
+    setCurrentlyProcessingBatch(true);
+    
     try {
       const startInterviewerIndex = interviewers.findIndex(i => i.id === dragStartCell.interviewerId);
       const endInterviewerIndex = interviewers.findIndex(i => i.id === dragEndCell.interviewerId);
@@ -220,29 +246,62 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         }
       }
 
-      const hasScheduled = selectedCells.some(({ cell }) => cell.isScheduled && cell.scheduleId);
-      
-      if (hasScheduled) {
+      if (batchMode === 'unschedule') {
         // Mark cells as processing
         const processingIds = selectedCells
           .filter(({ cell }) => cell.isScheduled && cell.scheduleId)
           .map(({ cell }) => cell.scheduleId as string);
         setProcessingCells(processingIds);
         
+        // Create a temporary grid for visual updates
+        const tempGrid = { ...grid };
+        
         // Process unschedule operations one by one
-        for (const { cell } of selectedCells) {
+        for (const { interviewerId, hour, cell } of selectedCells) {
           if (cell.isScheduled && cell.scheduleId) {
+            // Immediately update UI to show this cell as unscheduled
+            if (tempGrid[interviewerId] && tempGrid[interviewerId][hour]) {
+              tempGrid[interviewerId][hour] = {
+                ...tempGrid[interviewerId][hour],
+                isScheduled: false,
+                scheduleId: undefined,
+                status: undefined,
+                notes: undefined
+              };
+            }
+            
+            // Update the grid for immediate visual feedback
+            setGrid({ ...tempGrid });
+            
+            // Perform actual unschedule operation
             await onUnscheduleSlot(cell.scheduleId);
           }
         }
       } 
       else {
         const addOps = [];
-        for (const { interviewerId, cell } of selectedCells) {
+        // Create a temporary grid for visual updates
+        const tempGrid = { ...grid };
+        
+        for (const { interviewerId, hour, cell } of selectedCells) {
           if (!cell.isScheduled) {
+            // Immediately update UI to show this cell as scheduled
+            if (tempGrid[interviewerId] && tempGrid[interviewerId][hour]) {
+              tempGrid[interviewerId][hour] = {
+                ...tempGrid[interviewerId][hour],
+                isScheduled: true,
+                status: 'scheduled'
+              };
+            }
+            
             addOps.push(onScheduleSlot(interviewerId, cell.startTime, cell.endTime));
           }
         }
+        
+        // Update the grid for immediate feedback
+        setGrid({ ...tempGrid });
+        
+        // Execute actual operations
         await Promise.all(addOps);
       }
     } catch (error) {
@@ -253,6 +312,9 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       setDragStartCell(null);
       setDragEndCell(null);
       setProcessingCells([]);
+      setBatchMode(null);
+      setCurrentlyProcessingBatch(false);
+      selectedCellsRef.current = {};
     }
   };
 
@@ -265,8 +327,33 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     try {
       if (cell.isScheduled && cell.scheduleId) {
         setProcessingCells([cell.scheduleId]);
+        
+        // Immediately update UI
+        const tempGrid = { ...grid };
+        if (tempGrid[interviewerId] && tempGrid[interviewerId][hour]) {
+          tempGrid[interviewerId][hour] = {
+            ...tempGrid[interviewerId][hour],
+            isScheduled: false,
+            scheduleId: undefined,
+            status: undefined,
+            notes: undefined
+          };
+        }
+        setGrid({ ...tempGrid });
+        
         await onUnscheduleSlot(cell.scheduleId);
       } else {
+        // Immediately update UI
+        const tempGrid = { ...grid };
+        if (tempGrid[interviewerId] && tempGrid[interviewerId][hour]) {
+          tempGrid[interviewerId][hour] = {
+            ...tempGrid[interviewerId][hour],
+            isScheduled: true,
+            status: 'scheduled'
+          };
+        }
+        setGrid({ ...tempGrid });
+        
         await onScheduleSlot(interviewerId, cell.startTime, cell.endTime);
       }
     } catch (error) {
@@ -279,15 +366,32 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
 
   const handleMouseDownWeek = (dayIdx: number, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
+    if (loading) return;
+    
     setIsDragging(true);
     setDragStartCell({ dayIdx, hour });
     setDragEndCell({ dayIdx, hour });
+    
+    // Reset selected cells tracking
+    selectedCellsRef.current = {};
+    
+    // Determine operation type based on first cell
+    const cell = grid[dayIdx][hour];
+    if (cell?.isScheduled) {
+      setBatchMode('unschedule');
+    } else {
+      setBatchMode('schedule');
+    }
   };
 
   const handleMouseOverWeek = (dayIdx: number, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
     if (isDragging) {
       setDragEndCell({ dayIdx, hour });
+      
+      // Track this cell as part of the selection
+      const cellKey = `${dayIdx}-${hour}`;
+      selectedCellsRef.current[cellKey] = true;
     }
   };
 
@@ -295,6 +399,8 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     if (!isDragging || !dragStartCell || !dragEndCell || interviewers.length === 0) return;
     
     setLoading(true);
+    setCurrentlyProcessingBatch(true);
+    
     try {
       const minDay = Math.min(dragStartCell.dayIdx, dragEndCell.dayIdx);
       const maxDay = Math.max(dragStartCell.dayIdx, dragEndCell.dayIdx);
@@ -311,29 +417,60 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         }
       }
       
-      const hasScheduled = selectedCells.some(({ cell }) => cell.isScheduled && cell.scheduleId);
-      
-      if (hasScheduled) {
+      if (batchMode === 'unschedule') {
         // Mark cells as processing
         const processingIds = selectedCells
           .filter(({ cell }) => cell.isScheduled && cell.scheduleId)
           .map(({ cell }) => cell.scheduleId as string);
         setProcessingCells(processingIds);
         
+        // Create a temporary grid for visual updates
+        const tempGrid = { ...grid };
+        
         // Process unschedule operations one by one
-        for (const { cell } of selectedCells) {
+        for (const { dayIdx, hour, cell } of selectedCells) {
           if (cell.isScheduled && cell.scheduleId) {
+            // Immediately update UI
+            if (tempGrid[dayIdx] && tempGrid[dayIdx][hour]) {
+              tempGrid[dayIdx][hour] = {
+                ...tempGrid[dayIdx][hour],
+                isScheduled: false,
+                scheduleId: undefined,
+                status: undefined,
+                notes: undefined
+              };
+            }
+            
+            // Update the grid for immediate feedback
+            setGrid({ ...tempGrid });
+            
             await onUnscheduleSlot(cell.scheduleId);
           }
         }
       } 
       else {
         const addOps = [];
-        for (const { cell } of selectedCells) {
+        // Create a temporary grid for visual updates
+        const tempGrid = { ...grid };
+        
+        for (const { dayIdx, hour, cell } of selectedCells) {
           if (!cell.isScheduled && interviewers.length > 0) {
+            // Immediately update UI
+            if (tempGrid[dayIdx] && tempGrid[dayIdx][hour]) {
+              tempGrid[dayIdx][hour] = {
+                ...tempGrid[dayIdx][hour],
+                isScheduled: true,
+                status: 'scheduled'
+              };
+            }
+            
             addOps.push(onScheduleSlot(interviewers[0].id, cell.startTime, cell.endTime));
           }
         }
+        
+        // Update the grid for immediate feedback
+        setGrid({ ...tempGrid });
+        
         await Promise.all(addOps);
       }
     } catch (error) {
@@ -344,6 +481,9 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       setDragStartCell(null);
       setDragEndCell(null);
       setProcessingCells([]);
+      setBatchMode(null);
+      setCurrentlyProcessingBatch(false);
+      selectedCellsRef.current = {};
     }
   };
 
@@ -356,8 +496,33 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     try {
       if (cell.isScheduled && cell.scheduleId) {
         setProcessingCells([cell.scheduleId]);
+        
+        // Immediately update UI
+        const tempGrid = { ...grid };
+        if (tempGrid[dayIdx] && tempGrid[dayIdx][hour]) {
+          tempGrid[dayIdx][hour] = {
+            ...tempGrid[dayIdx][hour],
+            isScheduled: false,
+            scheduleId: undefined,
+            status: undefined,
+            notes: undefined
+          };
+        }
+        setGrid({ ...tempGrid });
+        
         await onUnscheduleSlot(cell.scheduleId);
       } else {
+        // Immediately update UI
+        const tempGrid = { ...grid };
+        if (tempGrid[dayIdx] && tempGrid[dayIdx][hour]) {
+          tempGrid[dayIdx][hour] = {
+            ...tempGrid[dayIdx][hour],
+            isScheduled: true,
+            status: 'scheduled'
+          };
+        }
+        setGrid({ ...tempGrid });
+        
         await onScheduleSlot(interviewers[0].id, cell.startTime, cell.endTime);
       }
     } catch (error) {
@@ -444,7 +609,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     return () => {
       document.removeEventListener('mouseup', handleDocumentMouseUp);
     };
-  }, [isDragging, dragStartCell, dragEndCell, viewMode]);
+  }, [isDragging, dragStartCell, dragEndCell, viewMode, batchMode, grid]);
 
   if (viewMode === "week" && weekDates && interviewers.length > 0) {
     return (
@@ -470,16 +635,17 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
                 const cell = grid[dIdx]?.[hour];
                 if (!cell) return <div key={dIdx} className="p-2 h-12 border-r"></div>;
                 
-                const cellOpacity = isCellProcessing(cell.scheduleId) ? "opacity-40" : "";
+                const isProcessing = isCellProcessing(cell.scheduleId);
                 
                 return (
-                  <div key={`${dIdx}-${hour}`} className={cellOpacity}>
+                  <div key={`${dIdx}-${hour}`}>
                     <InteractiveGridCell
                       cell={cell}
                       inDragSelection={isCellInDragSelectionWeek(dIdx, hour)}
                       onMouseDown={(e) => handleMouseDownWeek(dIdx, hour, e)}
                       onMouseOver={(e) => handleMouseOverWeek(dIdx, hour, e)}
                       onClick={() => handleCellClickWeek(dIdx, hour)}
+                      isProcessing={isProcessing}
                     />
                   </div>
                 );
@@ -517,10 +683,10 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
               const cell = grid[interviewer.id]?.[hour];
               if (!cell) return <div key={hour} className="p-2 h-12 border-r"></div>;
               
-              const cellOpacity = isCellProcessing(cell.scheduleId) ? "opacity-40" : "";
+              const isProcessing = isCellProcessing(cell.scheduleId);
               
               return (
-                <div key={`${interviewer.id}-${hour}`} className={cellOpacity}>
+                <div key={`${interviewer.id}-${hour}`}>
                   <InteractiveGridCell
                     key={`${interviewer.id}-${hour}`}
                     cell={cell}
@@ -528,6 +694,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
                     onMouseDown={(e) => handleMouseDown(interviewer.id, hour, e)}
                     onMouseOver={(e) => handleMouseOver(interviewer.id, hour, e)}
                     onClick={() => handleCellClick(interviewer.id, hour)}
+                    isProcessing={isProcessing}
                   />
                 </div>
               );

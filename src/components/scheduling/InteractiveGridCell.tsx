@@ -36,6 +36,7 @@ interface InteractiveGridCellProps {
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseOver: (e: React.MouseEvent) => void;
   onClick: () => void;
+  isProcessing?: boolean;
 }
 
 export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
@@ -44,6 +45,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   onMouseDown,
   onMouseOver,
   onClick,
+  isProcessing = false
 }) => {
   const [showSessionDialog, setShowSessionDialog] = React.useState(false);
   const navigate = useNavigate();
@@ -66,6 +68,10 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   
   if (inDragSelection) {
     cellClass += " ring-2 ring-cbs-light ring-opacity-70";
+  }
+  
+  if (isProcessing) {
+    cellClass += " opacity-40 pointer-events-none";
   }
 
   const handleViewSession = (e: React.MouseEvent) => {
