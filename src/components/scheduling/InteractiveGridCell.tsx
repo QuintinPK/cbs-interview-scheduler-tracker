@@ -32,6 +32,8 @@ interface CellState {
     isEnd: boolean;
     actualStartTime: Date;
     actualEndTime: Date;
+    startOffset?: number;
+    endOffset?: number;
   };
 }
 
@@ -76,7 +78,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
       cellClass += " bg-cbs-light/20 border border-cbs-light/40";
     }
   } else if (cell.isSession && showRealised) {
-    cellClass += " bg-green-50";
+    cellClass += " bg-green-50 relative";
     if (cell.sessionSpanData?.isStart) {
       cellClass += " border-t border-l border-green-200";
     }
@@ -109,6 +111,18 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     }
   };
 
+  const sessionStyle = cell.isSession && showRealised && cell.sessionSpanData ? {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: cell.sessionSpanData.isStart ? `${cell.sessionSpanData.startOffset}%` : 0,
+    right: cell.sessionSpanData.isEnd ? `${100 - (cell.sessionSpanData.endOffset || 100)}%` : 0,
+    backgroundColor: 'rgb(240 253 244)',
+    borderLeft: cell.sessionSpanData.isStart ? '1px solid rgb(187 247 208)' : 'none',
+    borderRight: cell.sessionSpanData.isEnd ? '1px solid rgb(187 247 208)' : 'none',
+    zIndex: 1,
+  } : {};
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -119,13 +133,17 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             onMouseOver={onMouseOver}
             onClick={onClick}
           >
-            {cell.isSession && showRealised && cell.session && cell.sessionSpanData?.isStart && (
-              <div className="text-xs text-gray-600">
-                {format(cell.sessionSpanData.actualStartTime, "HH:mm")} - {format(cell.sessionSpanData.actualEndTime, "HH:mm")}
+            {cell.isSession && showRealised && cell.sessionSpanData && (
+              <div style={sessionStyle}>
+                {cell.sessionSpanData.isStart && (
+                  <div className="text-xs text-gray-600 absolute left-1 top-1">
+                    {format(cell.sessionSpanData.actualStartTime, "HH:mm")} - {format(cell.sessionSpanData.actualEndTime, "HH:mm")}
+                  </div>
+                )}
               </div>
             )}
             {(cell.isScheduled || (cell.isSession && showRealised)) && (
-              <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
+              <div className="absolute top-0.5 right-0.5 flex space-x-0.5 z-10">
                 {cell.isScheduled && <Info size={12} className="text-cbs" />}
                 {cell.isSession && showRealised && cell.sessionSpanData?.isStart && (
                   <button 

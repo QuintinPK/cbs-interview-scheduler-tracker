@@ -33,6 +33,8 @@ interface CellData {
     isEnd: boolean;
     actualStartTime: Date;
     actualEndTime: Date;
+    startOffset?: number;
+    endOffset?: number;
   };
 }
 
@@ -115,16 +117,32 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         
         for (let hour = startHour; hour <= endHour; hour++) {
           if (hours.includes(hour)) {
+            const isStart = hour === startHour;
+            const isEnd = hour === endHour;
+            
+            let startOffset = 0;
+            let endOffset = 100;
+            
+            if (isStart) {
+              startOffset = ((sessionStart.getMinutes() * 60 + sessionStart.getSeconds()) / 3600) * 100;
+            }
+            
+            if (isEnd) {
+              endOffset = ((sessionEnd.getMinutes() * 60 + sessionEnd.getSeconds()) / 3600) * 100;
+            }
+            
             newGrid[dayIndex][hour] = {
               ...newGrid[dayIndex][hour],
               isSession: true,
               sessionId: session.id,
               session,
               sessionSpanData: {
-                isStart: hour === startHour,
-                isEnd: hour === endHour,
+                isStart,
+                isEnd,
                 actualStartTime: sessionStart,
-                actualEndTime: sessionEnd
+                actualEndTime: sessionEnd,
+                startOffset: isStart ? startOffset : 0,
+                endOffset: isEnd ? endOffset : 100
               }
             };
           }
