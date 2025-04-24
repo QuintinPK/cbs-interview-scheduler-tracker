@@ -50,7 +50,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   const [showSessionDialog, setShowSessionDialog] = React.useState(false);
   const navigate = useNavigate();
 
-  let cellClass = "p-1 h-12 border-r cursor-pointer transition-colors relative";
+  // Determine cell appearance based on state
+  let cellClass = "p-1 h-12 border-r cursor-pointer transition-all relative";
   
   if (cell.isScheduled) {
     if (cell.status === 'completed') {
@@ -67,11 +68,11 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   }
   
   if (inDragSelection) {
-    cellClass += " ring-2 ring-cbs-light ring-opacity-70";
+    cellClass += " ring-2 ring-cbs-light ring-opacity-70 bg-cbs-light/10";
   }
   
   if (isProcessing) {
-    cellClass += " opacity-40 pointer-events-none";
+    cellClass += " opacity-40";
   }
 
   const handleViewSession = (e: React.MouseEvent) => {
@@ -102,7 +103,10 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
               <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
                 {cell.isScheduled && <Info size={12} className="text-cbs" />}
                 {cell.isSession && (
-                  <button onClick={handleViewSession}>
+                  <button 
+                    onClick={handleViewSession}
+                    onMouseDown={(e) => e.stopPropagation()}
+                  >
                     <AlertCircle size={12} className="text-green-500" />
                   </button>
                 )}

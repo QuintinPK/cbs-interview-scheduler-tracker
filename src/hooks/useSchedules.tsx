@@ -97,7 +97,7 @@ export const useSchedules = (
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [interviewerId, startDate, endDate]); // Re-subscript when filters change
+  }, [interviewerId, startDate, endDate]); // Re-subscribe when filters change
 
   // Helper to check if a schedule matches our current filters
   const checkIfScheduleIsRelevant = (scheduleData: any, interviewerId?: string, startDate?: string, endDate?: string): boolean => {

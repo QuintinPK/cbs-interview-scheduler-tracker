@@ -1,7 +1,6 @@
 
 import React, { useState } from "react";
-import { format, addDays, startOfWeek } from "date-fns";
-import { Calendar } from "lucide-react";
+import { format, addDays, startOfWeek, addWeeks, subWeeks } from "date-fns";
 
 import AdminLayout from "@/components/layout/AdminLayout";
 import { DateNavigator } from "@/components/scheduling/DateNavigator";
@@ -11,7 +10,6 @@ import { useInterviewers } from "@/hooks/useInterviewers";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useSessions } from "@/hooks/useSessions";
 import { useFilter } from "@/contexts/FilterContext";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -20,83 +18,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Helper to get the start of the week for a given date
-function getMonday(date: Date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
-}
-
-// Week picker utility for week view
-const WeekPicker: React.FC<{
-  currentDate: Date;
-  onWeekSelect: (date: Date) => void;
-}> = ({ currentDate, onWeekSelect }) => {
-  // List of the current, past 4, and next 4 weeks
-  const thisMonday = getMonday(new Date());
-  const weekOptions = Array.from({ length: 9 }, (_, i) =>
-    addDays(thisMonday, (i - 4) * 7)
-  );
-  return (
-    <Select
-      value={getMonday(currentDate).toISOString()}
-      onValueChange={v => onWeekSelect(new Date(v))}
-    >
-      <SelectTrigger className="w-[230px]">
-        <SelectValue placeholder="Select week" />
-      </SelectTrigger>
-      <SelectContent>
-        {weekOptions.map((start, idx) => (
-          <SelectItem key={idx} value={start.toISOString()}>
-            {format(start, "LLLL d, yyyy")}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-};
-
 const InteractiveScheduling = () => {
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"day" | "week">("week"); // Default to week
+  const [currentDate, setCurrentDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
 
-  // Fetch interviewers, schedules, and sessions
+  // Fetch interviewers
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const { filterInterviewers } = useFilter();
 
   // Filtered interviewers based on global filters
   const filteredInterviewers = filterInterviewers(interviewers);
 
-  // For day view, show all filtered interviewers; for week view, show only the selected one
-  const interviewersToShow =
-    viewMode === "day"
-      ? filteredInterviewers
-      : filteredInterviewers.filter(i => i.id === selectedInterviewerId);
-
-  const formattedDate = format(currentDate, "yyyy-MM-dd");
-
-  // 8:00–20:00 (was 8:00–18:00)
-  const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8 to 20
-
-  // In week view, fetch schedules/sessions for the whole week
+  // Generate week dates
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekStartStr = format(weekStart, "yyyy-MM-dd");
   const weekEndStr = format(addDays(weekStart, 6), "yyyy-MM-dd");
 
-  const schedulesRange = viewMode === "week" ? [selectedInterviewerId ?? undefined, weekStartStr, weekEndStr] : [undefined, formattedDate, formattedDate];
-  const sessionsRange = schedulesRange;
+  // Default to the first interviewer if none selected
+  React.useEffect(() => {
+    if (filteredInterviewers.length > 0 && !selectedInterviewerId) {
+      setSelectedInterviewerId(filteredInterviewers[0].id);
+    }
+  }, [filteredInterviewers, selectedInterviewerId]);
 
+  // Hours for the time slots (8:00–20:00)
+  const hours = Array.from({ length: 13 }, (_, i) => i + 8);
+
+  // Fetch schedules and sessions for the selected interviewer and week
   const {
     schedules,
     loading: schedulesLoading,
     addSchedule,
     deleteSchedule,
-  } = useSchedules(...schedulesRange);
+  } = useSchedules(selectedInterviewerId ?? undefined, weekStartStr, weekEndStr);
 
-  const { sessions, loading: sessionsLoading } = useSessions(...sessionsRange);
+  const { sessions, loading: sessionsLoading } = useSessions(selectedInterviewerId ?? undefined, weekStartStr, weekEndStr);
 
   // Combined loading state
   const isLoading = interviewersLoading || schedulesLoading || sessionsLoading;
@@ -124,63 +81,40 @@ const InteractiveScheduling = () => {
     }
   };
 
-  // Handle date change
+  // Handle date navigation
   const handleDateChange = (date: Date) => {
-    setCurrentDate(date);
+    // Ensure we always start from Monday
+    setCurrentDate(startOfWeek(date, { weekStartsOn: 1 }));
   };
 
-  // Reset to today
+  // Navigate to previous/next week
+  const navigateToNextWeek = () => {
+    setCurrentDate(addWeeks(currentDate, 1));
+  };
+
+  const navigateToPrevWeek = () => {
+    setCurrentDate(subWeeks(currentDate, 1));
+  };
+
+  // Reset to current week
   const resetToToday = () => {
-    setCurrentDate(new Date());
+    setCurrentDate(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
 
-  const showWeekInterviewerSelector = viewMode === "week" && filteredInterviewers.length > 0;
-
-  // In week view, pick the first filtered interviewer if none selected
-  React.useEffect(() => {
-    if (viewMode === "week" && filteredInterviewers.length > 0 && !selectedInterviewerId) {
-      setSelectedInterviewerId(filteredInterviewers[0].id);
-    }
-    if (viewMode === "day") {
-      setSelectedInterviewerId(null);
-    }
-    // Only runs when viewMode or filteredInterviewers changes
-    // eslint-disable-next-line
-  }, [viewMode, filteredInterviewers]);
-
-  // Interviewer filter for day view
-  const [dayInterviewerId, setDayInterviewerId] = React.useState<string | null>(null);
-  // Re-calculate day view interviewers if filter applied
-  const filteredDayInterviewers = dayInterviewerId
-    ? filteredInterviewers.filter(i => i.id === dayInterviewerId)
-    : filteredInterviewers;
+  // Get interviewer to display in the grid
+  const interviewerToShow = selectedInterviewerId 
+    ? filteredInterviewers.filter(i => i.id === selectedInterviewerId) 
+    : [];
 
   return (
     <AdminLayout showFilters={false}>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Interactive Scheduling</h1>
-            <div className="flex items-center text-muted-foreground mt-1">
-              <Calendar className="mr-2 h-5 w-5" />
-              <span>Click and drag to schedule multiple slots</span>
-            </div>
-          </div>
-          {/* View mode switch */}
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === "day" ? "default" : "outline"}
-              onClick={() => setViewMode("day")}
-            >
-              Day View
-            </Button>
-            <Button
-              variant={viewMode === "week" ? "default" : "outline"}
-              onClick={() => setViewMode("week")}
-              disabled={filteredInterviewers.length === 0}
-            >
-              Week View
-            </Button>
+            <h1 className="text-2xl md:text-3xl font-bold">Interactive Weekly Scheduling</h1>
+            <p className="text-muted-foreground mt-1">
+              Click and drag to schedule or unschedule multiple time slots
+            </p>
           </div>
         </div>
 
@@ -189,26 +123,37 @@ const InteractiveScheduling = () => {
           <GlobalFilter />
         </div>
 
-        {/* Date Navigator (always show, controls current day or week) */}
-        <DateNavigator
-          currentDate={currentDate}
-          onDateChange={handleDateChange}
-          onResetToToday={resetToToday}
-        />
-
-        {/* Week picker for week view */}
-        {viewMode === "week" && (
-          <div className="flex gap-2 items-center mb-2">
-            <div className="font-medium text-sm">Select week:</div>
-            <WeekPicker
-              currentDate={currentDate}
-              onWeekSelect={(date) => setCurrentDate(getMonday(date))}
-            />
+        {/* Date Navigator - customized to allow week navigation */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-lg border">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={navigateToPrevWeek} 
+              className="p-2 hover:bg-gray-100 rounded-full"
+              aria-label="Previous week"
+            >
+              ←
+            </button>
+            <div className="font-medium">
+              Week of {format(weekStart, "MMMM d, yyyy")}
+            </div>
+            <button 
+              onClick={navigateToNextWeek} 
+              className="p-2 hover:bg-gray-100 rounded-full"
+              aria-label="Next week"
+            >
+              →
+            </button>
           </div>
-        )}
+          <button 
+            onClick={resetToToday} 
+            className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-md text-sm"
+          >
+            Current Week
+          </button>
+        </div>
 
-        {/* In week view, show interviewer selector */}
-        {showWeekInterviewerSelector && (
+        {/* Interviewer selector */}
+        {filteredInterviewers.length > 0 && (
           <div className="flex gap-2 items-center mb-2">
             <label className="font-medium text-sm">Interviewer:</label>
             <Select
@@ -229,64 +174,32 @@ const InteractiveScheduling = () => {
           </div>
         )}
 
-        {/* Interviewer filter for day view */}
-        {viewMode === "day" && filteredInterviewers.length > 0 && (
-          <div className="flex gap-2 items-center mb-2">
-            <label className="font-medium text-sm">Interviewer:</label>
-            <Select
-              value={dayInterviewerId ?? ""}
-              onValueChange={v => setDayInterviewerId(v === "" ? null : v)}
-            >
-              <SelectTrigger className="w-[240px]">
-                <SelectValue placeholder="All interviewers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All interviewers</SelectItem>
-                {filteredInterviewers.map(i => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.code}: {i.first_name} {i.last_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
         {isLoading ? (
           <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
             <h3 className="text-lg font-medium mb-2">Loading...</h3>
           </div>
-        ) : (
-          (viewMode === "day" && filteredDayInterviewers.length === 0) ||
-          (viewMode === "week" && !selectedInterviewerId)
-        ) ? (
+        ) : !selectedInterviewerId || interviewerToShow.length === 0 ? (
           <div className="bg-white p-8 rounded-lg shadow-sm border text-center">
             <h3 className="text-lg font-medium mb-2">No Interviewers Found</h3>
+            <p className="text-muted-foreground">Please select an interviewer to continue</p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border overflow-auto">
             <div className="p-4 border-b">
               <h2 className="font-semibold">
-                {viewMode === "day"
-                  ? `Daily Schedule for ${format(currentDate, "EEEE, MMMM d, yyyy")}`
-                  : `Weekly Schedule for ${
-                      interviewersToShow[0]?.code || ""
-                    }: ${interviewersToShow[0]?.first_name || ""} ${interviewersToShow[0]?.last_name || ""} (${format(weekStart, "MMM d")} - ${format(addDays(weekStart, 6), "MMM d, yyyy")})`}
+                Weekly Schedule for {interviewerToShow[0]?.code || ""}: {
+                interviewerToShow[0]?.first_name || ""} {interviewerToShow[0]?.last_name || ""} 
+                ({format(weekStart, "MMM d")} - {format(addDays(weekStart, 6), "MMM d, yyyy")})
               </h2>
             </div>
             <InteractiveScheduleGrid
               currentDate={currentDate}
-              weekDates={viewMode === "week" ? weekDates : undefined}
-              interviewers={
-                viewMode === "day"
-                  ? filteredDayInterviewers
-                  : interviewersToShow
-              }
+              weekDates={weekDates}
+              interviewers={interviewerToShow}
               schedules={schedules}
               sessions={sessions}
               onScheduleSlot={handleScheduleSlot}
               onUnscheduleSlot={handleUnscheduleSlot}
-              viewMode={viewMode}
               hours={hours}
             />
           </div>
