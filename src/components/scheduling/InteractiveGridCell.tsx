@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { CSSProperties } from 'react';
 import { format } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
 import {
@@ -111,8 +112,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     }
   };
 
-  const sessionStyle = cell.isSession && showRealised && cell.sessionSpanData ? {
-    position: 'absolute',
+  const sessionStyle: CSSProperties = cell.isSession && showRealised && cell.sessionSpanData ? {
+    position: 'absolute' as const,
     top: 0,
     bottom: 0,
     left: cell.sessionSpanData.isStart ? `${cell.sessionSpanData.startOffset}%` : 0,
