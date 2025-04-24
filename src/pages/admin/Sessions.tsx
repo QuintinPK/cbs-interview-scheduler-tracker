@@ -175,8 +175,8 @@ const Sessions = () => {
   const handleExport = () => {
     const exportData = sessions.map(session => ({
       InterviewerCode: getInterviewerCode(session.interviewer_id),
-      StartTime: formatDateTime(session.start_time),
-      EndTime: session.end_time ? formatDateTime(session.end_time) : 'Active',
+      StartTime: format(new Date(session.start_time), "dd/MM/yyyy HH:mm"),
+      EndTime: session.end_time ? format(new Date(session.end_time), "dd/MM/yyyy HH:mm") : 'Active',
       Duration: session.end_time ? calculateDuration(session.start_time, session.end_time) : 'Ongoing',
       StartLocation: session.start_latitude && session.start_longitude ? 
         `${session.start_latitude.toFixed(4)}, ${session.start_longitude.toFixed(4)}` : 'N/A',

@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
@@ -12,7 +11,7 @@ import { useDataFetching } from "@/hooks/useDataFetching";
 import { useFilter } from "@/contexts/FilterContext";
 
 const Dashboard = () => {
-  const { sessions, interviewers, loading, allInterviewers } = useDataFetching();
+  const { sessions, interviewers, loading, allInterviewers, projects } = useDataFetching();
   const { selectedProject, selectedIsland } = useFilter();
 
   // Only show interviewer count for those assigned to selected project if a filter is active
@@ -78,7 +77,8 @@ const Dashboard = () => {
           <ActiveInterviewersCard 
             sessions={sessions} 
             interviewers={interviewers} 
-            loading={loading} 
+            loading={loading}
+            projects={projects}
           />
           <InactiveInterviewersCard 
             sessions={sessions} 
