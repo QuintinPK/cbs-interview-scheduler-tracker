@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { format, parseISO, isSameDay } from "date-fns";
 import { Schedule, Session } from "@/types";
@@ -45,6 +46,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   const [dragStartCell, setDragStartCell] = useState<any>(null);
   const [dragEndCell, setDragEndCell] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [processingCells, setProcessingCells] = useState<string[]>([]);
 
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -170,6 +172,11 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     }
   }, [currentDate, weekDates, interviewers, schedules, sessions, viewMode, hours]);
 
+  // Clear processing cells when schedules or sessions change
+  useEffect(() => {
+    setProcessingCells([]);
+  }, [schedules, sessions]);
+
   const handleMouseDown = (interviewerId: string, hour: number, e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -216,13 +223,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       const hasScheduled = selectedCells.some(({ cell }) => cell.isScheduled && cell.scheduleId);
       
       if (hasScheduled) {
-        const scheduleOps = [];
+        // Mark cells as processing
+        const processingIds = selectedCells
+          .filter(({ cell }) => cell.isScheduled && cell.scheduleId)
+          .map(({ cell }) => cell.scheduleId as string);
+        setProcessingCells(processingIds);
+        
+        // Process unschedule operations one by one
         for (const { cell } of selectedCells) {
           if (cell.isScheduled && cell.scheduleId) {
-            scheduleOps.push(onUnscheduleSlot(cell.scheduleId));
+            await onUnscheduleSlot(cell.scheduleId);
           }
         }
-        await Promise.all(scheduleOps);
       } 
       else {
         const addOps = [];
@@ -240,6 +252,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       setIsDragging(false);
       setDragStartCell(null);
       setDragEndCell(null);
+      setProcessingCells([]);
     }
   };
 
@@ -251,6 +264,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     
     try {
       if (cell.isScheduled && cell.scheduleId) {
+        setProcessingCells([cell.scheduleId]);
         await onUnscheduleSlot(cell.scheduleId);
       } else {
         await onScheduleSlot(interviewerId, cell.startTime, cell.endTime);
@@ -259,6 +273,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       console.error("Error toggling schedule:", error);
     } finally {
       setLoading(false);
+      setProcessingCells([]);
     }
   };
 
@@ -277,7 +292,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   };
 
   const handleMouseUpWeek = async () => {
-    if (!isDragging || !dragStartCell || !dragEndCell) return;
+    if (!isDragging || !dragStartCell || !dragEndCell || interviewers.length === 0) return;
     
     setLoading(true);
     try {
@@ -299,13 +314,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       const hasScheduled = selectedCells.some(({ cell }) => cell.isScheduled && cell.scheduleId);
       
       if (hasScheduled) {
-        const scheduleOps = [];
+        // Mark cells as processing
+        const processingIds = selectedCells
+          .filter(({ cell }) => cell.isScheduled && cell.scheduleId)
+          .map(({ cell }) => cell.scheduleId as string);
+        setProcessingCells(processingIds);
+        
+        // Process unschedule operations one by one
         for (const { cell } of selectedCells) {
           if (cell.isScheduled && cell.scheduleId) {
-            scheduleOps.push(onUnscheduleSlot(cell.scheduleId));
+            await onUnscheduleSlot(cell.scheduleId);
           }
         }
-        await Promise.all(scheduleOps);
       } 
       else {
         const addOps = [];
@@ -323,6 +343,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       setIsDragging(false);
       setDragStartCell(null);
       setDragEndCell(null);
+      setProcessingCells([]);
     }
   };
 
@@ -334,6 +355,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     
     try {
       if (cell.isScheduled && cell.scheduleId) {
+        setProcessingCells([cell.scheduleId]);
         await onUnscheduleSlot(cell.scheduleId);
       } else {
         await onScheduleSlot(interviewers[0].id, cell.startTime, cell.endTime);
@@ -342,6 +364,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       console.error("Error toggling schedule:", error);
     } finally {
       setLoading(false);
+      setProcessingCells([]);
     }
   };
 
@@ -389,12 +412,45 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     );
   };
 
+  // Check if a cell is in processing state
+  const isCellProcessing = (scheduleId?: string) => {
+    if (!scheduleId) return false;
+    return processingCells.includes(scheduleId);
+  };
+
+  // Mouse leave handler - cancel dragging if mouse leaves grid
+  const handleMouseLeave = () => {
+    if (isDragging) {
+      setIsDragging(false);
+      setDragStartCell(null);
+      setDragEndCell(null);
+    }
+  };
+
+  // Add document mouseup handler to ensure drag selection ends even if mouse is released outside grid
+  useEffect(() => {
+    const handleDocumentMouseUp = () => {
+      if (isDragging) {
+        if (viewMode === "day") {
+          handleMouseUp();
+        } else {
+          handleMouseUpWeek();
+        }
+      }
+    };
+
+    document.addEventListener('mouseup', handleDocumentMouseUp);
+    
+    return () => {
+      document.removeEventListener('mouseup', handleDocumentMouseUp);
+    };
+  }, [isDragging, dragStartCell, dragEndCell, viewMode]);
+
   if (viewMode === "week" && weekDates && interviewers.length > 0) {
     return (
       <div
         className={`relative overflow-x-auto ${loading ? "opacity-70 pointer-events-none" : ""} ${isDragging ? "select-none" : ""}`}
-        onMouseLeave={() => isDragging && setIsDragging(false)}
-        onMouseUp={handleMouseUpWeek}
+        onMouseLeave={handleMouseLeave}
         ref={gridRef}
       >
         <div className="min-w-full">
@@ -414,15 +470,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
                 const cell = grid[dIdx]?.[hour];
                 if (!cell) return <div key={dIdx} className="p-2 h-12 border-r"></div>;
                 
+                const cellOpacity = isCellProcessing(cell.scheduleId) ? "opacity-40" : "";
+                
                 return (
-                  <InteractiveGridCell
-                    key={`${dIdx}-${hour}`}
-                    cell={cell}
-                    inDragSelection={isCellInDragSelectionWeek(dIdx, hour)}
-                    onMouseDown={(e) => handleMouseDownWeek(dIdx, hour, e)}
-                    onMouseOver={(e) => handleMouseOverWeek(dIdx, hour, e)}
-                    onClick={() => handleCellClickWeek(dIdx, hour)}
-                  />
+                  <div key={`${dIdx}-${hour}`} className={cellOpacity}>
+                    <InteractiveGridCell
+                      cell={cell}
+                      inDragSelection={isCellInDragSelectionWeek(dIdx, hour)}
+                      onMouseDown={(e) => handleMouseDownWeek(dIdx, hour, e)}
+                      onMouseOver={(e) => handleMouseOverWeek(dIdx, hour, e)}
+                      onClick={() => handleCellClickWeek(dIdx, hour)}
+                    />
+                  </div>
                 );
               })}
             </div>
@@ -435,8 +494,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   return (
     <div 
       className={`relative overflow-x-auto ${loading ? 'opacity-70 pointer-events-none' : ''} ${isDragging ? 'select-none' : ''}`}
-      onMouseLeave={() => isDragging && setIsDragging(false)}
-      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       ref={gridRef}
     >
       <div className="min-w-[768px]">
@@ -459,15 +517,19 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
               const cell = grid[interviewer.id]?.[hour];
               if (!cell) return <div key={hour} className="p-2 h-12 border-r"></div>;
               
+              const cellOpacity = isCellProcessing(cell.scheduleId) ? "opacity-40" : "";
+              
               return (
-                <InteractiveGridCell
-                  key={`${interviewer.id}-${hour}`}
-                  cell={cell}
-                  inDragSelection={isCellInDragSelection(interviewer.id, hour)}
-                  onMouseDown={(e) => handleMouseDown(interviewer.id, hour, e)}
-                  onMouseOver={(e) => handleMouseOver(interviewer.id, hour, e)}
-                  onClick={() => handleCellClick(interviewer.id, hour)}
-                />
+                <div key={`${interviewer.id}-${hour}`} className={cellOpacity}>
+                  <InteractiveGridCell
+                    key={`${interviewer.id}-${hour}`}
+                    cell={cell}
+                    inDragSelection={isCellInDragSelection(interviewer.id, hour)}
+                    onMouseDown={(e) => handleMouseDown(interviewer.id, hour, e)}
+                    onMouseOver={(e) => handleMouseOver(interviewer.id, hour, e)}
+                    onClick={() => handleCellClick(interviewer.id, hour)}
+                  />
+                </div>
               );
             })}
           </div>
