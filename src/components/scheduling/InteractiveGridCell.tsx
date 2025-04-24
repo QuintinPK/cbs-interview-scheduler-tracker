@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { format, differenceInMinutes, getMinutes, startOfHour, endOfHour, isSameHour } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
 import {
   Tooltip,
@@ -36,6 +36,8 @@ interface CellState {
     startMinuteOffset?: number;
     endMinuteOffset?: number;
     isFullHour: boolean;
+    isMiddleHour?: boolean;
+    spanId: string; // Added to help identify the same session span across hours
   };
 }
 
@@ -105,38 +107,83 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
   const getSessionStyle = () => {
     if (!cell.sessionSpanData || !showRealised) return {};
 
-    const { startMinuteOffset = 0, endMinuteOffset = 60, isFullHour } = cell.sessionSpanData;
+    const { 
+      startMinuteOffset = 0, 
+      endMinuteOffset = 60, 
+      isFullHour, 
+      isMiddleHour,
+      isStart, 
+      isEnd 
+    } = cell.sessionSpanData;
     
     const style: React.CSSProperties = {
-      position: 'absolute',
+      position: 'absolute' as const,
       left: '4px',
       right: '4px',
       backgroundColor: 'rgb(240 253 244)',
-      borderLeft: '1px solid rgb(134 239 172)',
-      borderRight: '1px solid rgb(134 239 172)',
+      borderLeft: '3px solid rgb(134 239 172)',
+      borderRight: '3px solid rgb(134 239 172)',
       zIndex: 10,
     };
 
-    // Calculate top and height based on minute offsets
-    if (isFullHour) {
+    // Calculate positions based on minute offsets
+    if (isMiddleHour) {
+      // This is a middle hour in a multi-hour session span
       style.top = '0%';
       style.height = '100%';
+      style.borderTop = 'none';
+      style.borderBottom = 'none';
+    } else if (isFullHour) {
+      // This is a single full hour
+      style.top = '0%';
+      style.height = '100%';
+      style.borderTop = '3px solid rgb(134 239 172)';
+      style.borderBottom = '3px solid rgb(134 239 172)';
     } else {
-      const startPercent = (startMinuteOffset / 60) * 100;
-      const endPercent = (endMinuteOffset / 60) * 100;
-      style.top = `${startPercent}%`;
-      style.height = `${endPercent - startPercent}%`;
-    }
-
-    // Add borders based on position in the session span
-    if (cell.sessionSpanData.isStart) {
-      style.borderTop = '1px solid rgb(134 239 172)';
-    }
-    if (cell.sessionSpanData.isEnd) {
-      style.borderBottom = '1px solid rgb(134 239 172)';
+      // This is either start or end hour of a session
+      if (isStart) {
+        const startPercent = (startMinuteOffset / 60) * 100;
+        style.top = `${startPercent}%`;
+        
+        if (isEnd) {
+          // Session starts and ends in the same hour
+          const endPercent = (endMinuteOffset / 60) * 100;
+          style.height = `${endPercent - startPercent}%`;
+          style.borderTop = '3px solid rgb(134 239 172)';
+          style.borderBottom = '3px solid rgb(134 239 172)';
+        } else {
+          // Session starts in this hour but continues
+          style.height = `${100 - startPercent}%`;
+          style.borderTop = '3px solid rgb(134 239 172)';
+          style.borderBottom = 'none';
+        }
+      } else if (isEnd) {
+        // Session ends in this hour
+        const endPercent = (endMinuteOffset / 60) * 100;
+        style.top = '0%';
+        style.height = `${endPercent}%`;
+        style.borderTop = 'none';
+        style.borderBottom = '3px solid rgb(134 239 172)';
+      }
     }
 
     return style;
+  };
+
+  const renderSessionTime = () => {
+    if (!cell.sessionSpanData || !showRealised || !cell.session) return null;
+
+    // Only show time info on the start segment
+    if (!cell.sessionSpanData.isStart) return null;
+    
+    const startTime = cell.sessionSpanData.actualStartTime;
+    const endTime = cell.sessionSpanData.actualEndTime;
+    
+    return (
+      <div className="text-xs text-gray-600 p-1 z-20">
+        {format(startTime, "HH:mm")} - {format(endTime, "HH:mm")}
+      </div>
+    );
   };
 
   return (
@@ -149,22 +196,22 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             onMouseOver={onMouseOver}
             onClick={onClick}
           >
-            {cell.isSession && showRealised && cell.session && cell.sessionSpanData?.isStart && (
+            {cell.isSession && showRealised && cell.session && cell.sessionSpanData && (
               <div 
                 style={getSessionStyle()}
                 className="flex flex-col justify-between"
               >
-                <div className="text-xs text-gray-600 p-1">
-                  {format(cell.sessionSpanData.actualStartTime, "HH:mm")} - {format(cell.sessionSpanData.actualEndTime, "HH:mm")}
-                </div>
-                <div className="absolute top-0.5 right-0.5">
-                  <button 
-                    onClick={handleViewSession}
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <AlertCircle size={12} className="text-green-500" />
-                  </button>
-                </div>
+                {renderSessionTime()}
+                {cell.sessionSpanData.isStart && (
+                  <div className="absolute top-0.5 right-0.5 z-20">
+                    <button 
+                      onClick={handleViewSession}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <AlertCircle size={12} className="text-green-500" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {cell.isScheduled && (

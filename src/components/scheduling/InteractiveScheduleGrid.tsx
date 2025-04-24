@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format, isSameDay, getHours, parseISO, getMinutes } from 'date-fns';
+import { format, isSameDay, getHours, parseISO, getMinutes, addHours } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
@@ -36,6 +36,8 @@ interface CellData {
     startMinuteOffset: number;
     endMinuteOffset: number;
     isFullHour: boolean;
+    isMiddleHour?: boolean;
+    spanId: string;
   };
 }
 
@@ -110,45 +112,88 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       
       const sessionStart = new Date(session.start_time);
       const sessionEnd = new Date(session.end_time);
+      const sessionSpanId = session.id;
+      
       const dayIndex = weekDates.findIndex(date => 
         format(date, 'yyyy-MM-dd') === format(sessionStart, 'yyyy-MM-dd')
       );
       
-      if (dayIndex >= 0) {
-        const startHour = sessionStart.getHours();
-        const endHour = sessionEnd.getHours();
+      if (dayIndex < 0) return;
+      
+      const startHour = sessionStart.getHours();
+      const endHour = sessionEnd.getHours();
+      const spanningMultipleHours = startHour !== endHour;
+      
+      if (!spanningMultipleHours && hours.includes(startHour)) {
+        const startMinuteOffset = getMinutes(sessionStart);
+        const endMinuteOffset = getMinutes(sessionEnd);
         
-        for (let hour = startHour; hour <= endHour; hour++) {
-          if (hours.includes(hour)) {
-            const cellStartTime = new Date(sessionStart);
-            cellStartTime.setHours(hour, 0, 0, 0);
-            
-            const cellEndTime = new Date(cellStartTime);
-            cellEndTime.setHours(hour + 1, 0, 0, 0);
-            
-            const isStartHour = hour === startHour;
-            const isEndHour = hour === endHour;
-            const startMinuteOffset = isStartHour ? getMinutes(sessionStart) : 0;
-            const endMinuteOffset = isEndHour ? getMinutes(sessionEnd) : 60;
-            const isFullHour = !isStartHour && !isEndHour;
-            
-            newGrid[dayIndex][hour] = {
-              ...newGrid[dayIndex][hour],
-              isSession: true,
-              sessionId: session.id,
-              session,
-              sessionSpanData: {
-                isStart: isStartHour,
-                isEnd: isEndHour,
-                actualStartTime: sessionStart,
-                actualEndTime: sessionEnd,
-                startMinuteOffset,
-                endMinuteOffset,
-                isFullHour
-              }
-            };
+        newGrid[dayIndex][startHour] = {
+          ...newGrid[dayIndex][startHour],
+          isSession: true,
+          sessionId: session.id,
+          session,
+          sessionSpanData: {
+            isStart: true,
+            isEnd: true,
+            actualStartTime: sessionStart,
+            actualEndTime: sessionEnd,
+            startMinuteOffset,
+            endMinuteOffset,
+            isFullHour: startMinuteOffset === 0 && endMinuteOffset === 60,
+            spanId: sessionSpanId
           }
+        };
+        return;
+      }
+      
+      for (let hour = Math.min(...hours); hour <= Math.max(...hours); hour++) {
+        if (!hours.includes(hour)) continue;
+        
+        const hourStart = new Date(sessionStart);
+        hourStart.setHours(hour, 0, 0, 0);
+        
+        const hourEnd = new Date(sessionStart);
+        hourEnd.setHours(hour + 1, 0, 0, 0);
+        
+        const isStartHour = hour === startHour;
+        const isEndHour = hour === endHour;
+        const isMiddleHour = hour > startHour && hour < endHour;
+        
+        if (hour < startHour || hour > endHour) continue;
+        
+        let startMinuteOffset = 0;
+        let endMinuteOffset = 60;
+        
+        if (isStartHour) {
+          startMinuteOffset = getMinutes(sessionStart);
         }
+        
+        if (isEndHour) {
+          endMinuteOffset = getMinutes(sessionEnd);
+        }
+        
+        if (isEndHour && endMinuteOffset === 0) {
+          continue;
+        }
+        
+        newGrid[dayIndex][hour] = {
+          ...newGrid[dayIndex][hour],
+          isSession: true,
+          sessionId: session.id,
+          session,
+          sessionSpanData: {
+            isStart: isStartHour,
+            isEnd: isEndHour,
+            actualStartTime: sessionStart,
+            actualEndTime: sessionEnd,
+            startMinuteOffset,
+            endMinuteOffset,
+            isFullHour: !isStartHour && !isEndHour,
+            isMiddleHour,
+            spanId: sessionSpanId
+          }
+        };
       }
     });
     
