@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { format } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
@@ -38,6 +37,7 @@ interface InteractiveGridCellProps {
   onClick: () => void;
   isProcessing?: boolean;
   isTransitioning?: boolean;
+  showRealised?: boolean;
 }
 
 export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
