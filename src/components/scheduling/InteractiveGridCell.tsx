@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { format } from 'date-fns';
+import { format, differenceInMinutes, getMinutes, startOfHour, endOfHour, isSameHour } from 'date-fns';
 import { Info, AlertCircle } from 'lucide-react';
 import {
   Tooltip,
@@ -32,6 +33,9 @@ interface CellState {
     isEnd: boolean;
     actualStartTime: Date;
     actualEndTime: Date;
+    startMinuteOffset?: number;
+    endMinuteOffset?: number;
+    isFullHour: boolean;
   };
 }
 
@@ -75,17 +79,6 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     } else {
       cellClass += " bg-cbs-light/20 border border-cbs-light/40";
     }
-  } else if (cell.isSession && showRealised) {
-    cellClass += " bg-green-50";
-    if (cell.sessionSpanData?.isStart) {
-      cellClass += " border-t border-l border-green-200";
-    }
-    if (cell.sessionSpanData?.isEnd) {
-      cellClass += " border-b border-r border-green-200";
-    }
-    if (!cell.sessionSpanData?.isStart && !cell.sessionSpanData?.isEnd) {
-      cellClass += " border-l border-r border-green-200";
-    }
   } else {
     cellClass += " hover:bg-gray-100";
   }
@@ -109,6 +102,43 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     }
   };
 
+  const getSessionStyle = () => {
+    if (!cell.sessionSpanData || !showRealised) return {};
+
+    const { startMinuteOffset = 0, endMinuteOffset = 60, isFullHour } = cell.sessionSpanData;
+    
+    const style: React.CSSProperties = {
+      position: 'absolute',
+      left: '4px',
+      right: '4px',
+      backgroundColor: 'rgb(240 253 244)',
+      borderLeft: '1px solid rgb(134 239 172)',
+      borderRight: '1px solid rgb(134 239 172)',
+      zIndex: 10,
+    };
+
+    // Calculate top and height based on minute offsets
+    if (isFullHour) {
+      style.top = '0%';
+      style.height = '100%';
+    } else {
+      const startPercent = (startMinuteOffset / 60) * 100;
+      const endPercent = (endMinuteOffset / 60) * 100;
+      style.top = `${startPercent}%`;
+      style.height = `${endPercent - startPercent}%`;
+    }
+
+    // Add borders based on position in the session span
+    if (cell.sessionSpanData.isStart) {
+      style.borderTop = '1px solid rgb(134 239 172)';
+    }
+    if (cell.sessionSpanData.isEnd) {
+      style.borderBottom = '1px solid rgb(134 239 172)';
+    }
+
+    return style;
+  };
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -120,21 +150,26 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             onClick={onClick}
           >
             {cell.isSession && showRealised && cell.session && cell.sessionSpanData?.isStart && (
-              <div className="text-xs text-gray-600">
-                {format(cell.sessionSpanData.actualStartTime, "HH:mm")} - {format(cell.sessionSpanData.actualEndTime, "HH:mm")}
-              </div>
-            )}
-            {(cell.isScheduled || (cell.isSession && showRealised)) && (
-              <div className="absolute top-0.5 right-0.5 flex space-x-0.5">
-                {cell.isScheduled && <Info size={12} className="text-cbs" />}
-                {cell.isSession && showRealised && cell.sessionSpanData?.isStart && (
+              <div 
+                style={getSessionStyle()}
+                className="flex flex-col justify-between"
+              >
+                <div className="text-xs text-gray-600 p-1">
+                  {format(cell.sessionSpanData.actualStartTime, "HH:mm")} - {format(cell.sessionSpanData.actualEndTime, "HH:mm")}
+                </div>
+                <div className="absolute top-0.5 right-0.5">
                   <button 
                     onClick={handleViewSession}
                     onMouseDown={(e) => e.stopPropagation()}
                   >
                     <AlertCircle size={12} className="text-green-500" />
                   </button>
-                )}
+                </div>
+              </div>
+            )}
+            {cell.isScheduled && (
+              <div className="absolute top-0.5 right-0.5">
+                <Info size={12} className="text-cbs" />
               </div>
             )}
           </div>
