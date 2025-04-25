@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { format, parseISO, eachDayOfInterval, startOfWeek, endOfWeek, differenceInHours } from "date-fns";
 import { Pencil, Trash2, AlertCircle } from "lucide-react";
@@ -6,6 +5,7 @@ import { Schedule, Session } from "@/types";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ScheduleStats } from "@/components/scheduling/ScheduleStats";
 
 interface ScheduleGridProps {
   currentWeekStart: Date;
@@ -161,15 +161,36 @@ export const ScheduleGrid = ({
     setShowRealised(checked);
   };
 
+  // Calculate total scheduled and worked hours
+  const { scheduledHours, workedHours } = useMemo(() => {
+    const scheduled = schedules.reduce((total, schedule) => {
+      const start = parseISO(schedule.start_time);
+      const end = parseISO(schedule.end_time);
+      return total + differenceInHours(end, start);
+    }, 0);
+    
+    const worked = sessions.reduce((total, session) => {
+      if (!session.end_time) return total;
+      const start = parseISO(session.start_time);
+      const end = parseISO(session.end_time);
+      return total + differenceInHours(end, start);
+    }, 0);
+    
+    return { scheduledHours: scheduled, workedHours: worked };
+  }, [schedules, sessions]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2 ml-auto w-fit">
-        <Switch 
-          id="show-realised" 
-          checked={showRealised}
-          onCheckedChange={handleToggleRealised}
-        />
-        <Label htmlFor="show-realised">Show realised sessions</Label>
+      <div className="flex items-center justify-between">
+        <ScheduleStats scheduledHours={scheduledHours} workedHours={workedHours} />
+        <div className="flex items-center space-x-2">
+          <Switch 
+            id="show-realised" 
+            checked={showRealised}
+            onCheckedChange={handleToggleRealised}
+          />
+          <Label htmlFor="show-realised">Show realised sessions</Label>
+        </div>
       </div>
       
       <div className="overflow-x-auto">

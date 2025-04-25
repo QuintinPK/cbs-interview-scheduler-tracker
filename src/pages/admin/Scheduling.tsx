@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -12,13 +11,12 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
 import { useSessions } from "@/hooks/useSessions";
-
-// Import our new component files
 import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
 import { InterviewerSelector } from "@/components/scheduling/InterviewerSelector";
 import { ScheduleGrid } from "@/components/scheduling/ScheduleGrid";
 import { ScheduleDialog } from "@/components/scheduling/ScheduleDialog";
 import { DeleteDialog } from "@/components/scheduling/DeleteDialog";
+import { ScheduleStats } from "@/components/scheduling/ScheduleStats";
 
 const Scheduling = () => {
   const { toast } = useToast();
@@ -36,7 +34,6 @@ const Scheduling = () => {
   const [endTime, setEndTime] = useState("17:00");
   const [status, setStatus] = useState<"scheduled" | "completed" | "cancelled">("scheduled");
   
-  // Use the custom hooks to fetch data
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const selectedInterviewer = interviewers.find(i => i.code === selectedInterviewerCode);
   
@@ -49,7 +46,6 @@ const Scheduling = () => {
     getScheduledHoursForWeek
   } = useSchedules(selectedInterviewer?.id);
   
-  // Add sessions hook to get realised sessions
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const { sessions, loading: sessionsLoading } = useSessions(
     selectedInterviewer?.id, 
@@ -57,14 +53,12 @@ const Scheduling = () => {
     format(weekEnd, "yyyy-MM-dd")
   );
   
-  // Use the hook to get worked hours
   const { 
     workedHours, 
     loading: workHoursLoading, 
     calculateWorkHoursForWeek 
   } = useInterviewerWorkHours(selectedInterviewer?.id);
   
-  // Calculate scheduled hours for the current week
   const scheduledHours = selectedInterviewer ? getScheduledHoursForWeek(currentWeekStart) : 0;
   
   const loading = interviewersLoading || schedulesLoading || workHoursLoading || sessionsLoading;
@@ -76,7 +70,6 @@ const Scheduling = () => {
     }
   }, [searchParams]);
   
-  // Update worked hours when interviewer or week changes
   useEffect(() => {
     if (selectedInterviewer) {
       calculateWorkHoursForWeek(currentWeekStart);
@@ -142,7 +135,6 @@ const Scheduling = () => {
     const [startHours, startMinutes] = startTime.split(":").map(Number);
     const [endHours, endMinutes] = endTime.split(":").map(Number);
     
-    // If we're editing, just update the existing schedule
     if (isEditing && selectedSchedule) {
       const startDateTime = new Date(dateRange.from);
       startDateTime.setHours(startHours, startMinutes);
@@ -166,14 +158,34 @@ const Scheduling = () => {
       return;
     }
     
-    // If we're adding a new schedule, handle date range
-    try {
-      // If no end date or if start and end dates are the same, just create one schedule
-      if (!dateRange.to || format(dateRange.from, "yyyy-MM-dd") === format(dateRange.to, "yyyy-MM-dd")) {
-        const startDateTime = new Date(dateRange.from);
+    if (!dateRange.to || format(dateRange.from, "yyyy-MM-dd") === format(dateRange.to, "yyyy-MM-dd")) {
+      const startDateTime = new Date(dateRange.from);
+      startDateTime.setHours(startHours, startMinutes);
+      
+      const endDateTime = new Date(dateRange.from);
+      endDateTime.setHours(endHours, endMinutes);
+      
+      const scheduleData = {
+        interviewer_id: selectedInterviewer.id,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        status,
+      };
+      
+      await addSchedule(scheduleData);
+    } else {
+      const { eachDayOfInterval, isSameDay } = await import('date-fns');
+      
+      const days = eachDayOfInterval({
+        start: dateRange.from,
+        end: dateRange.to
+      });
+      
+      await Promise.all(days.map(async (day) => {
+        const startDateTime = new Date(day);
         startDateTime.setHours(startHours, startMinutes);
         
-        const endDateTime = new Date(dateRange.from);
+        const endDateTime = new Date(day);
         endDateTime.setHours(endHours, endMinutes);
         
         const scheduleData = {
@@ -184,49 +196,15 @@ const Scheduling = () => {
         };
         
         await addSchedule(scheduleData);
-      } else {
-        // Import eachDayOfInterval here if not already imported
-        const { eachDayOfInterval, isSameDay } = await import('date-fns');
-        
-        // Create schedules for each day in the range
-        const days = eachDayOfInterval({
-          start: dateRange.from,
-          end: dateRange.to
-        });
-        
-        // Use Promise.all to create all schedules in parallel
-        await Promise.all(days.map(async (day) => {
-          const startDateTime = new Date(day);
-          startDateTime.setHours(startHours, startMinutes);
-          
-          const endDateTime = new Date(day);
-          endDateTime.setHours(endHours, endMinutes);
-          
-          const scheduleData = {
-            interviewer_id: selectedInterviewer.id,
-            start_time: startDateTime.toISOString(),
-            end_time: endDateTime.toISOString(),
-            status,
-          };
-          
-          await addSchedule(scheduleData);
-        }));
-        
-        toast({
-          title: "Success",
-          description: `Created ${days.length} schedules for the selected date range`,
-        });
-      }
+      }));
       
-      setShowAddEditDialog(false);
-    } catch (error) {
-      console.error("Error saving schedules:", error);
       toast({
-        title: "Error",
-        description: "There was a problem creating the schedules",
-        variant: "destructive",
+        title: "Success",
+        description: `Created ${days.length} schedules for the selected date range`,
       });
     }
+    
+    setShowAddEditDialog(false);
   };
   
   const confirmDelete = async () => {
@@ -246,7 +224,6 @@ const Scheduling = () => {
 
   const handleWeekChange = (newWeekStart: Date) => {
     setCurrentWeekStart(newWeekStart);
-    // This will trigger the useEffect to recalculate worked hours
   };
 
   return (
@@ -339,6 +316,8 @@ const Scheduling = () => {
         interviewers={interviewers}
         onConfirmDelete={confirmDelete}
       />
+      
+      <ScheduleStats />
     </AdminLayout>
   );
 };
