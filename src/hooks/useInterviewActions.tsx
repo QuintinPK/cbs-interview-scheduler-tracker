@@ -4,9 +4,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
+import { useOffline } from "@/contexts/OfflineContext";
+import { v4 as uuidv4 } from "uuid";
 
 export const useInterviewActions = (sessionId: string | null) => {
   const { toast } = useToast();
+  const { 
+    isOnline, 
+    saveInterview, 
+    updateInterview, 
+    getInterviewsForSession 
+  } = useOffline();
+  
   const [activeInterview, setActiveInterview] = useState<Interview | null>(null);
   const [isInterviewLoading, setIsInterviewLoading] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
@@ -17,24 +26,46 @@ export const useInterviewActions = (sessionId: string | null) => {
     try {
       setIsInterviewLoading(true);
       
-      const { data, error } = await supabase
-        .from('interviews')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('is_active', true)
-        .single();
-        
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
-        throw error;
+      // First check local storage
+      const localInterviews = await getInterviewsForSession(sessionId);
+      const activeLocalInterview = localInterviews.find(i => i.is_active);
+      
+      if (activeLocalInterview) {
+        setActiveInterview(activeLocalInterview);
+        return;
       }
       
-      setActiveInterview(data || null);
+      // If online and no active local interview, check Supabase
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('interviews')
+          .select('*')
+          .eq('session_id', sessionId)
+          .eq('is_active', true)
+          .single();
+            
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+          throw error;
+        }
+          
+        if (data) {
+          // Save to local storage with synced status
+          const savedInterview = await saveInterview({
+            ...data,
+            sync_status: 'synced'
+          });
+          
+          setActiveInterview(savedInterview);
+        } else {
+          setActiveInterview(null);
+        }
+      }
     } catch (error) {
       console.error("Error fetching active interview:", error);
     } finally {
       setIsInterviewLoading(false);
     }
-  }, []);
+  }, [isOnline, getInterviewsForSession, saveInterview]);
   
   useEffect(() => {
     if (sessionId) {
@@ -59,37 +90,54 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       const currentLocation = await getCurrentLocation();
       
-      // Get the session's project_id if not provided
-      let interviewProjectId = projectId;
-      if (!interviewProjectId) {
-        const { data: session, error: sessionError } = await supabase
-          .from('sessions')
-          .select('project_id')
-          .eq('id', sessionId)
-          .single();
-        
-        if (sessionError) throw sessionError;
-        interviewProjectId = session?.project_id;
-      }
+      // Create a new interview locally
+      const newInterview: Interview = {
+        id: uuidv4(), // Temporary ID, will be replaced by server on sync
+        session_id: sessionId,
+        project_id: projectId,
+        start_time: new Date().toISOString(),
+        end_time: null,
+        start_latitude: currentLocation?.latitude || null,
+        start_longitude: currentLocation?.longitude || null,
+        start_address: currentLocation?.address || null,
+        end_latitude: null,
+        end_longitude: null,
+        end_address: null,
+        result: null,
+        is_active: true,
+        sync_status: 'unsynced',
+      };
       
-      const { data, error } = await supabase
-        .from('interviews')
-        .insert([
-          {
+      // Save locally first
+      const savedInterview = await saveInterview(newInterview);
+      setActiveInterview(savedInterview);
+      
+      // If online, try to sync immediately
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('interviews')
+          .insert([{
             session_id: sessionId,
-            project_id: interviewProjectId,
+            project_id: projectId,
             start_latitude: currentLocation?.latitude || null,
             start_longitude: currentLocation?.longitude || null,
             start_address: currentLocation?.address || null,
             is_active: true
-          }
-        ])
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      setActiveInterview(data);
+          }])
+          .select()
+          .single();
+          
+        if (!error && data) {
+          // Update local storage with server ID
+          const updatedInterview = await updateInterview({
+            ...savedInterview,
+            id: data.id,
+            sync_status: 'synced'
+          });
+          
+          setActiveInterview(updatedInterview);
+        }
+      }
       
       toast({
         title: "Interview Started",
@@ -114,18 +162,29 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       const currentLocation = await getCurrentLocation();
       
-      // Update interview with end location but don't set result yet
-      const { error } = await supabase
-        .from('interviews')
-        .update({
-          end_time: new Date().toISOString(),
-          end_latitude: currentLocation?.latitude || null,
-          end_longitude: currentLocation?.longitude || null,
-          end_address: currentLocation?.address || null,
-        })
-        .eq('id', activeInterview.id);
-        
-      if (error) throw error;
+      // Update local interview with end location
+      const updatedInterview = await updateInterview({
+        ...activeInterview,
+        end_time: new Date().toISOString(),
+        end_latitude: currentLocation?.latitude || null,
+        end_longitude: currentLocation?.longitude || null,
+        end_address: currentLocation?.address || null,
+      });
+      
+      setActiveInterview(updatedInterview);
+      
+      // If online, try to update on server as well
+      if (isOnline && activeInterview.sync_status === 'synced') {
+        await supabase
+          .from('interviews')
+          .update({
+            end_time: new Date().toISOString(),
+            end_latitude: currentLocation?.latitude || null,
+            end_longitude: currentLocation?.longitude || null,
+            end_address: currentLocation?.address || null,
+          })
+          .eq('id', activeInterview.id);
+      }
       
       // Show dialog to select interview result
       setShowResultDialog(true);
@@ -147,15 +206,32 @@ export const useInterviewActions = (sessionId: string | null) => {
     try {
       setIsInterviewLoading(true);
       
-      const { error } = await supabase
-        .from('interviews')
-        .update({
-          result,
-          is_active: false
-        })
-        .eq('id', activeInterview.id);
-        
-      if (error) throw error;
+      // Update locally first
+      const updatedInterview = await updateInterview({
+        ...activeInterview,
+        result,
+        is_active: false,
+        sync_status: activeInterview.sync_status === 'synced' ? 'unsynced' : 'unsynced'
+      });
+      
+      // If online and interview was already synced, update on server as well
+      if (isOnline && activeInterview.sync_status === 'synced') {
+        const { error } = await supabase
+          .from('interviews')
+          .update({
+            result,
+            is_active: false
+          })
+          .eq('id', activeInterview.id);
+          
+        if (!error) {
+          // Mark as synced again
+          await updateInterview({
+            ...updatedInterview,
+            sync_status: 'synced'
+          });
+        }
+      }
       
       setActiveInterview(null);
       setShowResultDialog(false);

@@ -1,3 +1,4 @@
+
 export interface Interviewer {
   id: string;
   code: string;
@@ -22,6 +23,8 @@ export interface Session {
   end_address: string | null;
   is_active: boolean;
   is_unusual_reviewed: boolean | null;
+  sync_status?: 'unsynced' | 'syncing' | 'synced';
+  local_id?: string;
 }
 
 export interface Interview {
@@ -38,6 +41,8 @@ export interface Interview {
   end_address: string | null;
   result: 'response' | 'non-response' | null | string;
   is_active: boolean;
+  sync_status?: 'unsynced' | 'syncing' | 'synced';
+  local_id?: string;
 }
 
 export interface Location {

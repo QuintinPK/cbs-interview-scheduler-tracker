@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,21 +64,18 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveInterview
   } = useInterviewActions(activeSession?.id || null);
 
-  // Set selected project ID when active session has a project ID
   useEffect(() => {
     if (activeSession?.project_id) {
       setSelectedProjectId(activeSession.project_id);
     }
   }, [activeSession]);
 
-  // Fetch active interview when session changes
   useEffect(() => {
     if (activeSession?.id) {
       fetchActiveInterview(activeSession.id);
     }
   }, [activeSession, fetchActiveInterview]);
 
-  // Fetch interviewer ID from interviewer code
   useEffect(() => {
     const getInterviewerId = async () => {
       if (!interviewerCode.trim()) {
@@ -112,7 +108,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     getInterviewerId();
   }, [interviewerCode]);
 
-  // Fetch available projects when interviewer ID changes
   useEffect(() => {
     const fetchProjects = async () => {
       if (!interviewerId) {
@@ -123,7 +118,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       try {
         console.log("Fetching projects for interviewer ID:", interviewerId);
         
-        // Get assigned projects
         const { data: projectAssignments, error: projectsError } = await supabase
           .from('project_interviewers')
           .select('project_id, projects:project_id(*)')
@@ -138,12 +132,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
           console.log("Found projects:", projects);
           setAvailableProjects(projects);
           
-          // If only one project, auto-select it
           if (projects.length === 1) {
             console.log("Single project found, setting project ID:", projects[0].id);
             setSelectedProjectId(projects[0].id);
           } else if (projects.length > 1 && !isRunning) {
-            // Reset selected project for multiple projects
             setSelectedProjectId(null);
           }
         } else {
@@ -160,7 +152,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchProjects();
   }, [interviewerId, isRunning]);
 
-  // Fetch active project details when selected project changes
   useEffect(() => {
     const fetchActiveProject = async () => {
       if (!selectedProjectId) {
@@ -179,7 +170,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           throw error;
         }
         
-        // Cast the excluded_islands to the correct type
         setActiveProject({
           id: project.id,
           name: project.name,
@@ -207,7 +197,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
     
     if (!isRunning) {
-      // Start session flow
       try {
         setLoading(true);
         
@@ -220,7 +209,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // Check if interviewer has assigned projects
         if (availableProjects.length === 0) {
           toast({
             title: "Error",
@@ -230,14 +218,12 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // For single project, use it automatically
         if (availableProjects.length === 1) {
           console.log("Using the only available project:", availableProjects[0].id);
           await handleSessionStart(availableProjects[0].id);
           return;
         }
         
-        // For multiple projects, show the selection dialog
         if (availableProjects.length > 1) {
           console.log("Multiple projects available, showing selection dialog");
           setShowProjectDialog(true);
@@ -254,7 +240,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
         setLoading(false);
       }
     } else {
-      // End session flow
       await handleSessionEnd();
     }
   };
@@ -264,7 +249,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     setSelectedProjectId(projectId);
     setShowProjectDialog(false);
     
-    // Start session with the selected project
     await handleSessionStart(projectId);
   };
 
@@ -435,6 +419,20 @@ const SessionForm: React.FC<SessionFormProps> = ({
               : undefined
           }
         />
+      )}
+      
+      {isRunning && activeSession?.sync_status === 'unsynced' && (
+        <div className="p-2 bg-amber-50 rounded-lg border border-amber-200 text-amber-800 text-sm mt-2">
+          <p className="font-medium">This session hasn't been synced yet</p>
+          <p className="text-xs">It will automatically sync when you go online</p>
+        </div>
+      )}
+      
+      {isRunning && activeInterview?.sync_status === 'unsynced' && (
+        <div className="p-2 bg-amber-50 rounded-lg border border-amber-200 text-amber-800 text-sm mt-2">
+          <p className="font-medium">This interview hasn't been synced yet</p>
+          <p className="text-xs">It will automatically sync when you go online</p>
+        </div>
       )}
       
       <div className="flex flex-col gap-4">
