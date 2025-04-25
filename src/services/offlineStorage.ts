@@ -40,7 +40,7 @@ const initialSyncStatus: SyncStatus = {
 export const saveSessionLocally = async (session: Session): Promise<Session> => {
   const sessionToSave = { 
     ...session,
-    sync_status: 'unsynced',
+    sync_status: 'unsynced' as 'unsynced',
     local_id: session.local_id || uuidv4()
   };
   
@@ -85,7 +85,7 @@ export const removeLocalSession = async (id: string): Promise<void> => {
 export const saveInterviewLocally = async (interview: Interview): Promise<Interview> => {
   const interviewToSave = {
     ...interview,
-    sync_status: 'unsynced',
+    sync_status: 'unsynced' as 'unsynced',
     local_id: interview.local_id || uuidv4() 
   };
   
