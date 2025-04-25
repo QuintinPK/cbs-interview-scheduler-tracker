@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,14 +59,21 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       try {
         setLoading(true);
         
-        // First check local sessions - restructured to avoid await in filter function
-        const interviewerId = await getInterviewerIdFromCode(interviewerCode);
-        
-        const activeLocalSession = localSessions.find(
-          s => s.is_active === true && 
-          (s.interviewer_id === interviewerCode || 
-           (interviewerId && s.interviewer_id === interviewerId))
+        // First check local sessions by exact match for interviewer code
+        let activeLocalSession = localSessions.find(
+          s => s.is_active === true && s.interviewer_id === interviewerCode
         );
+        
+        // If not found by exact match, try to get ID and then check again
+        if (!activeLocalSession) {
+          const interviewerId = await getInterviewerIdFromCode(interviewerCode);
+          
+          if (interviewerId) {
+            activeLocalSession = localSessions.find(
+              s => s.is_active === true && s.interviewer_id === interviewerId
+            );
+          }
+        }
         
         if (activeLocalSession) {
           console.log("Found active local session:", activeLocalSession);
@@ -74,7 +82,14 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         }
         
         // Only check Supabase if online
-        if (isOnline && interviewerId) {
+        if (isOnline) {
+          // Get the interviewer by code
+          const interviewerId = await getInterviewerIdFromCode(interviewerCode);
+          
+          if (!interviewerId) {
+            return;
+          }
+          
           // Check for active sessions
           const { data: sessions, error: sessionError } = await supabase
             .from('sessions')
