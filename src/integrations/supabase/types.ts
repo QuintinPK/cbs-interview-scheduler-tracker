@@ -268,6 +268,7 @@ export type Database = {
           id: string
           interviewer_id: string
           is_active: boolean
+          is_unusual_reviewed: boolean | null
           project_id: string | null
           start_address: string | null
           start_latitude: number | null
@@ -283,6 +284,7 @@ export type Database = {
           id?: string
           interviewer_id: string
           is_active?: boolean
+          is_unusual_reviewed?: boolean | null
           project_id?: string | null
           start_address?: string | null
           start_latitude?: number | null
@@ -298,6 +300,7 @@ export type Database = {
           id?: string
           interviewer_id?: string
           is_active?: boolean
+          is_unusual_reviewed?: boolean | null
           project_id?: string | null
           start_address?: string | null
           start_latitude?: number | null

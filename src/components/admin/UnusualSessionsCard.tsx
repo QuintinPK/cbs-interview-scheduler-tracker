@@ -30,12 +30,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useSessionActions } from "@/hooks/useSessionActions";
 import { formatInTimeZone } from 'date-fns-tz';
 import { getHours } from "date-fns";
+import { supabase } from "@/lib/supabase";
 
 interface UnusualSessionsCardProps {
   sessions: Session[];
   interviewers: Interviewer[];
   loading?: boolean;
-  threshold?: number; // in minutes
+  threshold?: number;
 }
 
 const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
@@ -66,6 +67,10 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   
   useMemo(() => {
     const unusualSessions = sessions.filter(session => {
+      if (session.is_unusual_reviewed) {
+        return false;
+      }
+      
       if (!session.end_time || session.is_active) {
         return false;
       }
@@ -74,7 +79,6 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
       const end = new Date(session.end_time).getTime();
       const durationMinutes = (end - start) / (1000 * 60);
       
-      // Check for either unusual duration or unusual start time
       return durationMinutes > threshold || isUnusualStartTime(session.start_time);
     });
     
@@ -149,14 +153,29 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     setSessionToMarkAsSeen(sessionId);
   };
   
-  const confirmMarkAsSeen = () => {
+  const confirmMarkAsSeen = async () => {
     if (!sessionToMarkAsSeen) return;
+    
+    const { error } = await supabase
+      .from('sessions')
+      .update({ is_unusual_reviewed: true })
+      .eq('id', sessionToMarkAsSeen);
+    
+    if (error) {
+      console.error("Error marking session as seen:", error);
+      toast({
+        title: "Error",
+        description: "Could not mark session as seen",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setUnusualSessions(prev => prev.filter(s => s.id !== sessionToMarkAsSeen));
     
     toast({
       title: "Session Approved",
-      description: "This unusual session has been marked as seen and removed from the list.",
+      description: "This unusual session has been marked as seen and will not appear in this list again.",
     });
     
     setSessionToMarkAsSeen(null);
