@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek, addWeeks, subWeeks } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours } from "date-fns";
 
 import AdminLayout from "@/components/layout/AdminLayout";
 import GlobalFilter from "@/components/GlobalFilter";
@@ -58,12 +58,20 @@ const InteractiveScheduling = () => {
   // Combined loading state
   const isLoading = interviewersLoading || schedulesLoading || sessionsLoading;
 
-  // Calculate stats
-  const scheduledHours = schedules.reduce((total, schedule) => total + schedule.duration, 0);
+  // Calculate stats - properly calculating hours from start_time and end_time
+  const scheduledHours = schedules.reduce((total, schedule) => {
+    const start = parseISO(schedule.start_time);
+    const end = parseISO(schedule.end_time);
+    return total + differenceInHours(end, start);
+  }, 0);
+
   const workedHours = sessions.reduce((total, session) => {
-    // Calculate session duration in hours
-    const duration = session.duration_minutes ? session.duration_minutes / 60 : 0;
-    return total + duration;
+    // Only calculate duration if end_time exists (session is completed)
+    if (!session.end_time) return total;
+    
+    const start = parseISO(session.start_time);
+    const end = parseISO(session.end_time);
+    return total + differenceInHours(end, start);
   }, 0);
 
   // Navigate to previous/next week
