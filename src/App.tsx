@@ -56,10 +56,9 @@ const AppRoutes = () => {
                 <Route path="interviewer/:id" element={<InterviewerDashboard />} />
                 <Route path="projects" element={<Projects />} />
                 <Route path="projects/assign/:projectId" element={<ProjectAssign />} />
-                <Route path="scheduling" element={<Scheduling />} />
                 <Route path="costs" element={<Costs />} />
                 <Route path="settings" element={<Settings />} />
-                <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
+                <Route path="scheduling" element={<InteractiveScheduling />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </FilterProvider>
