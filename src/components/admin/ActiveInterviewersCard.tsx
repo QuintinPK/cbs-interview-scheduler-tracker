@@ -23,10 +23,18 @@ const ActiveInterviewersCard: React.FC<ActiveInterviewersCardProps> = ({
   // Get only active sessions
   const activeSessions = sessions.filter(session => session.is_active);
   
-  // Get interviewer code from ID
-  const getInterviewerCode = (interviewerId: string) => {
+  // Get interviewer info from ID
+  const getInterviewerInfo = (interviewerId: string) => {
     const interviewer = interviewers.find(i => i.id === interviewerId);
-    return interviewer ? interviewer.code : 'Unknown';
+    return interviewer ? {
+      code: interviewer.code,
+      fullName: `${interviewer.first_name} ${interviewer.last_name}`,
+      island: interviewer.island || 'Unknown'
+    } : {
+      code: 'Unknown',
+      fullName: 'Unknown',
+      island: 'Unknown'
+    };
   };
 
   // Get project name from ID
@@ -58,26 +66,31 @@ const ActiveInterviewersCard: React.FC<ActiveInterviewersCardProps> = ({
           <p className="text-muted-foreground text-center py-4">No active interviewers</p>
         ) : (
           <div className="space-y-4">
-            {activeSessions.map((session) => (
-              <div 
-                key={session.id} 
-                className="flex items-center justify-between p-2 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
-                onClick={() => handleInterviewerClick(session.interviewer_id)}
-              >
-                <div>
-                  <p className="font-medium">{getInterviewerCode(session.interviewer_id)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Started at {formatTime(session.start_time)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {getProjectName(session.project_id)}
-                  </p>
+            {activeSessions.map((session) => {
+              const interviewerInfo = getInterviewerInfo(session.interviewer_id);
+              return (
+                <div 
+                  key={session.id} 
+                  className="flex items-center justify-between p-2 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleInterviewerClick(session.interviewer_id)}
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      {interviewerInfo.code}: ({interviewerInfo.fullName} | {interviewerInfo.island})
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Started at {formatTime(session.start_time)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {getProjectName(session.project_id)}
+                    </p>
+                  </div>
+                  <div className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-medium">
+                    Active
+                  </div>
                 </div>
-                <div className="px-2 py-1 rounded bg-green-100 text-green-800 text-xs font-medium">
-                  Active
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>

@@ -5,8 +5,29 @@ import { Session, Interviewer } from "@/types";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Link } from "react-router-dom";
-import { MapPin } from "lucide-react";
-import CoordinatePopup from "../ui/CoordinatePopup";
+import { Pencil, Eye, Trash2 } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogFooter,
+  DialogDescription 
+} from "@/components/ui/dialog";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useSessionActions } from "@/hooks/useSessionActions";
 
 interface UnusualSessionsCardProps {
   sessions: Session[];
@@ -21,10 +42,23 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   loading = false,
   threshold = 120 // Default: 2 hours
 }) => {
-  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
-  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [unusualSessions, setUnusualSessions] = useState<Session[]>([]);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState<Session | null>(null);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const { toast } = useToast();
+  const { updateSession, deleteSession } = useSessionActions(
+    sessions, 
+    () => {}, // We'll handle state updates manually
+    unusualSessions,
+    () => {},
+    toast
+  );
   
-  const unusualSessions = useMemo(() => {
+  // Initialize unusual sessions
+  useMemo(() => {
     // Filter for completed sessions longer than the threshold
     const longSessions = sessions.filter(session => {
       if (!session.end_time || session.is_active) {
@@ -39,11 +73,13 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     });
     
     // Sort by duration (longest first)
-    return longSessions.sort((a, b) => {
+    const sorted = longSessions.sort((a, b) => {
       const durationA = new Date(a.end_time!).getTime() - new Date(a.start_time).getTime();
       const durationB = new Date(b.end_time!).getTime() - new Date(b.start_time).getTime();
       return durationB - durationA;
     });
+    
+    setUnusualSessions(sorted);
   }, [sessions, threshold]);
   
   const getInterviewerCode = (interviewerId: string): string => {
@@ -51,11 +87,59 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     return interviewer ? interviewer.code : "Unknown";
   };
   
-  const handleCoordinateClick = (lat: number | null, lng: number | null) => {
-    if (lat !== null && lng !== null) {
-      setSelectedCoordinate({ lat, lng });
-      setIsMapOpen(true);
+  const handleEditClick = (session: Session) => {
+    setEditingSession(session);
+    setStartTime(session.start_time.split('.')[0]); // Remove milliseconds
+    setEndTime(session.end_time ? session.end_time.split('.')[0] : ''); // Remove milliseconds
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleDeleteClick = (session: Session) => {
+    setEditingSession(session);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!editingSession) return;
+    
+    const success = await updateSession(editingSession.id, {
+      start_time: startTime,
+      end_time: endTime
+    });
+    
+    if (success) {
+      // Update local state
+      setUnusualSessions(prev => 
+        prev.map(s => 
+          s.id === editingSession.id 
+            ? { ...s, start_time: startTime, end_time: endTime } 
+            : s
+        )
+      );
+      setIsEditDialogOpen(false);
     }
+  };
+  
+  const handleDelete = async () => {
+    if (!editingSession) return;
+    
+    const success = await deleteSession(editingSession.id);
+    
+    if (success) {
+      // Remove from local state
+      setUnusualSessions(prev => prev.filter(s => s.id !== editingSession.id));
+      setIsDeleteDialogOpen(false);
+    }
+  };
+  
+  const handleMarkAsSeen = async (sessionId: string) => {
+    // Remove from unusual sessions list without deleting the actual session
+    setUnusualSessions(prev => prev.filter(s => s.id !== sessionId));
+    
+    toast({
+      title: "Session Approved",
+      description: "This unusual session has been marked as seen and removed from the list.",
+    });
   };
   
   return (
@@ -80,7 +164,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
                     <TableHead>Start Time</TableHead>
                     <TableHead>End Time</TableHead>
                     <TableHead>Duration</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -110,17 +194,31 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
                         </Link>
                       </TableCell>
                       <TableCell>
-                        {session.start_latitude && session.start_longitude ? (
-                          <button 
-                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                            onClick={() => handleCoordinateClick(session.start_latitude, session.start_longitude)}
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditClick(session)}
                           >
-                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
-                            View location
-                          </button>
-                        ) : (
-                          "N/A"
-                        )}
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-destructive"
+                            onClick={() => handleDeleteClick(session)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleMarkAsSeen(session.id)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Seen
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -131,11 +229,67 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
         </CardContent>
       </Card>
       
-      <CoordinatePopup
-        isOpen={isMapOpen}
-        onClose={() => setIsMapOpen(false)} 
-        coordinate={selectedCoordinate}
-      />
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Session Times</DialogTitle>
+            <DialogDescription>
+              Adjust the start and end times for this session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="start-time" className="text-sm font-medium">
+                Start Time
+              </label>
+              <Input
+                id="start-time"
+                type="datetime-local"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="end-time" className="text-sm font-medium">
+                End Time
+              </label>
+              <Input
+                id="end-time"
+                type="datetime-local"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this session. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
