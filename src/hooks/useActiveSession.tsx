@@ -25,7 +25,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
-  const [localInterviewers, setLocalInterviewers] = useState<any[]>([]);
+  const [localInterviewers, setLocalInterviewers] = useState<Interviewer[]>([]);
 
   useEffect(() => {
     const loadSavedInterviewerCode = () => {
@@ -172,7 +172,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         await saveInterviewer(typedInterviewer);
         
         await loadLocalInterviewers();
-        return interviewers[0].id;
+        return interviewer.id;
       }
       
       if (!isOnline) {
