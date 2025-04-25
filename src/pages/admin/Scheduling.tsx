@@ -317,7 +317,10 @@ const Scheduling = () => {
         onConfirmDelete={confirmDelete}
       />
       
-      <ScheduleStats />
+      <ScheduleStats 
+        scheduledHours={scheduledHours}
+        workedHours={workedHours}
+      />
     </AdminLayout>
   );
 };
