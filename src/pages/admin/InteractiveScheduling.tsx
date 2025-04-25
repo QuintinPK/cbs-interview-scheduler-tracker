@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours } from "date-fns";
+import { Link } from "react-router-dom";
 
 import AdminLayout from "@/components/layout/AdminLayout";
 import GlobalFilter from "@/components/GlobalFilter";
@@ -185,10 +186,16 @@ const InteractiveScheduling = () => {
           <div className="bg-white rounded-lg shadow-sm border overflow-auto">
             <div className="p-4 border-b">
               <h2 className="font-semibold">
-                Weekly Schedule for {filteredInterviewers.find(i => i.id === selectedInterviewerId)?.code || ""}: {
-                filteredInterviewers.find(i => i.id === selectedInterviewerId)?.first_name || ""} {
-                filteredInterviewers.find(i => i.id === selectedInterviewerId)?.last_name || ""} 
-                ({format(currentWeekStart, "MMM d")} - {format(addDays(currentWeekStart, 6), "MMM d, yyyy")})
+                Weekly Schedule for {" "}
+                <Link 
+                  to={`/admin/interviewer/${selectedInterviewerId}`}
+                  className="text-primary hover:underline"
+                >
+                  {filteredInterviewers.find(i => i.id === selectedInterviewerId)?.code || ""}: {
+                  filteredInterviewers.find(i => i.id === selectedInterviewerId)?.first_name || ""} {
+                  filteredInterviewers.find(i => i.id === selectedInterviewerId)?.last_name || ""}
+                </Link>
+                {" "}({format(currentWeekStart, "MMM d")} - {format(addDays(currentWeekStart, 6), "MMM d, yyyy")})
               </h2>
             </div>
             <InteractiveScheduleGrid

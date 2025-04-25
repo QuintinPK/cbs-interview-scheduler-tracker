@@ -35,7 +35,7 @@ export const InterviewerHeader: React.FC<InterviewerHeaderProps> = ({
       <div className="flex gap-2">
         <Button 
           variant="outline"
-          onClick={() => navigate(`/admin/scheduling?interviewer=${interviewer?.code}`)}
+          onClick={() => navigate(`/admin/interactive-scheduling?interviewer=${interviewer?.code}`)}
           disabled={loading || !interviewer}
         >
           <Calendar className="mr-2 h-4 w-4" />
