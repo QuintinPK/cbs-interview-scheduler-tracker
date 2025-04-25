@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +14,8 @@ import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
+import { useOffline } from "@/contexts/OfflineContext";
+import { v4 as uuidv4 } from "uuid";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -28,6 +31,7 @@ interface SessionFormProps {
   isPrimaryUser: boolean;
   switchUser: () => void;
   endSession: () => void;
+  verifyInterviewerCode?: (code: string) => Promise<boolean>;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -43,15 +47,27 @@ const SessionForm: React.FC<SessionFormProps> = ({
   setActiveSession,
   isPrimaryUser,
   switchUser,
-  endSession
+  endSession,
+  verifyInterviewerCode
 }) => {
   const { toast } = useToast();
+  const { 
+    isOnline, 
+    saveSession, 
+    saveProject,
+    getProjects,
+    saveInterviewerProjects,
+    getInterviewerProjects,
+    getInterviewers
+  } = useOffline();
+  
   const [loading, setLoading] = useState(false);
   const [interviewerId, setInterviewerId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [interviewerVerified, setInterviewerVerified] = useState(false);
   
   const {
     activeInterview,
@@ -76,29 +92,48 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   }, [activeSession, fetchActiveInterview]);
 
+  // Get interviewer ID either from local storage or Supabase
   useEffect(() => {
     const getInterviewerId = async () => {
-      if (!interviewerCode.trim()) {
+      if (!interviewerCode.trim() || !interviewerVerified) {
         setInterviewerId(null);
         return;
       }
       
       try {
         console.log("Getting interviewer ID for code:", interviewerCode);
-        const { data, error } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', interviewerCode)
-          .single();
-          
-        if (error) {
-          console.error("Error getting interviewer ID:", error);
-          setInterviewerId(null);
+        
+        // First try local storage
+        const localInterviewers = await getInterviewers();
+        const localInterviewer = localInterviewers.find(i => i.code === interviewerCode);
+        
+        if (localInterviewer) {
+          console.log("Found interviewer in local storage:", localInterviewer.id);
+          setInterviewerId(localInterviewer.id);
           return;
         }
         
-        console.log("Found interviewer ID:", data.id);
-        setInterviewerId(data.id);
+        // If online, try Supabase
+        if (isOnline) {
+          const { data, error } = await supabase
+            .from('interviewers')
+            .select('id')
+            .eq('code', interviewerCode)
+            .single();
+            
+          if (error) {
+            console.error("Error getting interviewer ID:", error);
+            setInterviewerId(null);
+            return;
+          }
+          
+          console.log("Found interviewer ID from Supabase:", data.id);
+          setInterviewerId(data.id);
+        } else {
+          // If offline and not found in local storage, use the code as ID
+          console.log("Offline mode: Using interviewer code as ID");
+          setInterviewerId(interviewerCode);
+        }
       } catch (error) {
         console.error("Error getting interviewer ID:", error);
         setInterviewerId(null);
@@ -106,8 +141,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     getInterviewerId();
-  }, [interviewerCode]);
+  }, [interviewerCode, isOnline, getInterviewers, interviewerVerified]);
 
+  // Fetch available projects
   useEffect(() => {
     const fetchProjects = async () => {
       if (!interviewerId) {
@@ -118,28 +154,60 @@ const SessionForm: React.FC<SessionFormProps> = ({
       try {
         console.log("Fetching projects for interviewer ID:", interviewerId);
         
-        const { data: projectAssignments, error: projectsError } = await supabase
-          .from('project_interviewers')
-          .select('project_id, projects:project_id(*)')
-          .eq('interviewer_id', interviewerId);
+        // First try to get cached projects from local storage
+        const localProjects = await getInterviewerProjects(interviewerId);
+        
+        if (localProjects && localProjects.length > 0) {
+          console.log("Found projects in local storage:", localProjects);
+          setAvailableProjects(localProjects);
           
-        if (projectsError) {
-          throw projectsError;
+          if (localProjects.length === 1) {
+            console.log("Single project found, setting project ID:", localProjects[0].id);
+            setSelectedProjectId(localProjects[0].id);
+          } else if (localProjects.length > 1 && !isRunning) {
+            setSelectedProjectId(null);
+          }
+          
+          return;
         }
         
-        if (projectAssignments && projectAssignments.length > 0) {
-          const projects = projectAssignments.map(pa => pa.projects as Project);
-          console.log("Found projects:", projects);
-          setAvailableProjects(projects);
+        // If online and no cached projects, fetch from Supabase
+        if (isOnline) {
+          const { data: projectAssignments, error: projectsError } = await supabase
+            .from('project_interviewers')
+            .select('project_id, projects:project_id(*)')
+            .eq('interviewer_id', interviewerId);
+            
+          if (projectsError) {
+            throw projectsError;
+          }
           
-          if (projects.length === 1) {
-            console.log("Single project found, setting project ID:", projects[0].id);
-            setSelectedProjectId(projects[0].id);
-          } else if (projects.length > 1 && !isRunning) {
+          if (projectAssignments && projectAssignments.length > 0) {
+            const projects = projectAssignments.map(pa => pa.projects as Project);
+            console.log("Found projects from Supabase:", projects);
+            
+            // Save projects to local storage for offline use
+            await saveInterviewerProjects(interviewerId, projects);
+            for (const project of projects) {
+              await saveProject(project);
+            }
+            
+            setAvailableProjects(projects);
+            
+            if (projects.length === 1) {
+              console.log("Single project found, setting project ID:", projects[0].id);
+              setSelectedProjectId(projects[0].id);
+            } else if (projects.length > 1 && !isRunning) {
+              setSelectedProjectId(null);
+            }
+          } else {
+            console.log("No projects found for this interviewer");
+            setAvailableProjects([]);
             setSelectedProjectId(null);
           }
         } else {
-          console.log("No projects found for this interviewer");
+          // If offline and no cached projects, show empty list
+          console.log("Offline and no cached projects");
           setAvailableProjects([]);
           setSelectedProjectId(null);
         }
@@ -150,8 +218,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchProjects();
-  }, [interviewerId, isRunning]);
+  }, [interviewerId, isRunning, isOnline, getInterviewerProjects, saveInterviewerProjects, saveProject]);
 
+  // Get active project details
   useEffect(() => {
     const fetchActiveProject = async () => {
       if (!selectedProjectId) {
@@ -160,23 +229,48 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       try {
-        const { data: project, error } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', selectedProjectId)
-          .single();
-          
-        if (error) {
-          throw error;
+        // First try to get project from available projects
+        const projectFromAvailable = availableProjects.find(p => p.id === selectedProjectId);
+        
+        if (projectFromAvailable) {
+          setActiveProject(projectFromAvailable);
+          return;
         }
         
-        setActiveProject({
-          id: project.id,
-          name: project.name,
-          start_date: project.start_date,
-          end_date: project.end_date,
-          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
-        });
+        // Then try to get from local storage
+        const localProjects = await getProjects();
+        const projectFromLocal = localProjects.find(p => p.id === selectedProjectId);
+        
+        if (projectFromLocal) {
+          setActiveProject(projectFromLocal);
+          return;
+        }
+        
+        // If online, try to get from Supabase
+        if (isOnline) {
+          const { data: project, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', selectedProjectId)
+            .single();
+            
+          if (error) {
+            throw error;
+          }
+          
+          const projectData = {
+            id: project.id,
+            name: project.name,
+            start_date: project.start_date,
+            end_date: project.end_date,
+            excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+          };
+          
+          // Save to local storage
+          await saveProject(projectData);
+          
+          setActiveProject(projectData);
+        }
       } catch (error) {
         console.error("Error fetching project details:", error);
         setActiveProject(null);
@@ -184,13 +278,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchActiveProject();
-  }, [selectedProjectId]);
+  }, [selectedProjectId, availableProjects, getProjects, isOnline, saveProject]);
 
   const handleStartStop = async () => {
-    if (!interviewerCode.trim()) {
+    if (!interviewerCode.trim() || !interviewerVerified) {
       toast({
         title: "Error",
-        description: "Please enter your interviewer code",
+        description: "Please verify your interviewer code first",
         variant: "destructive",
       });
       return;
@@ -212,7 +306,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
         if (availableProjects.length === 0) {
           toast({
             title: "Error",
-            description: "You are not assigned to any projects",
+            description: isOnline ? 
+              "You are not assigned to any projects" : 
+              "No projects available offline. Please connect to internet first",
             variant: "destructive",
           });
           return;
@@ -278,30 +374,62 @@ const SessionForm: React.FC<SessionFormProps> = ({
       console.log("Starting session with project ID:", projectId);
       
       const currentLocation = await getCurrentLocation();
+
+      // Create session object
+      const newSession = {
+        id: uuidv4(), // Generate a temporary ID
+        interviewer_id: interviewerId,
+        project_id: projectId,
+        start_time: new Date().toISOString(),
+        end_time: null,
+        start_latitude: currentLocation?.latitude || null,
+        start_longitude: currentLocation?.longitude || null,
+        start_address: currentLocation?.address || null,
+        end_latitude: null,
+        end_longitude: null,
+        end_address: null,
+        is_active: true,
+        is_unusual_reviewed: false,
+        sync_status: 'unsynced',
+        local_id: uuidv4()
+      } as Session;
       
-      const { data: session, error: insertError } = await supabase
-        .from('sessions')
-        .insert([
-          {
-            interviewer_id: interviewerId,
-            project_id: projectId,
-            start_latitude: currentLocation?.latitude || null,
-            start_longitude: currentLocation?.longitude || null,
-            start_address: currentLocation?.address || null,
-            is_active: true
+      // If online, try to create on server first
+      if (isOnline) {
+        try {
+          const { data: session, error: insertError } = await supabase
+            .from('sessions')
+            .insert([
+              {
+                interviewer_id: interviewerId,
+                project_id: projectId,
+                start_latitude: currentLocation?.latitude || null,
+                start_longitude: currentLocation?.longitude || null,
+                start_address: currentLocation?.address || null,
+                is_active: true
+              }
+            ])
+            .select()
+            .single();
+            
+          if (!insertError && session) {
+            // Use server-generated ID and mark as synced
+            newSession.id = session.id;
+            newSession.sync_status = 'synced';
           }
-        ])
-        .select()
-        .single();
-        
-      if (insertError) {
-        throw insertError;
+        } catch (error) {
+          console.error("Error creating session on server, proceeding with local only:", error);
+          // Continue with local session creation
+        }
       }
+
+      // Save session locally
+      const savedSession = await saveSession(newSession);
+      console.log("Session created successfully:", savedSession);
       
-      console.log("Session created successfully:", session);
-      setActiveSession(session);
+      setActiveSession(savedSession);
       setIsRunning(true);
-      setStartTime(session.start_time);
+      setStartTime(savedSession.start_time);
       setStartLocation(currentLocation);
       
       toast({
@@ -339,19 +467,35 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       const currentLocation = await getCurrentLocation();
       
-      const { error: updateError } = await supabase
-        .from('sessions')
-        .update({
-          end_time: new Date().toISOString(),
-          end_latitude: currentLocation?.latitude || null,
-          end_longitude: currentLocation?.longitude || null,
-          end_address: currentLocation?.address || null,
-          is_active: false
-        })
-        .eq('id', activeSession.id);
-        
-      if (updateError) {
-        throw updateError;
+      // Update session locally
+      const updatedSession = {
+        ...activeSession,
+        end_time: new Date().toISOString(),
+        end_latitude: currentLocation?.latitude || null,
+        end_longitude: currentLocation?.longitude || null,
+        end_address: currentLocation?.address || null,
+        is_active: false,
+        sync_status: activeSession.sync_status === 'synced' ? 'unsynced' : 'unsynced'
+      };
+      
+      await saveSession(updatedSession);
+      
+      // If online and session was already synced, update on server
+      if (isOnline && activeSession.sync_status === 'synced') {
+        try {
+          await supabase
+            .from('sessions')
+            .update({
+              end_time: new Date().toISOString(),
+              end_latitude: currentLocation?.latitude || null,
+              end_longitude: currentLocation?.longitude || null,
+              end_address: currentLocation?.address || null,
+              is_active: false
+            })
+            .eq('id', activeSession.id);
+        } catch (error) {
+          console.error("Error updating session on server:", error);
+        }
       }
       
       endSession();
@@ -380,6 +524,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   };
 
+  const handleVerifySuccess = () => {
+    setInterviewerVerified(true);
+  };
+
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
       <InterviewerCodeInput
@@ -389,6 +537,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
+        verifyInterviewerCode={verifyInterviewerCode}
+        onVerify={handleVerifySuccess}
       />
       
       {activeProject && isRunning && (
@@ -448,7 +598,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         <SessionButton
           isRunning={isRunning}
           loading={loading}
-          interviewerCode={interviewerCode}
+          interviewerCode={interviewerCode && interviewerVerified ? interviewerCode : ""}
           onClick={handleStartStop}
           disabled={isRunning && !!activeInterview}
         />
@@ -467,6 +617,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
         onProjectSelect={handleProjectSelect}
         onClose={() => setShowProjectDialog(false)}
       />
+
+      {!isOnline && !isRunning && (
+        <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 text-amber-800">
+          <p className="font-medium">Offline Mode</p>
+          <p className="text-sm">
+            You're working offline. All data will be saved locally and synchronized when you go online again.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

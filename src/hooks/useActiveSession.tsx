@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +12,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     saveSession, 
     getSessionById, 
     updateSession, 
-    sessions: localSessions 
+    sessions: localSessions,
+    saveInterviewer,
+    getInterviewers
   } = useOffline();
   
   // State variables
@@ -24,6 +25,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
+  const [localInterviewers, setLocalInterviewers] = useState<any[]>([]);
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
@@ -36,7 +38,18 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     loadSavedInterviewerCode();
+    loadLocalInterviewers();
   }, [interviewerCode]);
+
+  // Load interviewers from local storage
+  const loadLocalInterviewers = async () => {
+    try {
+      const interviewers = await getInterviewers();
+      setLocalInterviewers(interviewers);
+    } catch (error) {
+      console.error("Error loading local interviewers:", error);
+    }
+  };
 
   // Save interviewer code to localStorage when it changes
   useEffect(() => {
@@ -84,7 +97,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         // Only check Supabase if online
         if (isOnline) {
           // Get the interviewer by code
-          const interviewerId = await getInterviewerIdFromCode(interviewerCode);
+          const interviewerId = await getInterviewerIdFromCode(interviewerCode, true);
           
           if (!interviewerId) {
             return;
@@ -132,22 +145,20 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   }, [interviewerCode, isOnline, localSessions, saveSession, toast]);
 
   // Helper function to get interviewer ID from code
-  const getInterviewerIdFromCode = async (code: string): Promise<string | null> => {
+  const getInterviewerIdFromCode = async (code: string, fetchFromServer: boolean = false): Promise<string | null> => {
     try {
       // Try to find interviewer in local storage first
-      const interviewerFromLocal = localSessions.find(s => 
-        s.interviewer_id === code || s.interviewer_id.includes(code)
-      );
+      const localInterviewer = localInterviewers.find(i => i.code === code);
       
-      if (interviewerFromLocal) {
-        return interviewerFromLocal.interviewer_id;
+      if (localInterviewer) {
+        return localInterviewer.id;
       }
       
       // If not found locally and we're online, check Supabase
-      if (isOnline) {
+      if (isOnline && fetchFromServer) {
         const { data: interviewers, error: interviewerError } = await supabase
           .from('interviewers')
-          .select('id')
+          .select('*') // Get all interviewer data for offline use
           .eq('code', code)
           .limit(1);
             
@@ -159,7 +170,21 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           return null;
         }
           
+        // Save interviewer locally for offline use
+        if (interviewers[0]) {
+          await saveInterviewer(interviewers[0]);
+          
+          // Refresh local interviewers
+          await loadLocalInterviewers();
+        }
+          
         return interviewers[0].id;
+      }
+      
+      // If we're offline and interviewer not found in local storage,
+      // we'll use the code as the ID for now and sync later
+      if (!isOnline) {
+        return code;
       }
       
       return null;
@@ -209,6 +234,41 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     // We keep the interviewer code and primary user status
   };
 
+  // Verify interviewer code exists
+  const verifyInterviewerCode = async (code: string): Promise<boolean> => {
+    // First check local storage
+    const localInterviewer = localInterviewers.find(i => i.code === code);
+    if (localInterviewer) {
+      return true;
+    }
+    
+    // If online, check server
+    if (isOnline) {
+      try {
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('*')
+          .eq('code', code)
+          .limit(1);
+          
+        if (error) {
+          throw error;
+        }
+        
+        if (data && data.length > 0) {
+          // Save interviewer locally for offline use
+          await saveInterviewer(data[0]);
+          await loadLocalInterviewers();
+          return true;
+        }
+      } catch (error) {
+        console.error("Error verifying interviewer code:", error);
+      }
+    }
+    
+    return false;
+  }
+
   return {
     interviewerCode,
     setInterviewerCode,
@@ -224,6 +284,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     isPrimaryUser,
     setIsPrimaryUser,
     switchUser,
-    endSession
+    endSession,
+    verifyInterviewerCode
   };
 };

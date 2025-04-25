@@ -1,6 +1,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Session, Interview } from '@/types';
+import { Session, Interview, Interviewer, Project } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   saveSessionLocally,
@@ -19,7 +19,14 @@ import {
   getSyncStatus,
   updateSyncStatus,
   SyncStatus,
-  initSyncStatus
+  initSyncStatus,
+  saveInterviewer,
+  getInterviewers,
+  getInterviewerByCode,
+  saveProject,
+  getProjects,
+  saveInterviewerProjects,
+  getInterviewerProjects
 } from '@/services/offlineStorage';
 
 interface OfflineContextType {
@@ -42,6 +49,17 @@ interface OfflineContextType {
   getInterviewsForSession: (sessionId: string) => Promise<Interview[]>;
   updateInterview: (interview: Interview) => Promise<Interview>;
   removeInterview: (id: string) => Promise<void>;
+  
+  // Interviewer operations
+  saveInterviewer: (interviewer: Interviewer) => Promise<Interviewer>;
+  getInterviewers: () => Promise<Interviewer[]>;
+  getInterviewerByCode: (code: string) => Promise<Interviewer | null>;
+  
+  // Project operations
+  saveProject: (project: Project) => Promise<Project>;
+  getProjects: () => Promise<Project[]>;
+  saveInterviewerProjects: (interviewerId: string, projects: Project[]) => Promise<void>;
+  getInterviewerProjects: (interviewerId: string) => Promise<Project[]>;
   
   // Sync operations
   syncNow: () => Promise<{ success: boolean; message: string }>;
@@ -240,15 +258,32 @@ export const OfflineProvider = ({ children }: { children: ReactNode }) => {
     unsyncedCount,
     sessions,
     interviews,
+    
+    // Session operations
     saveSession,
     getSessionById,
     updateSession,
     removeSession,
+    
+    // Interview operations
     saveInterview,
     getInterviews,
     getInterviewsForSession,
     updateInterview,
     removeInterview,
+    
+    // Interviewer operations
+    saveInterviewer,
+    getInterviewers,
+    getInterviewerByCode,
+    
+    // Project operations
+    saveProject,
+    getProjects,
+    saveInterviewerProjects,
+    getInterviewerProjects,
+    
+    // Sync operations
     syncNow,
     refreshData,
   };

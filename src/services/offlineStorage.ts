@@ -1,7 +1,7 @@
 
 import localforage from 'localforage';
 import { v4 as uuidv4 } from 'uuid';
-import { Session, Interview } from '@/types';
+import { Session, Interview, Interviewer } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 // Initialize local storage instances
@@ -13,6 +13,16 @@ const sessionsStorage = localforage.createInstance({
 const interviewsStorage = localforage.createInstance({
   name: 'cbs-interviewer',
   storeName: 'interviews'
+});
+
+const interviewersStorage = localforage.createInstance({
+  name: 'cbs-interviewer',
+  storeName: 'interviewers'
+});
+
+const projectsStorage = localforage.createInstance({
+  name: 'cbs-interviewer',
+  storeName: 'projects'
 });
 
 // Sync status tracking
@@ -119,6 +129,52 @@ export const updateLocalInterview = async (interview: Interview): Promise<Interv
 
 export const removeLocalInterview = async (id: string): Promise<void> => {
   await interviewsStorage.removeItem(id);
+};
+
+// Interviewer operations
+export const saveInterviewer = async (interviewer: Interviewer): Promise<Interviewer> => {
+  await interviewersStorage.setItem(interviewer.id, interviewer);
+  return interviewer;
+};
+
+export const getInterviewers = async (): Promise<Interviewer[]> => {
+  const interviewers: Interviewer[] = [];
+  
+  await interviewersStorage.iterate((value: Interviewer) => {
+    interviewers.push(value);
+  });
+  
+  return interviewers;
+};
+
+export const getInterviewerByCode = async (code: string): Promise<Interviewer | null> => {
+  const interviewers = await getInterviewers();
+  return interviewers.find(i => i.code === code) || null;
+};
+
+// Project operations
+export const saveProject = async (project: Project): Promise<Project> => {
+  await projectsStorage.setItem(project.id, project);
+  return project;
+};
+
+export const getProjects = async (): Promise<Project[]> => {
+  const projects: Project[] = [];
+  
+  await projectsStorage.iterate((value: Project) => {
+    projects.push(value);
+  });
+  
+  return projects;
+};
+
+export const saveInterviewerProjects = async (interviewerId: string, projects: Project[]): Promise<void> => {
+  await projectsStorage.setItem(`interviewer_${interviewerId}_projects`, projects);
+};
+
+export const getInterviewerProjects = async (interviewerId: string): Promise<Project[]> => {
+  const projects = await projectsStorage.getItem<Project[]>(`interviewer_${interviewerId}_projects`);
+  return projects || [];
 };
 
 // Sync status operations
