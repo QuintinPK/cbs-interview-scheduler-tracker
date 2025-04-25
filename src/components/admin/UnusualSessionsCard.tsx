@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -14,6 +13,17 @@ import {
   DialogFooter,
   DialogDescription 
 } from "@/components/ui/dialog";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +48,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [sessionToMarkAsSeen, setSessionToMarkAsSeen] = useState<string | null>(null);
   const { toast } = useToast();
   const { updateSession, deleteSession } = useSessionActions(
     sessions, 
@@ -47,9 +58,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     toast
   );
   
-  // Initialize unusual sessions
   useMemo(() => {
-    // Filter for completed sessions longer than the threshold
     const longSessions = sessions.filter(session => {
       if (!session.end_time || session.is_active) {
         return false;
@@ -62,7 +71,6 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
       return durationMinutes > threshold;
     });
     
-    // Sort by duration (longest first)
     const sorted = longSessions.sort((a, b) => {
       const durationA = new Date(a.end_time!).getTime() - new Date(a.start_time).getTime();
       const durationB = new Date(b.end_time!).getTime() - new Date(b.start_time).getTime();
@@ -80,8 +88,6 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   const handleEditClick = (session: Session) => {
     setEditingSession(session);
     
-    // Convert UTC to AST for the input fields
-    // Format the datetime for the datetime-local input (YYYY-MM-DDThh:mm)
     const startDateTime = formatInTimeZone(
       new Date(session.start_time),
       'America/Puerto_Rico',
@@ -110,7 +116,6 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     });
     
     if (success) {
-      // Update local state
       setUnusualSessions(prev => 
         prev.map(s => 
           s.id === editingSession.id 
@@ -128,20 +133,30 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     const success = await deleteSession(editingSession.id);
     
     if (success) {
-      // Remove from local state
       setUnusualSessions(prev => prev.filter(s => s.id !== editingSession.id));
       setIsEditDialogOpen(false);
     }
   };
   
   const handleMarkAsSeen = async (sessionId: string) => {
-    // Remove from unusual sessions list without deleting the actual session
-    setUnusualSessions(prev => prev.filter(s => s.id !== sessionId));
+    setSessionToMarkAsSeen(sessionId);
+  };
+  
+  const confirmMarkAsSeen = () => {
+    if (!sessionToMarkAsSeen) return;
+    
+    setUnusualSessions(prev => prev.filter(s => s.id !== sessionToMarkAsSeen));
     
     toast({
       title: "Session Approved",
       description: "This unusual session has been marked as seen and removed from the list.",
     });
+    
+    setSessionToMarkAsSeen(null);
+  };
+  
+  const cancelMarkAsSeen = () => {
+    setSessionToMarkAsSeen(null);
   };
   
   return (
@@ -223,7 +238,21 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
         </CardContent>
       </Card>
       
-      {/* Edit Dialog with Delete option inside */}
+      <AlertDialog open={sessionToMarkAsSeen !== null} onOpenChange={cancelMarkAsSeen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Session as Seen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this unusual session as seen? It will be removed from the list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelMarkAsSeen}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMarkAsSeen}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
