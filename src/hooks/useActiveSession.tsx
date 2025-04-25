@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -164,7 +165,8 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           last_name: interviewer.last_name,
           phone: interviewer.phone || "",
           email: interviewer.email || "",
-          island: interviewer.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined
+          // Cast the island to the correct union type or undefined if it doesn't match
+          island: (interviewer.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined)
         };
         
         await saveInterviewer(typedInterviewer);
@@ -235,7 +237,18 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         }
         
         if (data && data.length > 0) {
-          await saveInterviewer(data[0]);
+          const interviewer = data[0];
+          const typedInterviewer: Interviewer = {
+            id: interviewer.id,
+            code: interviewer.code,
+            first_name: interviewer.first_name,
+            last_name: interviewer.last_name,
+            phone: interviewer.phone || "",
+            email: interviewer.email || "",
+            // Cast the island to the correct union type or undefined if it doesn't match
+            island: (interviewer.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined)
+          };
+          await saveInterviewer(typedInterviewer);
           await loadLocalInterviewers();
           return true;
         }

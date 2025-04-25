@@ -1,4 +1,3 @@
-
 import localforage from 'localforage';
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Interviewer, Project } from '@/types';
@@ -30,13 +29,6 @@ const syncStatusStorage = localforage.createInstance({
   name: 'cbs-interviewer',
   storeName: 'syncStatus'
 });
-
-export interface SyncStatus {
-  lastSyncAttempt: string;
-  lastSuccessfulSync: string | null;
-  isOnline: boolean;
-  isSyncing: boolean;
-}
 
 // Initial sync status
 const initialSyncStatus: SyncStatus = {
