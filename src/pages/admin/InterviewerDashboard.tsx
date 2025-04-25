@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
@@ -13,7 +14,7 @@ import { useFilter } from "@/contexts/FilterContext";
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
 import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
-import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
+import SessionHistory from "@/components/interviewer-dashboard/SessionHistory";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
 import GlobalFilter from "@/components/GlobalFilter";

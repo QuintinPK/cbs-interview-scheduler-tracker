@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { calculateDuration, formatDateTime, cn } from '@/lib/utils';
-import { ChevronDown, ChevronRight, Loader2, MapPin, MessageCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, MapPin, MessageCircle, ArrowDown, ArrowUp } from 'lucide-react';
 import { 
   Table, 
   TableBody, 
@@ -104,8 +104,6 @@ const SessionHistory: React.FC<SessionHistoryProps> = ({
     acc[interview.session_id].push(interview);
     return acc;
   }, {} as Record<string, Interview[]>);
-
-  import { ArrowDown, ArrowUp } from "lucide-react";
 
   return (
     <div className="space-y-4">
