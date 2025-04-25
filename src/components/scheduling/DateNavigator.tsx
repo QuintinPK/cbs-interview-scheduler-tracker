@@ -1,6 +1,7 @@
 
 import React from "react";
 import { format, addDays, subDays } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -51,7 +52,7 @@ export const DateNavigator: React.FC<DateNavigatorProps> = ({
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               <span className="font-medium">
-                {format(currentDate, "EEEE, MMMM d, yyyy")}
+                {formatInTimeZone(currentDate, 'America/Puerto_Rico', "EEEE, MMMM d, yyyy")}
               </span>
             </Button>
           </PopoverTrigger>

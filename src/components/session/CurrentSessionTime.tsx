@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from "react";
 import { Clock } from "lucide-react";
-import { format, differenceInSeconds } from "date-fns";
+import { differenceInSeconds } from "date-fns";
+import { parseISO } from "date-fns";
+import { toASTTime } from "@/lib/utils";
 
 interface CurrentSessionTimeProps {
   startTime: string | null;
@@ -29,7 +31,7 @@ const CurrentSessionTime: React.FC<CurrentSessionTimeProps> = ({ startTime, isRu
     
     function calculateElapsedTime() {
       try {
-        const start = new Date(startTime);
+        const start = parseISO(startTime);
         const now = new Date();
         const totalSeconds = differenceInSeconds(now, start);
         

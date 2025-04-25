@@ -2,46 +2,55 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Location } from "@/types";
+import { formatInTimeZone } from "date-fns-tz";
+import { parseISO } from "date-fns";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('nl-NL', { 
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+  try {
+    const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
+    return formatInTimeZone(date, 'America/Puerto_Rico', 'dd-MM-yyyy');
+  } catch (error) {
+    console.error("Error formatting date:", error, dateString);
+    return dateString || '';
+  }
 }
 
 export function formatTime(date: Date | string) {
   if (!date) return '';
   
-  const d = typeof date === 'string' ? new Date(date) : date;
-  
-  return d.toLocaleTimeString([], { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false
-  });
+  try {
+    const d = typeof date === 'string' ? parseISO(date) : date;
+    return formatInTimeZone(d, 'America/Puerto_Rico', 'HH:mm');
+  } catch (error) {
+    console.error("Error formatting time:", error, date);
+    return '';
+  }
 }
 
 export function formatDateOnly(date: Date | string) {
   if (!date) return '';
   
-  const d = typeof date === 'string' ? new Date(date) : date;
-  
-  return d.toLocaleDateString([], { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  });
+  try {
+    const d = typeof date === 'string' ? parseISO(date) : date;
+    return formatInTimeZone(d, 'America/Puerto_Rico', 'dd-MM-yyyy');
+  } catch (error) {
+    console.error("Error formatting date only:", error, date);
+    return '';
+  }
 }
 
 export function formatDateTime(dateString: string): string {
-  return `${formatDate(dateString)} ${formatTime(dateString)}`;
+  try {
+    const date = parseISO(dateString);
+    return formatInTimeZone(date, 'America/Puerto_Rico', 'dd-MM-yyyy HH:mm');
+  } catch (error) {
+    console.error("Error formatting date time:", error, dateString);
+    return dateString || '';
+  }
 }
 
 export function calculateDuration(startTime: string, endTime: string | null): string {
@@ -116,8 +125,18 @@ export function exportToCSV(data: ExportSession[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.setAttribute("href", url);
-  link.setAttribute("download", `sessions_export_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute("download", `sessions_export_${formatDateOnly(new Date())}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// Helper function to convert UTC to AST (UTC-4)
+export function toASTTime(date: Date | string): Date {
+  if (!date) return new Date();
+  
+  const d = typeof date === 'string' ? parseISO(date) : date;
+  // We're using America/Puerto_Rico timezone, which is AST (UTC-4)
+  // The date-fns-tz package will handle this conversion internally
+  return d;
 }

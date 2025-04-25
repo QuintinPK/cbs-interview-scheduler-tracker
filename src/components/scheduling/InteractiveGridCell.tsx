@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { format } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { Info, AlertCircle } from 'lucide-react';
 import {
   Tooltip,
@@ -162,10 +163,6 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     return style;
   };
 
-  const renderSessionTime = () => {
-    return null;
-  };
-
   return (
     <TooltipProvider>
       <div 
@@ -201,7 +198,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
             <TooltipContent>
               <div className="space-y-1 p-1">
                 <p className="font-semibold">
-                  {format(cell.startTime, "HH:mm")} - {format(cell.endTime, "HH:mm")}
+                  {formatInTimeZone(cell.startTime, 'America/Puerto_Rico', "HH:mm")} - {formatInTimeZone(cell.endTime, 'America/Puerto_Rico', "HH:mm")}
                 </p>
                 {cell.status && <p>Status: {cell.status}</p>}
                 {cell.notes && <p>Notes: {cell.notes}</p>}
@@ -222,8 +219,8 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
           <div className="space-y-4">
             <div>
               <h3 className="font-medium">Time</h3>
-              <p>Started: {format(cell.session?.start_time ? new Date(cell.session.start_time) : cell.startTime, "PPpp")}</p>
-              <p>Ended: {cell.session?.end_time ? format(new Date(cell.session.end_time), "PPpp") : "Session ongoing"}</p>
+              <p>Started: {formatInTimeZone(cell.session?.start_time ? new Date(cell.session.start_time) : cell.startTime, 'America/Puerto_Rico', "PP HH:mm")}</p>
+              <p>Ended: {cell.session?.end_time ? formatInTimeZone(new Date(cell.session.end_time), 'America/Puerto_Rico', "PP HH:mm") : "Session ongoing"}</p>
             </div>
             {cell.session?.project_id && (
               <div>

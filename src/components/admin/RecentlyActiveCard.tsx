@@ -3,6 +3,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
 import { formatTime } from "@/lib/utils";
+import { formatInTimeZone } from "date-fns-tz";
 
 interface RecentlyActiveCardProps {
   sessions: Session[];
@@ -15,10 +16,10 @@ const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({
   interviewers = [],
   loading = false
 }) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = formatInTimeZone(new Date(), 'America/Puerto_Rico', 'yyyy-MM-dd');
   
   const todaySessions = sessions.filter(session => {
-    const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
+    const sessionDate = formatInTimeZone(new Date(session.start_time), 'America/Puerto_Rico', 'yyyy-MM-dd');
     return sessionDate === today;
   });
   
