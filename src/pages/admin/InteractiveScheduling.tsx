@@ -8,6 +8,7 @@ import { useInterviewers } from "@/hooks/useInterviewers";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useSessions } from "@/hooks/useSessions";
 import { useFilter } from "@/contexts/FilterContext";
+import { ScheduleStats } from "@/components/scheduling/ScheduleStats";
 import { InteractiveScheduleGrid } from "@/components/scheduling/InteractiveScheduleGrid";
 import {
   Select,
@@ -57,6 +58,14 @@ const InteractiveScheduling = () => {
   // Combined loading state
   const isLoading = interviewersLoading || schedulesLoading || sessionsLoading;
 
+  // Calculate stats
+  const scheduledHours = schedules.reduce((total, schedule) => total + schedule.duration, 0);
+  const workedHours = sessions.reduce((total, session) => {
+    // Calculate session duration in hours
+    const duration = session.duration_minutes ? session.duration_minutes / 60 : 0;
+    return total + duration;
+  }, 0);
+
   // Navigate to previous/next week
   const navigateToNextWeek = () => {
     setCurrentWeekStart(addWeeks(currentWeekStart, 1));
@@ -81,7 +90,7 @@ const InteractiveScheduling = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Interactive Weekly Scheduling</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Weekly Scheduling</h1>
             <p className="text-muted-foreground mt-1">
               Click and drag to schedule or unschedule multiple time slots
             </p>
@@ -145,6 +154,14 @@ const InteractiveScheduling = () => {
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {/* Add Schedule Stats */}
+        {!isLoading && selectedInterviewerId && (
+          <ScheduleStats 
+            scheduledHours={scheduledHours} 
+            workedHours={workedHours}
+          />
         )}
 
         {isLoading ? (

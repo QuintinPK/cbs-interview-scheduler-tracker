@@ -1,9 +1,10 @@
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import GlobalFilter from '@/components/GlobalFilter';
 import { 
   BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X, DollarSign, Settings, Folder, Grid2X2
+  LogOut, Home, Menu, X, DollarSign, Settings, Folder
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
     { path: "/admin/projects", label: "Projects", icon: <Folder className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
-    { path: "/admin/interactive-scheduling", label: "Interactive Scheduling", icon: <Grid2X2 className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
   ];
   

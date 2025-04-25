@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,13 +14,12 @@ import Dashboard from "./pages/admin/Dashboard";
 import Sessions from "./pages/admin/Sessions";
 import Interviewers from "./pages/admin/Interviewers";
 import InterviewerDashboard from "./pages/admin/InterviewerDashboard";
-import Scheduling from "./pages/admin/Scheduling";
+import InteractiveScheduling from "./pages/admin/InteractiveScheduling";
 import Costs from "./pages/admin/Costs";
 import Settings from "./pages/admin/Settings";
 import Projects from "./pages/admin/Projects"; 
 import ProjectAssign from "./pages/admin/ProjectAssign";
 import NotFound from "./pages/NotFound";
-import InteractiveScheduling from "./pages/admin/InteractiveScheduling";
 
 const queryClient = new QueryClient();
 
