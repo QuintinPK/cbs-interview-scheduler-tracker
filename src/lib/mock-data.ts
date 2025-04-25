@@ -48,7 +48,8 @@ export const mockSessions: Session[] = [
     end_latitude: 52.3676,
     end_longitude: 4.9041,
     end_address: "Amsterdam, Netherlands",
-    is_active: false
+    is_active: false,
+    is_unusual_reviewed: false
   },
   {
     id: "2",
@@ -61,7 +62,8 @@ export const mockSessions: Session[] = [
     end_latitude: 51.9244,
     end_longitude: 4.4777,
     end_address: "Rotterdam, Netherlands",
-    is_active: false
+    is_active: false,
+    is_unusual_reviewed: false
   },
   {
     id: "3",
@@ -74,6 +76,7 @@ export const mockSessions: Session[] = [
     end_latitude: null,
     end_longitude: null,
     end_address: null,
-    is_active: true
+    is_active: true,
+    is_unusual_reviewed: false
   }
 ];

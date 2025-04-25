@@ -30,7 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSessionActions } from "@/hooks/useSessionActions";
 import { formatInTimeZone } from 'date-fns-tz';
 import { getHours } from "date-fns";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UnusualSessionsCardProps {
   sessions: Session[];
