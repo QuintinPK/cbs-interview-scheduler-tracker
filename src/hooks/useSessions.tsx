@@ -100,17 +100,16 @@ export const useSessions = (
     resetFilters: resetSessionFilters
   } = useSessionFilters(sessions);
   
-  // Initialize session actions
+  // Initialize session actions with proper parameters
   const { 
     stopSession, 
     updateSession, 
     deleteSession 
   } = useSessionActions(
-    sessions, 
-    setSessions,
-    filterResults,
     setLoading,
-    toast
+    toast,
+    sessions,
+    setSessions
   );
   
   // Helper function to get interviewer code from ID

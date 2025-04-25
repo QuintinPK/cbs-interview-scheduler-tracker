@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Session, Location, Project } from "@/types";
@@ -13,6 +12,7 @@ import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
 import { useOffline } from "@/contexts/OfflineContext";
 import { useSessionActions } from "@/hooks/useSessionActions";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -106,11 +106,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
         }
         
         if (isOnline) {
-          const { data, error } = await fetch('interviewers')
+          const { data, error } = await supabase
             .from('interviewers')
             .select('id')
             .eq('code', interviewerCode)
-            .single();
+            .maybeSingle();
             
           if (error) {
             console.error("Error getting interviewer ID:", error);
@@ -118,7 +118,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
             return;
           }
           
-          setInterviewerId(data.id);
+          if (data) {
+            setInterviewerId(data.id);
+          } else {
+            setInterviewerId(null);
+          }
         } else {
           setInterviewerId(interviewerCode);
         }

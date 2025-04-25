@@ -8,7 +8,11 @@ import { useInterviewActions } from "./useInterviewActions";
 
 export const useSessionActions = (
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
-  toast: any
+  toast: any,
+  sessions?: Session[],
+  setSessions?: React.Dispatch<React.SetStateAction<Session[]>>,
+  unusualSessions?: Session[],
+  setUnusualSessions?: React.Dispatch<React.SetStateAction<Session[]>>
 ) => {
   const { isOnline, saveSession, updateSession } = useOffline();
 
@@ -18,7 +22,7 @@ export const useSessionActions = (
       
       const currentLocation = await getCurrentLocation();
       
-      const newSession = {
+      const newSession: Session = {
         id: crypto.randomUUID(),
         interviewer_id: interviewerId,
         project_id: projectId,
@@ -141,9 +145,123 @@ export const useSessionActions = (
       setLoading(false);
     }
   }, [isOnline, updateSession, setLoading, toast]);
+
+  // Add missing updateSession function for admin features
+  const updateSessionAdmin = useCallback(async (sessionId: string, data: Partial<Session>) => {
+    try {
+      setLoading(true);
+      
+      if (isOnline) {
+        const { error } = await supabase
+          .from('sessions')
+          .update(data)
+          .eq('id', sessionId);
+          
+        if (error) throw error;
+        
+        // Update local sessions list if available
+        if (sessions && setSessions) {
+          setSessions(prevSessions => 
+            prevSessions.map(session => 
+              session.id === sessionId ? { ...session, ...data } : session
+            )
+          );
+        }
+        
+        // Update unusual sessions list if available
+        if (unusualSessions && setUnusualSessions) {
+          setUnusualSessions(prevSessions => 
+            prevSessions.map(session => 
+              session.id === sessionId ? { ...session, ...data } : session
+            )
+          );
+        }
+        
+        toast({
+          title: "Session Updated",
+          description: "Session details have been updated.",
+        });
+        
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: "Cannot update session while offline",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating session:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update session",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline, sessions, setSessions, unusualSessions, setUnusualSessions, setLoading, toast]);
+  
+  // Add missing deleteSession function for admin features
+  const deleteSessionAdmin = useCallback(async (sessionId: string) => {
+    try {
+      setLoading(true);
+      
+      if (isOnline) {
+        const { error } = await supabase
+          .from('sessions')
+          .delete()
+          .eq('id', sessionId);
+          
+        if (error) throw error;
+        
+        // Update local sessions list if available
+        if (sessions && setSessions) {
+          setSessions(prevSessions => 
+            prevSessions.filter(session => session.id !== sessionId)
+          );
+        }
+        
+        // Update unusual sessions list if available
+        if (unusualSessions && setUnusualSessions) {
+          setUnusualSessions(prevSessions => 
+            prevSessions.filter(session => session.id !== sessionId)
+          );
+        }
+        
+        toast({
+          title: "Session Deleted",
+          description: "Session has been permanently removed.",
+        });
+        
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: "Cannot delete session while offline",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete session",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline, sessions, setSessions, unusualSessions, setUnusualSessions, setLoading, toast]);
   
   return {
     startSession,
-    stopSession
+    stopSession,
+    updateSession: updateSessionAdmin,
+    deleteSession: deleteSessionAdmin
   };
 };
