@@ -3,138 +3,147 @@ import { Session } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
 import { useCallback } from "react";
+import { useOffline } from "@/contexts/OfflineContext";
+import { useInterviewActions } from "./useInterviewActions";
 
 export const useSessionActions = (
-  sessions: Session[], 
-  setSessions: React.Dispatch<React.SetStateAction<Session[]>>,
-  filteredSessions: Session[],
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
   toast: any
 ) => {
-  
-  const stopSession = useCallback(async (session: Session) => {
+  const { isOnline, saveSession, updateSession } = useOffline();
+
+  const startSession = useCallback(async (interviewerId: string, projectId: string) => {
     try {
       setLoading(true);
       
       const currentLocation = await getCurrentLocation();
       
-      // First check if the session is still active (in case it was updated elsewhere)
-      const { data: currentSession, error: fetchError } = await supabase
-        .from('sessions')
-        .select('is_active')
-        .eq('id', session.id)
-        .single();
+      const newSession = {
+        id: crypto.randomUUID(),
+        interviewer_id: interviewerId,
+        project_id: projectId,
+        start_time: new Date().toISOString(),
+        end_time: null,
+        start_latitude: currentLocation?.latitude || null,
+        start_longitude: currentLocation?.longitude || null,
+        start_address: currentLocation?.address || null,
+        end_latitude: null,
+        end_longitude: null,
+        end_address: null,
+        is_active: true,
+        is_unusual_reviewed: false,
+        sync_status: 'unsynced',
+        local_id: crypto.randomUUID()
+      };
       
-      if (fetchError) {
-        console.error("Error checking session status:", fetchError);
-        // Continue with the stop operation even if there's an error checking status
-      } else if (currentSession && !currentSession.is_active) {
-        // Session is already stopped
-        toast({
-          title: "Session Already Stopped",
-          description: "This session has already been stopped.",
-        });
-        return true;
+      if (isOnline) {
+        try {
+          const { data: session, error: insertError } = await supabase
+            .from('sessions')
+            .insert([{
+              interviewer_id: interviewerId,
+              project_id: projectId,
+              start_latitude: currentLocation?.latitude || null,
+              start_longitude: currentLocation?.longitude || null,
+              start_address: currentLocation?.address || null,
+              is_active: true
+            }])
+            .select()
+            .single();
+            
+          if (!insertError && session) {
+            newSession.id = session.id;
+            newSession.sync_status = 'synced';
+          }
+        } catch (error) {
+          console.error("Error creating session on server:", error);
+        }
+      }
+
+      const savedSession = await saveSession(newSession);
+      
+      toast({
+        title: "Session Started",
+        description: `Started at ${new Date().toLocaleTimeString()}`,
+      });
+      
+      return savedSession;
+    } catch (error) {
+      console.error("Error starting session:", error);
+      toast({
+        title: "Error",
+        description: "Could not start session",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [isOnline, saveSession, setLoading, toast]);
+  
+  const stopSession = useCallback(async (session: Session) => {
+    if (!session) return false;
+    
+    try {
+      setLoading(true);
+      
+      const currentLocation = await getCurrentLocation();
+      
+      const updatedSession: Session = {
+        ...session,
+        end_time: new Date().toISOString(),
+        end_latitude: currentLocation?.latitude || null,
+        end_longitude: currentLocation?.longitude || null,
+        end_address: currentLocation?.address || null,
+        is_active: false,
+        sync_status: session.sync_status === 'synced' ? 'unsynced' : 'unsynced'
+      };
+      
+      await updateSession(updatedSession);
+      
+      if (isOnline && session.sync_status === 'synced') {
+        try {
+          await supabase
+            .from('sessions')
+            .update({
+              end_time: new Date().toISOString(),
+              end_latitude: currentLocation?.latitude || null,
+              end_longitude: currentLocation?.longitude || null,
+              end_address: currentLocation?.address || null,
+              is_active: false
+            })
+            .eq('id', session.id);
+            
+          await updateSession({
+            ...updatedSession,
+            sync_status: 'synced'
+          });
+        } catch (error) {
+          console.error("Error updating session on server:", error);
+        }
       }
       
-      const { error } = await supabase
-        .from('sessions')
-        .update({
-          end_time: new Date().toISOString(),
-          end_latitude: currentLocation?.latitude || null,
-          end_longitude: currentLocation?.longitude || null,
-          end_address: currentLocation?.address || null,
-          is_active: false
-        })
-        .eq('id', session.id);
-        
-      if (error) throw error;
-      
       toast({
-        title: "Session Stopped",
-        description: `Session has been stopped.`,
+        title: "Session Ended",
+        description: `Ended at ${new Date().toLocaleTimeString()}`,
       });
       
       return true;
     } catch (error) {
-      console.error("Error stopping session:", error);
+      console.error("Error ending session:", error);
       toast({
         title: "Error",
-        description: "Could not stop session",
+        description: "Could not end session",
         variant: "destructive",
       });
       return false;
     } finally {
       setLoading(false);
     }
-  }, [setLoading, toast]);
-  
-  const updateSession = useCallback(async (sessionId: string, updateData: Partial<Session>) => {
-    try {
-      setLoading(true);
-      
-      const { error } = await supabase
-        .from('sessions')
-        .update(updateData)
-        .eq('id', sessionId);
-        
-      if (error) throw error;
-      
-      toast({
-        title: "Session Updated",
-        description: "Session has been updated successfully.",
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error updating session:", error);
-      toast({
-        title: "Error",
-        description: "Could not update session",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [setLoading, toast]);
-  
-  const deleteSession = useCallback(async (sessionId: string) => {
-    try {
-      setLoading(true);
-      
-      const { error } = await supabase
-        .from('sessions')
-        .delete()
-        .eq('id', sessionId);
-        
-      if (error) throw error;
-      
-      // Update sessions state by filtering the array properly
-      setSessions((prevSessions) => prevSessions.filter(s => s.id !== sessionId));
-      
-      toast({
-        title: "Session Deleted",
-        description: "Session has been deleted successfully.",
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error deleting session:", error);
-      toast({
-        title: "Error",
-        description: "Could not delete session",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  }, [setSessions, setLoading, toast]);
+  }, [isOnline, updateSession, setLoading, toast]);
   
   return {
-    stopSession,
-    updateSession,
-    deleteSession
+    startSession,
+    stopSession
   };
 };

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,9 +42,9 @@ export const useInterviewActions = (sessionId: string | null) => {
           .select('*')
           .eq('session_id', sessionId)
           .eq('is_active', true)
-          .single();
+          .maybeSingle();
             
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
+        if (error) {
           throw error;
         }
           
@@ -81,7 +82,7 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "No active session to attach an interview to",
         variant: "destructive",
       });
-      return;
+      return null;
     }
     
     try {
@@ -91,7 +92,7 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       // Create a new interview locally
       const newInterview: Interview = {
-        id: uuidv4(), // Temporary ID, will be replaced by server on sync
+        id: uuidv4(),
         session_id: sessionId,
         project_id: projectId,
         start_time: new Date().toISOString(),
@@ -141,6 +142,8 @@ export const useInterviewActions = (sessionId: string | null) => {
       toast({
         title: "Interview Started",
       });
+      
+      return savedInterview;
     } catch (error) {
       console.error("Error starting interview:", error);
       toast({
@@ -148,12 +151,13 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not start interview",
         variant: "destructive",
       });
+      return null;
     } finally {
       setIsInterviewLoading(false);
     }
   };
   
-  const stopInterview = async (): Promise<boolean> => {
+  const stopInterview = async () => {
     if (!activeInterview) return true;
     
     try {
@@ -203,7 +207,7 @@ export const useInterviewActions = (sessionId: string | null) => {
     }
   };
   
-  const setInterviewResult = async (result: 'response' | 'non-response'): Promise<boolean> => {
+  const setInterviewResult = async (result: 'response' | 'non-response') => {
     if (!activeInterview) return false;
     
     try {
@@ -262,6 +266,11 @@ export const useInterviewActions = (sessionId: string | null) => {
     setShowResultDialog(false);
   };
   
+  // Function to check if stopping interview is in progress
+  const isStoppingInProgress = () => {
+    return activeInterview?.end_time !== null && activeInterview?.is_active === true;
+  };
+  
   return {
     activeInterview,
     isInterviewLoading,
@@ -270,6 +279,7 @@ export const useInterviewActions = (sessionId: string | null) => {
     stopInterview,
     setInterviewResult,
     cancelResultDialog,
-    fetchActiveInterview
+    fetchActiveInterview,
+    isStoppingInProgress
   };
 };

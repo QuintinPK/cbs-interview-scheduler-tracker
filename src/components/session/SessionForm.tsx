@@ -1,8 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { getCurrentLocation } from "@/lib/utils";
-import { Session, Location, Interview, Project } from "@/types";
+import { Session, Location, Project } from "@/types";
 import CurrentSessionTime from "./CurrentSessionTime";
 import InterviewerCodeInput from "./InterviewerCodeInput";
 import SessionButton from "./SessionButton";
@@ -11,10 +10,9 @@ import InterviewButton from "../interview/InterviewButton";
 import ActiveInterviewInfo from "../interview/ActiveInterviewInfo";
 import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
-import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
 import { useOffline } from "@/contexts/OfflineContext";
-import { v4 as uuidv4 } from "uuid";
+import { useSessionActions } from "@/hooks/useSessionActions";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -52,10 +50,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const { toast } = useToast();
   const { 
     isOnline, 
-    saveSession, 
-    saveProject,
     getProjects,
-    saveInterviewerProjects,
     getInterviewerProjects,
     getInterviewers
   } = useOffline();
@@ -67,7 +62,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [interviewerVerified, setInterviewerVerified] = useState(false);
-  const [stoppingSession, setStoppingSession] = useState(false);
+  
+  const { startSession, stopSession } = useSessionActions(setLoading, toast);
   
   const {
     activeInterview,
@@ -77,7 +73,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
     stopInterview,
     setInterviewResult,
     cancelResultDialog,
-    fetchActiveInterview
+    fetchActiveInterview,
+    isStoppingInProgress
   } = useInterviewActions(activeSession?.id || null);
 
   useEffect(() => {
@@ -100,19 +97,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       try {
-        console.log("Getting interviewer ID for code:", interviewerCode);
-        
         const localInterviewers = await getInterviewers();
         const localInterviewer = localInterviewers.find(i => i.code === interviewerCode);
         
         if (localInterviewer) {
-          console.log("Found interviewer in local storage:", localInterviewer.id);
           setInterviewerId(localInterviewer.id);
           return;
         }
         
         if (isOnline) {
-          const { data, error } = await supabase
+          const { data, error } = await fetch('interviewers')
             .from('interviewers')
             .select('id')
             .eq('code', interviewerCode)
@@ -124,7 +118,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
             return;
           }
           
-          console.log("Found interviewer ID from Supabase:", data.id);
           setInterviewerId(data.id);
         } else {
           setInterviewerId(interviewerCode);
@@ -146,59 +139,18 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       try {
-        console.log("Fetching projects for interviewer ID:", interviewerId);
-        
         const localProjects = await getInterviewerProjects(interviewerId);
         
         if (localProjects && localProjects.length > 0) {
-          console.log("Found projects in local storage:", localProjects);
           setAvailableProjects(localProjects);
           
           if (localProjects.length === 1) {
-            console.log("Single project found, setting project ID:", localProjects[0].id);
             setSelectedProjectId(localProjects[0].id);
           } else if (localProjects.length > 1 && !isRunning) {
             setSelectedProjectId(null);
           }
           
           return;
-        }
-        
-        if (isOnline) {
-          const { data: projectAssignments, error: projectsError } = await supabase
-            .from('project_interviewers')
-            .select('project_id, projects:project_id(*)')
-            .eq('interviewer_id', interviewerId);
-            
-          if (projectsError) {
-            throw projectsError;
-          }
-          
-          if (projectAssignments && projectAssignments.length > 0) {
-            const projects = projectAssignments.map(pa => pa.projects as Project);
-            console.log("Found projects from Supabase:", projects);
-            
-            await saveInterviewerProjects(interviewerId, projects);
-            for (const project of projects) {
-              await saveProject(project);
-            }
-            
-            setAvailableProjects(projects);
-            
-            if (projects.length === 1) {
-              console.log("Single project found, setting project ID:", projects[0].id);
-              setSelectedProjectId(projects[0].id);
-            } else if (projects.length > 1 && !isRunning) {
-              setSelectedProjectId(null);
-            }
-          } else {
-            console.log("No projects found for this interviewer");
-            setAvailableProjects([]);
-            setSelectedProjectId(null);
-          }
-        } else {
-          setAvailableProjects([]);
-          setSelectedProjectId(null);
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -207,7 +159,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchProjects();
-  }, [interviewerId, isRunning, isOnline, getInterviewerProjects, saveInterviewerProjects, saveProject]);
+  }, [interviewerId, isRunning, getInterviewerProjects]);
 
   useEffect(() => {
     const fetchActiveProject = async () => {
@@ -229,38 +181,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
         
         if (projectFromLocal) {
           setActiveProject(projectFromLocal);
-          return;
-        }
-        
-        if (isOnline) {
-          const { data: project, error } = await supabase
-            .from('projects')
-            .select('*')
-            .eq('id', selectedProjectId)
-            .single();
-            
-          if (error) {
-            throw error;
-          }
-          
-          let typedExcludedIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = [];
-          if (Array.isArray(project.excluded_islands)) {
-            typedExcludedIslands = project.excluded_islands.filter((island: string) => 
-              island === 'Bonaire' || island === 'Saba' || island === 'Sint Eustatius'
-            ) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
-          }
-          
-          const projectData: Project = {
-            id: project.id,
-            name: project.name,
-            start_date: project.start_date,
-            end_date: project.end_date,
-            excluded_islands: typedExcludedIslands
-          };
-          
-          await saveProject(projectData);
-          
-          setActiveProject(projectData);
         }
       } catch (error) {
         console.error("Error fetching project details:", error);
@@ -269,7 +189,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchActiveProject();
-  }, [selectedProjectId, availableProjects, getProjects, isOnline, saveProject]);
+  }, [selectedProjectId, availableProjects, getProjects]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim() || !interviewerVerified) {
@@ -283,8 +203,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     
     if (!isRunning) {
       try {
-        setLoading(true);
-        
         if (!interviewerId) {
           toast({
             title: "Error",
@@ -306,13 +224,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
         }
         
         if (availableProjects.length === 1) {
-          console.log("Using the only available project:", availableProjects[0].id);
           await handleSessionStart(availableProjects[0].id);
           return;
         }
         
         if (availableProjects.length > 1) {
-          console.log("Multiple projects available, showing selection dialog");
           setShowProjectDialog(true);
           return;
         }
@@ -323,18 +239,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: "Could not start session",
           variant: "destructive",
         });
-      } finally {
-        setLoading(false);
       }
     } else {
-      if (!stoppingSession) {
-        await handleSessionEnd();
-      }
+      await handleSessionEnd();
     }
   };
 
   const handleProjectSelect = async (projectId: string) => {
-    console.log("Project selected in dialog:", projectId);
     setSelectedProjectId(projectId);
     setShowProjectDialog(false);
     
@@ -342,183 +253,68 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const handleSessionStart = async (projectId: string) => {
-    try {
-      setLoading(true);
-      
-      if (!interviewerId) {
-        toast({
-          title: "Error",
-          description: "Interviewer code not found",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      if (!projectId) {
-        console.error("No project ID provided for session start");
-        toast({
-          title: "Error",
-          description: "No project selected. Please select a project first.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      console.log("Starting session with project ID:", projectId);
-      console.log("Interviewer ID:", interviewerId);
-      
-      const currentLocation = await getCurrentLocation();
-      console.log("Current location:", currentLocation);
-      
-      const newSession: Session = {
-        id: uuidv4(),
-        interviewer_id: interviewerId,
-        project_id: projectId,
-        start_time: new Date().toISOString(),
-        end_time: null,
-        start_latitude: currentLocation?.latitude || null,
-        start_longitude: currentLocation?.longitude || null,
-        start_address: currentLocation?.address || null,
-        end_latitude: null,
-        end_longitude: null,
-        end_address: null,
-        is_active: true,
-        is_unusual_reviewed: false,
-        sync_status: 'unsynced',
-        local_id: uuidv4()
-      };
-      
-      if (isOnline) {
-        try {
-          const { data: session, error: insertError } = await supabase
-            .from('sessions')
-            .insert([{
-              interviewer_id: interviewerId,
-              project_id: projectId,
-              start_latitude: currentLocation?.latitude || null,
-              start_longitude: currentLocation?.longitude || null,
-              start_address: currentLocation?.address || null,
-              is_active: true
-            }])
-            .select()
-            .single();
-            
-          if (!insertError && session) {
-            newSession.id = session.id;
-            newSession.sync_status = 'synced';
-            console.log("Successfully created session on server:", session.id);
-          } else {
-            console.error("Error inserting session on server:", insertError);
-          }
-        } catch (error) {
-          console.error("Error creating session on server, proceeding with local only:", error);
-        }
-      }
-
-      const savedSession = await saveSession(newSession);
-      console.log("Session saved locally:", savedSession);
-      
-      setActiveSession(savedSession);
-      setIsRunning(true);
-      setStartTime(savedSession.start_time);
-      setStartLocation(currentLocation);
-      
-      toast({
-        title: "Session Started",
-        description: `Started at ${new Date().toLocaleTimeString()}`,
-      });
-    } catch (error) {
-      console.error("Error starting session:", error);
+    if (!interviewerId) {
       toast({
         title: "Error",
-        description: "Could not start session",
+        description: "Interviewer code not found",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      return;
+    }
+    
+    if (!projectId) {
+      toast({
+        title: "Error",
+        description: "No project selected. Please select a project first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const session = await startSession(interviewerId, projectId);
+    
+    if (session) {
+      setActiveSession(session);
+      setIsRunning(true);
+      setStartTime(session.start_time);
+      if (session.start_latitude && session.start_longitude) {
+        setStartLocation({
+          latitude: session.start_latitude,
+          longitude: session.start_longitude,
+          address: session.start_address || undefined
+        });
+      }
     }
   };
 
   const handleSessionEnd = async () => {
-    try {
-      if (stoppingSession) return; // Prevent multiple stop attempts
-      
+    if (isInterviewLoading) return;
+    
+    // Check if there's an active interview that needs to be stopped first
+    if (activeInterview) {
       setLoading(true);
-      setStoppingSession(true);
+      toast({
+        title: "Active Interview",
+        description: "Stopping active interview before ending session...",
+      });
       
-      if (activeInterview) {
-        toast({
-          title: "Active Interview",
-          description: "Stopping active interview before ending session...",
-        });
-        
-        try {
-          const stopSuccess = await stopInterview();
-          
-          if (stopSuccess === false) {
-            setLoading(false);
-            return; // Will be called again after interview is fully completed
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
-        } catch (interviewError) {
-          console.error("Error stopping interview:", interviewError);
-        }
-      }
+      const interviewStopped = await stopInterview();
+      setLoading(false);
       
-      if (!activeSession) {
-        setStoppingSession(false);
-        setLoading(false);
+      if (interviewStopped === false) {
+        // Interview stopping is in progress, need to complete it first
         return;
       }
-      
-      const currentLocation = await getCurrentLocation();
-      
-      const updatedSession: Session = {
-        ...activeSession,
-        end_time: new Date().toISOString(),
-        end_latitude: currentLocation?.latitude || null,
-        end_longitude: currentLocation?.longitude || null,
-        end_address: currentLocation?.address || null,
-        is_active: false,
-        sync_status: 'unsynced'
-      };
-      
-      await saveSession(updatedSession);
-      
-      if (isOnline && activeSession.sync_status === 'synced') {
-        try {
-          await supabase
-            .from('sessions')
-            .update({
-              end_time: new Date().toISOString(),
-              end_latitude: currentLocation?.latitude || null,
-              end_longitude: currentLocation?.longitude || null,
-              end_address: currentLocation?.address || null,
-              is_active: false
-            })
-            .eq('id', activeSession.id);
-        } catch (error) {
-          console.error("Error updating session on server:", error);
-        }
-      }
-      
+    }
+    
+    if (!activeSession) return;
+    
+    setLoading(true);
+    const success = await stopSession(activeSession);
+    setLoading(false);
+    
+    if (success) {
       endSession();
-      
-      toast({
-        title: "Session Ended",
-        description: `Ended at ${new Date().toLocaleTimeString()}`,
-      });
-    } catch (error) {
-      console.error("Error ending session:", error);
-      toast({
-        title: "Error",
-        description: "Could not end session",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setStoppingSession(false);
     }
   };
 
@@ -533,6 +329,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const handleVerifySuccess = () => {
     setInterviewerVerified(true);
   };
+
+  // Check if session stopping is in progress (interview stopping dialog showing)
+  const isSessionStoppingInProgress = isStoppingInProgress();
 
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
@@ -597,17 +396,17 @@ const SessionForm: React.FC<SessionFormProps> = ({
             isInterviewActive={!!activeInterview}
             loading={isInterviewLoading}
             onClick={handleInterviewAction}
-            disabled={loading || stoppingSession}
+            disabled={loading || isSessionStoppingInProgress}
           />
         )}
         
         <SessionButton
           isRunning={isRunning}
-          loading={loading}
+          loading={loading || isInterviewLoading}
           interviewerCode={interviewerCode && interviewerVerified ? interviewerCode : ""}
           onClick={handleStartStop}
-          disabled={stoppingSession}
-          disabledReason={stoppingSession ? "Stopping session..." : undefined}
+          disabled={isSessionStoppingInProgress || isInterviewLoading}
+          disabledReason={isSessionStoppingInProgress ? "Complete interview result first" : undefined}
         />
       </div>
       

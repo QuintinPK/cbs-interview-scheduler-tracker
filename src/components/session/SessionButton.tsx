@@ -27,6 +27,7 @@ const SessionButton: React.FC<SessionButtonProps> = ({
         className={`start-stop-button w-24 h-24 rounded-full flex items-center justify-center ${
           isRunning ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
         } ${(loading || !interviewerCode || disabled) ? "opacity-50 cursor-not-allowed" : ""} text-white transition-colors`}
+        title={disabled ? disabledReason || "Disabled" : isRunning ? "Stop session" : "Start session"}
       >
         {loading ? (
           <div className="animate-spin h-10 w-10 border-4 border-white border-t-transparent rounded-full"></div>
@@ -38,7 +39,7 @@ const SessionButton: React.FC<SessionButtonProps> = ({
       </button>
       
       {disabled && disabledReason && (
-        <p className="text-xs text-red-500 mt-2">{disabledReason}</p>
+        <p className="text-xs text-red-500 mt-2 text-center max-w-[200px]">{disabledReason}</p>
       )}
     </div>
   );

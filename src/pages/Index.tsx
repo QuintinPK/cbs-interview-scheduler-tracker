@@ -26,8 +26,8 @@ const Index = () => {
 
   return (
     <MainLayout>
-      <div className="max-w-lg mx-auto px-4 py-6">
-        <h1 className="text-xl font-bold text-center mb-4">Interviewer Portal</h1>
+      <div className="max-w-lg mx-auto px-4 py-6 mb-16">
+        <h1 className="text-xl font-bold text-center mb-6">Interviewer Portal</h1>
         
         <div className="space-y-6">
           <SessionForm

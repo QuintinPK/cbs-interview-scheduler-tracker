@@ -1,19 +1,16 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
 import { useOffline } from "@/contexts/OfflineContext";
-import { v4 as uuidv4 } from "uuid";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
   const { 
     isOnline, 
-    saveSession, 
     getSessionById, 
-    updateSession, 
     sessions: localSessions,
-    saveInterviewer,
     getInterviewers
   } = useOffline();
   
@@ -25,7 +22,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
   const [localInterviewers, setLocalInterviewers] = useState<Interviewer[]>([]);
-  const [sessionStopping, setSessionStopping] = useState(false);
 
   useEffect(() => {
     const loadSavedInterviewerCode = () => {
@@ -108,13 +104,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           
           if (sessions && sessions.length > 0) {
             console.log("Found active session from server:", sessions[0]);
-            
-            const savedSession = await saveSession({
-              ...sessions[0],
-              sync_status: 'synced'
-            });
-            
-            updateSessionState(savedSession);
+            updateSessionState(sessions[0]);
           } else {
             resetSessionState();
           }
@@ -132,7 +122,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     checkActiveSession();
-  }, [interviewerCode, isOnline, localSessions, saveSession, toast]);
+  }, [interviewerCode, isOnline, localSessions, toast]);
 
   const getInterviewerIdFromCode = async (code: string, fetchFromServer: boolean = false): Promise<string | null> => {
     try {
@@ -157,28 +147,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           return null;
         }
           
-        const interviewer = interviewers[0];
-        
-        // Safely cast island to the correct union type
-        let typedIsland: "Bonaire" | "Saba" | "Sint Eustatius" | undefined = undefined;
-        if (interviewer.island === "Bonaire" || interviewer.island === "Saba" || interviewer.island === "Sint Eustatius") {
-          typedIsland = interviewer.island;
-        }
-        
-        const typedInterviewer: Interviewer = {
-          id: interviewer.id,
-          code: interviewer.code,
-          first_name: interviewer.first_name,
-          last_name: interviewer.last_name,
-          phone: interviewer.phone || "",
-          email: interviewer.email || "",
-          island: typedIsland
-        };
-        
-        await saveInterviewer(typedInterviewer);
-        
-        await loadLocalInterviewers();
-        return interviewer.id;
+        return interviewers[0].id;
       }
       
       if (!isOnline) {
@@ -211,7 +180,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setIsRunning(false);
     setStartTime(null);
     setStartLocation(undefined);
-    setSessionStopping(false);
   };
 
   const switchUser = () => {
@@ -222,7 +190,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   };
 
   const endSession = () => {
-    // Just reset the session state without additional processing
     resetSessionState();
   };
 
@@ -244,28 +211,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           throw error;
         }
         
-        if (data && data.length > 0) {
-          const interviewer = data[0];
-          
-          // Safely cast island to the correct union type
-          let typedIsland: "Bonaire" | "Saba" | "Sint Eustatius" | undefined = undefined;
-          if (interviewer.island === "Bonaire" || interviewer.island === "Saba" || interviewer.island === "Sint Eustatius") {
-            typedIsland = interviewer.island;
-          }
-          
-          const typedInterviewer: Interviewer = {
-            id: interviewer.id,
-            code: interviewer.code,
-            first_name: interviewer.first_name,
-            last_name: interviewer.last_name,
-            phone: interviewer.phone || "",
-            email: interviewer.email || "",
-            island: typedIsland
-          };
-          await saveInterviewer(typedInterviewer);
-          await loadLocalInterviewers();
-          return true;
-        }
+        return data && data.length > 0;
       } catch (error) {
         console.error("Error verifying interviewer code:", error);
       }
@@ -290,7 +236,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setIsPrimaryUser,
     switchUser,
     endSession,
-    verifyInterviewerCode,
-    sessionStopping
+    verifyInterviewerCode
   };
 };
