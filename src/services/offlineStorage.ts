@@ -75,7 +75,6 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
-// Utility function to execute a transaction
 const executeTransaction = (
   storeName: string,
   mode: IDBTransactionMode,
@@ -97,7 +96,6 @@ const executeTransaction = (
   });
 };
 
-// Sessions
 export const saveSessionLocally = async (session: Session): Promise<Session> => {
   const dbSession: DBSession = {
     ...session,
@@ -148,7 +146,6 @@ export const updateLocalSession = async (session: Session): Promise<Session> => 
   return session;
 };
 
-// Interviews
 export const saveInterviewLocally = async (interview: Interview): Promise<Interview> => {
   const dbInterview: DBInterview = {
     ...interview,
@@ -200,7 +197,6 @@ export const updateLocalInterview = async (interview: Interview): Promise<Interv
   return interview;
 };
 
-// Interviewers
 export const saveInterviewer = async (interviewer: Interviewer): Promise<Interviewer> => {
   const dbInterviewer: DBInterviewer = {
     ...interviewer,
@@ -233,7 +229,6 @@ export const getInterviewerByCode = async (code: string): Promise<Interviewer | 
   });
 };
 
-// Projects
 export const saveProject = async (project: Project): Promise<Project> => {
   const dbProject: DBProject = {
     ...project,
@@ -255,10 +250,8 @@ export const getProjects = async (): Promise<Project[]> => {
   });
 };
 
-// Project Interviewers
 export const saveInterviewerProjects = async (interviewerId: string, projects: Project[]): Promise<void> => {
   await executeTransaction('project_interviewers', 'readwrite', async (store) => {
-    // First, clear existing entries for this interviewer
     const index = store.index('interviewer_id');
     const existingKeysRequest = index.getAllKeys(interviewerId);
     
@@ -266,12 +259,10 @@ export const saveInterviewerProjects = async (interviewerId: string, projects: P
       existingKeysRequest.onsuccess = async () => {
         const keys = existingKeysRequest.result;
         
-        // Delete existing entries
         for (const key of keys) {
           await store.delete(key);
         }
         
-        // Now add the new entries
         for (const project of projects) {
           const dbProjectInterviewer: DBProjectInterviewer = {
             interviewer_id: interviewerId,
@@ -296,10 +287,8 @@ export const getInterviewerProjects = async (interviewerId: string): Promise<Pro
       request.onsuccess = async () => {
         const projectInterviewers = request.result as DBProjectInterviewer[];
         
-        // Fetch all projects
         const allProjects = await getProjects();
         
-        // Filter projects based on project_interviewers entries
         const projects = allProjects.filter(project => 
           projectInterviewers.some(pi => pi.project_id === project.id)
         );
@@ -311,7 +300,6 @@ export const getInterviewerProjects = async (interviewerId: string): Promise<Pro
   });
 };
 
-// Sync Status
 export const initSyncStatus = async (): Promise<SyncStatus> => {
   let status: SyncStatus | null = null;
   
@@ -326,7 +314,6 @@ export const initSyncStatus = async (): Promise<SyncStatus> => {
   }
   
   const newStatus: SyncStatus = {
-    id: 'sync_status',
     lastSuccessfulSync: null,
     isOnline: navigator.onLine,
     isSyncing: false,
@@ -334,7 +321,7 @@ export const initSyncStatus = async (): Promise<SyncStatus> => {
   };
   
   await executeTransaction('sync_status', 'readwrite', async (store) => {
-    await store.put(newStatus);
+    await store.put({id: 'sync_status', ...newStatus});
   });
   
   return newStatus;
@@ -344,7 +331,14 @@ export const getSyncStatus = async (): Promise<SyncStatus | null> => {
   return executeTransaction('sync_status', 'readonly', async (store) => {
     const request = store.get('sync_status');
     return new Promise<SyncStatus | null>((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result ? request.result as SyncStatus : null);
+      request.onsuccess = () => {
+        if (request.result) {
+          const { id, ...syncStatus } = request.result;
+          resolve(syncStatus as SyncStatus);
+        } else {
+          resolve(null);
+        }
+      };
       request.onerror = () => reject(request.error);
     });
   });
@@ -352,7 +346,6 @@ export const getSyncStatus = async (): Promise<SyncStatus | null> => {
 
 export const updateSyncStatus = async (updates: Partial<SyncStatus>): Promise<SyncStatus> => {
   const currentStatus = await getSyncStatus() || {
-    id: 'sync_status',
     lastSuccessfulSync: null,
     isOnline: navigator.onLine,
     isSyncing: false,
@@ -365,13 +358,12 @@ export const updateSyncStatus = async (updates: Partial<SyncStatus>): Promise<Sy
   };
   
   await executeTransaction('sync_status', 'readwrite', async (store) => {
-    await store.put(updatedStatus);
+    await store.put({id: 'sync_status', ...updatedStatus});
   });
   
   return updatedStatus;
 };
 
-// Sync Logic
 export const syncAll = async (): Promise<{ success: boolean; message: string }> => {
   try {
     await updateSyncStatus({ isSyncing: true });
@@ -384,7 +376,6 @@ export const syncAll = async (): Promise<{ success: boolean; message: string }> 
     
     console.log(`Found ${unsyncedSessions.length} unsynced sessions and ${unsyncedInterviews.length} unsynced interviews`);
     
-    // Sync sessions
     for (const session of unsyncedSessions) {
       if (!session.interviewer_id || !session.project_id) {
         console.warn(`Skipping session ${session.id} due to missing interviewer_id or project_id`);
@@ -392,7 +383,6 @@ export const syncAll = async (): Promise<{ success: boolean; message: string }> 
       }
       
       if (session.id.includes('-')) {
-        // Optimistically update local session to synced
         await updateLocalSession({ ...session, sync_status: 'synced' });
         continue;
       }
@@ -422,11 +412,9 @@ export const syncAll = async (): Promise<{ success: boolean; message: string }> 
         return { success: false, message: `Failed to sync session: ${error.message}` };
       }
       
-      // Update local session to synced
       await updateLocalSession({ ...session, sync_status: 'synced', id: data.id });
     }
     
-    // Sync interviews
     for (const interview of unsyncedInterviews) {
       if (!interview.session_id || !interview.project_id) {
         console.warn(`Skipping interview ${interview.id} due to missing session_id or project_id`);
@@ -434,7 +422,6 @@ export const syncAll = async (): Promise<{ success: boolean; message: string }> 
       }
       
       if (interview.id.includes('-')) {
-        // Optimistically update local interview to synced
         await updateLocalInterview({ ...interview, sync_status: 'synced' });
         continue;
       }
@@ -464,11 +451,9 @@ export const syncAll = async (): Promise<{ success: boolean; message: string }> 
         return { success: false, message: `Failed to sync interview: ${error.message}` };
       }
       
-      // Update local interview to synced
       await updateLocalInterview({ ...interview, sync_status: 'synced', id: data.id });
     }
     
-    // Update sync status
     await updateSyncStatus({
       lastSuccessfulSync: new Date().toISOString(),
       isSyncing: false,
@@ -484,7 +469,6 @@ export const syncAll = async (): Promise<{ success: boolean; message: string }> 
   }
 };
 
-// Connectivity Listeners
 export const setupConnectivityListeners = (
   onOnline: () => Promise<void>,
   onOffline: () => Promise<void>
@@ -504,7 +488,6 @@ export const setupConnectivityListeners = (
   window.addEventListener('online', handleOnline);
   window.addEventListener('offline', handleOffline);
   
-  // Initial check
   if (navigator.onLine) {
     handleOnline();
   } else {
@@ -517,7 +500,6 @@ export const setupConnectivityListeners = (
   };
 };
 
-// Auto Sync
 export const setupAutoSync = (
   onSyncStart: () => void,
   onSyncComplete: (result: { success: boolean; message: string }) => void,
@@ -546,12 +528,11 @@ export const setupAutoSync = (
   };
 };
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 let supabase: SupabaseClient<any, "public", any>;
 
-// Initialize Supabase client
 export const initSupabase = () => {
   if (!supabaseUrl || !supabaseKey) {
     throw new Error('Supabase URL and key are required.');
