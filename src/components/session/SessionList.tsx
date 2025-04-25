@@ -9,11 +9,24 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, StopCircle, Trash2, Loader2, ChevronDown, ChevronRight, MessageCircle, MapPin } from "lucide-react";
+import { 
+  Pencil, 
+  StopCircle, 
+  Trash2, 
+  Loader2, 
+  ChevronDown, 
+  ChevronRight, 
+  MessageCircle, 
+  MapPin,
+  ArrowDown,
+  ArrowUp 
+} from "lucide-react";
 import { formatDateTime, calculateDuration } from "@/lib/utils";
 import { Session, Interview, Project } from "@/types";
 import InterviewsList from "./InterviewsList";
 import CoordinatePopup from "../ui/CoordinatePopup";
+import { useSessionSorting } from "@/hooks/useSessionSorting";
+import { cn } from "@/lib/utils";
 
 interface SessionListProps {
   sessions: Session[];
@@ -51,6 +64,31 @@ const SessionList: React.FC<SessionListProps> = ({
     const project = projects.find(p => p.id === projectId);
     return project ? project.name : "Unknown project";
   };
+
+  const {
+    sortedSessions,
+    sortField,
+    sortDirection,
+    toggleSort
+  } = useSessionSorting(sessions, getInterviewerCode, getProjectName);
+
+  const SortableHeader: React.FC<{
+    field: 'interviewer_code' | 'project' | 'duration';
+    children: React.ReactNode;
+  }> = ({ field, children }) => (
+    <Button
+      variant="ghost"
+      className="h-8 flex items-center gap-1 -ml-2 hover:bg-muted"
+      onClick={() => toggleSort(field)}
+    >
+      <span>{children}</span>
+      <div className="w-4">
+        {sortField === field && (
+          sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        )}
+      </div>
+    </Button>
+  );
 
   useEffect(() => {
     const loadAllInterviewCounts = async () => {
@@ -146,11 +184,23 @@ const SessionList: React.FC<SessionListProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead>Interviewer Code</TableHead>
-                <TableHead>Project</TableHead>
+                <TableHead>
+                  <SortableHeader field="interviewer_code">
+                    Interviewer Code
+                  </SortableHeader>
+                </TableHead>
+                <TableHead>
+                  <SortableHeader field="project">
+                    Project
+                  </SortableHeader>
+                </TableHead>
                 <TableHead>Start Date/Time</TableHead>
                 <TableHead>End Date/Time</TableHead>
-                <TableHead>Duration</TableHead>
+                <TableHead>
+                  <SortableHeader field="duration">
+                    Duration
+                  </SortableHeader>
+                </TableHead>
                 <TableHead>Start Location</TableHead>
                 <TableHead>End Location</TableHead>
                 <TableHead>Interviews</TableHead>
@@ -166,14 +216,14 @@ const SessionList: React.FC<SessionListProps> = ({
                     </div>
                   </TableCell>
                 </TableRow>
-              ) : sessions.length === 0 ? (
+              ) : sortedSessions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                     No sessions found
                   </TableCell>
                 </TableRow>
               ) : (
-                sessions.map((session) => (
+                sortedSessions.map((session) => (
                   <React.Fragment key={session.id}>
                     <TableRow className={expandedSessions[session.id] ? "bg-gray-50" : ""}>
                       <TableCell>
