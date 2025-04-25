@@ -2,7 +2,7 @@
 import { useState, useMemo } from 'react';
 import { Session } from '@/types';
 
-type SortField = 'interviewer_code' | 'project' | 'duration';
+type SortField = 'interviewer_code' | 'project' | 'duration' | 'start_time' | 'end_time';
 type SortDirection = 'asc' | 'desc';
 
 export const useSessionSorting = (
@@ -25,6 +25,14 @@ export const useSessionSorting = (
           break;
         case 'project':
           comparison = getProjectName(a.project_id).localeCompare(getProjectName(b.project_id));
+          break;
+        case 'start_time':
+          comparison = new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+          break;
+        case 'end_time':
+          const aTime = a.end_time ? new Date(a.end_time).getTime() : Infinity;
+          const bTime = b.end_time ? new Date(b.end_time).getTime() : Infinity;
+          comparison = aTime - bTime;
           break;
         case 'duration':
           const getDuration = (session: Session) => {

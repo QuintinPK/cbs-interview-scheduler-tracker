@@ -73,18 +73,29 @@ const SessionList: React.FC<SessionListProps> = ({
   } = useSessionSorting(sessions, getInterviewerCode, getProjectName);
 
   const SortableHeader: React.FC<{
-    field: 'interviewer_code' | 'project' | 'duration';
+    field: 'interviewer_code' | 'project' | 'duration' | 'start_time' | 'end_time';
     children: React.ReactNode;
   }> = ({ field, children }) => (
     <Button
       variant="ghost"
-      className="h-8 flex items-center gap-1 -ml-2 hover:bg-muted"
+      className={cn(
+        "h-8 flex items-center gap-1 -ml-2 font-medium",
+        "hover:bg-accent hover:text-accent-foreground",
+        "transition-colors duration-200",
+        "group"
+      )}
       onClick={() => toggleSort(field)}
     >
-      <span>{children}</span>
+      <span className="group-hover:text-primary">{children}</span>
       <div className="w-4">
-        {sortField === field && (
-          sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        {sortField === field ? (
+          sortDirection === 'asc' ? 
+            <ArrowUp className="h-3 w-3 text-primary" /> : 
+            <ArrowDown className="h-3 w-3 text-primary" />
+        ) : (
+          <div className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <ArrowUp className="h-3 w-3 text-muted-foreground" />
+          </div>
         )}
       </div>
     </Button>
@@ -194,8 +205,16 @@ const SessionList: React.FC<SessionListProps> = ({
                     Project
                   </SortableHeader>
                 </TableHead>
-                <TableHead>Start Date/Time</TableHead>
-                <TableHead>End Date/Time</TableHead>
+                <TableHead>
+                  <SortableHeader field="start_time">
+                    Start Date/Time
+                  </SortableHeader>
+                </TableHead>
+                <TableHead>
+                  <SortableHeader field="end_time">
+                    End Date/Time
+                  </SortableHeader>
+                </TableHead>
                 <TableHead>
                   <SortableHeader field="duration">
                     Duration
