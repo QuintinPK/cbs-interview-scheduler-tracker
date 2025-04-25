@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSessionActions } from "@/hooks/useSessionActions";
 import { formatInTimeZone } from 'date-fns-tz';
+import { getHours } from "date-fns";
 
 interface UnusualSessionsCardProps {
   sessions: Session[];
@@ -41,7 +42,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   sessions,
   interviewers,
   loading = false,
-  threshold = 120 // Default: 2 hours
+  threshold = 120
 }) => {
   const [unusualSessions, setUnusualSessions] = useState<Session[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -57,9 +58,14 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     () => {},
     toast
   );
+
+  const isUnusualStartTime = (startTime: string): boolean => {
+    const hour = getHours(new Date(startTime));
+    return hour < 7 || hour >= 21;
+  };
   
   useMemo(() => {
-    const longSessions = sessions.filter(session => {
+    const unusualSessions = sessions.filter(session => {
       if (!session.end_time || session.is_active) {
         return false;
       }
@@ -68,10 +74,11 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
       const end = new Date(session.end_time).getTime();
       const durationMinutes = (end - start) / (1000 * 60);
       
-      return durationMinutes > threshold;
+      // Check for either unusual duration or unusual start time
+      return durationMinutes > threshold || isUnusualStartTime(session.start_time);
     });
     
-    const sorted = longSessions.sort((a, b) => {
+    const sorted = unusualSessions.sort((a, b) => {
       const durationA = new Date(a.end_time!).getTime() - new Date(a.start_time).getTime();
       const durationB = new Date(b.end_time!).getTime() - new Date(b.start_time).getTime();
       return durationB - durationA;
@@ -164,7 +171,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">
-            Unusual Sessions (Over {threshold} minutes)
+            Unusual Sessions (Over {threshold} minutes or outside 7am-9pm)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -181,56 +188,73 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
                     <TableHead>Start Time</TableHead>
                     <TableHead>End Time</TableHead>
                     <TableHead>Duration</TableHead>
+                    <TableHead>Reason</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {unusualSessions.map(session => (
-                    <TableRow key={session.id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <Link 
-                          to={`/admin/sessions`} 
-                          className="font-medium hover:underline"
-                        >
-                          {getInterviewerCode(session.interviewer_id)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/admin/sessions`} className="hover:underline">
-                          {formatDateTime(session.start_time)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/admin/sessions`} className="hover:underline">
-                          {formatDateTime(session.end_time!)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/admin/sessions`} className="hover:underline">
-                          {calculateDuration(session.start_time, session.end_time!)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleEditClick(session)}
+                  {unusualSessions.map(session => {
+                    const isUnusualTime = isUnusualStartTime(session.start_time);
+                    const rowClass = isUnusualTime ? 'bg-amber-50' : '';
+                    
+                    return (
+                      <TableRow key={session.id} className={`hover:bg-gray-50 ${rowClass}`}>
+                        <TableCell>
+                          <Link 
+                            to={`/admin/sessions`} 
+                            className="font-medium hover:underline"
                           >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleMarkAsSeen(session.id)}
+                            {getInterviewerCode(session.interviewer_id)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/admin/sessions`} className="hover:underline">
+                            {formatDateTime(session.start_time)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/admin/sessions`} className="hover:underline">
+                            {formatDateTime(session.end_time!)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/admin/sessions`} className="hover:underline">
+                            {calculateDuration(session.start_time, session.end_time!)}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              isUnusualTime
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
                           >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Seen
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {isUnusualTime ? "Unusual Time" : "Long Duration"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleEditClick(session)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleMarkAsSeen(session.id)}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Seen
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
