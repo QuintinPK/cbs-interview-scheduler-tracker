@@ -8,6 +8,7 @@ interface SessionButtonProps {
   interviewerCode: string;
   onClick: () => void;
   disabled?: boolean;
+  disabledReason?: string;
 }
 
 const SessionButton: React.FC<SessionButtonProps> = ({
@@ -15,10 +16,11 @@ const SessionButton: React.FC<SessionButtonProps> = ({
   loading,
   interviewerCode,
   onClick,
-  disabled = false
+  disabled = false,
+  disabledReason
 }) => {
   return (
-    <div className="flex justify-center pt-4">
+    <div className="flex flex-col items-center pt-4">
       <button
         onClick={onClick}
         disabled={loading || !interviewerCode || disabled}
@@ -34,6 +36,10 @@ const SessionButton: React.FC<SessionButtonProps> = ({
           <Play className="h-10 w-10 ml-1" />
         )}
       </button>
+      
+      {disabled && disabledReason && (
+        <p className="text-xs text-red-500 mt-2">{disabledReason}</p>
+      )}
     </div>
   );
 };

@@ -442,11 +442,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       if (activeInterview) {
         toast({
-          title: "Error",
-          description: "Please stop the active interview before ending your session",
-          variant: "destructive",
+          title: "Active Interview",
+          description: "Stopping active interview before ending session...",
         });
-        return;
+        
+        await stopInterview();
       }
       
       if (!activeSession) {
@@ -586,7 +586,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           loading={loading}
           interviewerCode={interviewerCode && interviewerVerified ? interviewerCode : ""}
           onClick={handleStartStop}
-          disabled={isRunning && !!activeInterview}
+          disabled={false}
         />
       </div>
       
