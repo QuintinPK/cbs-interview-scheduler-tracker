@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours, isBefore, isAfter } from "date-fns";
 import { Link, useSearchParams } from "react-router-dom";
 
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -28,19 +27,15 @@ const InteractiveScheduling = () => {
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
 
-  // Fetch interviewers using the hook
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const { filterInterviewers } = useFilter();
 
-  // Filtered interviewers based on global filters
   const filteredInterviewers = filterInterviewers(interviewers);
 
-  // Generate week dates
   const weekDates = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const weekStartStr = format(currentWeekStart, "yyyy-MM-dd");
   const weekEndStr = format(addDays(currentWeekStart, 6), "yyyy-MM-dd");
 
-  // Find interviewer by code from URL param
   useEffect(() => {
     if (interviewerCodeFromUrl && filteredInterviewers.length > 0 && !selectedInterviewerId) {
       const matchedInterviewer = filteredInterviewers.find(
@@ -50,58 +45,62 @@ const InteractiveScheduling = () => {
       if (matchedInterviewer) {
         setSelectedInterviewerId(matchedInterviewer.id);
       } else {
-        // If no match found and we have interviewers, default to first one
         setSelectedInterviewerId(filteredInterviewers[0].id);
       }
     } else if (filteredInterviewers.length > 0 && !selectedInterviewerId) {
-      // Default to first interviewer if no code in URL
       setSelectedInterviewerId(filteredInterviewers[0].id);
     }
   }, [filteredInterviewers, interviewerCodeFromUrl, selectedInterviewerId]);
 
-  // Fetch schedules for the selected interviewer and week
   const {
     schedules,
     loading: schedulesLoading,
     refresh: refreshSchedules
   } = useSchedules(selectedInterviewerId ?? undefined, weekStartStr, weekEndStr);
 
-  // Fetch sessions for the selected interviewer and week
   const { 
     sessions, 
     loading: sessionsLoading 
   } = useSessions(selectedInterviewerId ?? undefined, weekStartStr, weekEndStr);
 
-  // Combined loading state
   const isLoading = interviewersLoading || schedulesLoading || sessionsLoading;
 
-  // Calculate stats - properly calculating hours from start_time and end_time
+  const now = new Date();
   const scheduledHours = schedules.reduce((total, schedule) => {
     const start = parseISO(schedule.start_time);
     const end = parseISO(schedule.end_time);
-    return total + differenceInHours(end, start);
+    
+    if (isBefore(now, start)) {
+      return total;
+    }
+    
+    if (isAfter(now, end)) {
+      return total + differenceInHours(end, start);
+    }
+    
+    return total + differenceInHours(now, start);
   }, 0);
 
   const workedHours = sessions.reduce((total, session) => {
-    // Only calculate duration if end_time exists (session is completed)
-    if (!session.end_time) return total;
+    if (!session.start_time) return total;
     
     const start = parseISO(session.start_time);
-    const end = parseISO(session.end_time);
-    return total + differenceInHours(end, start);
+    const end = session.end_time ? parseISO(session.end_time) : now;
+    
+    if (isAfter(start, now)) return total;
+    
+    const sessionEnd = isAfter(end, now) ? now : end;
+    return total + differenceInHours(sessionEnd, start);
   }, 0);
 
-  // Navigate to previous/next week
   const handleWeekChange = (newWeekStart: Date) => {
     setCurrentWeekStart(newWeekStart);
   };
 
-  // Reset to current week
   const resetToCurrentWeek = () => {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
 
-  // Handler for when schedules change
   const handleSchedulesChanged = () => {
     refreshSchedules();
   };
@@ -118,19 +117,16 @@ const InteractiveScheduling = () => {
           </div>
         </div>
 
-        {/* Global Filters */}
         <div className="bg-white rounded-lg shadow-sm border p-4">
           <GlobalFilter />
         </div>
 
-        {/* Week Navigator */}
         <WeekNavigator
           currentWeekStart={currentWeekStart}
           onWeekChange={handleWeekChange}
           onResetToCurrentWeek={resetToCurrentWeek}
         />
 
-        {/* Interviewer selector */}
         {filteredInterviewers.length > 0 && (
           <div className="flex gap-2 items-center bg-white p-4 rounded-lg border">
             <label className="font-medium text-sm">Interviewer:</label>
@@ -152,7 +148,6 @@ const InteractiveScheduling = () => {
           </div>
         )}
 
-        {/* Add Schedule Stats */}
         {!isLoading && selectedInterviewerId && (
           <ScheduleStats 
             scheduledHours={scheduledHours} 

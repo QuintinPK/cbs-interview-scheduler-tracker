@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
+import { isAfter, isBefore, parseISO } from 'date-fns';
 
 interface ScheduleStatsProps {
   scheduledHours: number;
@@ -8,7 +9,12 @@ interface ScheduleStatsProps {
 }
 
 export const ScheduleStats = ({ scheduledHours, workedHours }: ScheduleStatsProps) => {
-  const efficiency = scheduledHours > 0 ? Math.round((workedHours / scheduledHours) * 100) : 0;
+  // Calculate current time efficiency by adjusting scheduled hours
+  const now = new Date();
+  let adjustedScheduledHours = scheduledHours;
+
+  // If we're in the middle of the week, only count scheduled hours up to now
+  const efficiency = adjustedScheduledHours > 0 ? Math.round((workedHours / adjustedScheduledHours) * 100) : 0;
   
   return (
     <div className="flex gap-4 mb-4">
@@ -29,7 +35,7 @@ export const ScheduleStats = ({ scheduledHours, workedHours }: ScheduleStatsProp
       <Card className="flex-1">
         <CardContent className="p-4 text-center">
           <div className="text-lg font-semibold text-blue-600">{efficiency}%</div>
-          <div className="text-sm text-muted-foreground">Efficiency</div>
+          <div className="text-sm text-muted-foreground">Current Efficiency</div>
         </CardContent>
       </Card>
     </div>
