@@ -158,6 +158,13 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         }
           
         const interviewer = interviewers[0];
+        
+        // Safely cast island to the correct union type
+        let typedIsland: "Bonaire" | "Saba" | "Sint Eustatius" | undefined = undefined;
+        if (interviewer.island === "Bonaire" || interviewer.island === "Saba" || interviewer.island === "Sint Eustatius") {
+          typedIsland = interviewer.island;
+        }
+        
         const typedInterviewer: Interviewer = {
           id: interviewer.id,
           code: interviewer.code,
@@ -165,8 +172,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           last_name: interviewer.last_name,
           phone: interviewer.phone || "",
           email: interviewer.email || "",
-          // Cast the island to the correct union type or undefined if it doesn't match
-          island: (interviewer.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined)
+          island: typedIsland
         };
         
         await saveInterviewer(typedInterviewer);
@@ -238,6 +244,13 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         
         if (data && data.length > 0) {
           const interviewer = data[0];
+          
+          // Safely cast island to the correct union type
+          let typedIsland: "Bonaire" | "Saba" | "Sint Eustatius" | undefined = undefined;
+          if (interviewer.island === "Bonaire" || interviewer.island === "Saba" || interviewer.island === "Sint Eustatius") {
+            typedIsland = interviewer.island;
+          }
+          
           const typedInterviewer: Interviewer = {
             id: interviewer.id,
             code: interviewer.code,
@@ -245,8 +258,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
             last_name: interviewer.last_name,
             phone: interviewer.phone || "",
             email: interviewer.email || "",
-            // Cast the island to the correct union type or undefined if it doesn't match
-            island: (interviewer.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined)
+            island: typedIsland
           };
           await saveInterviewer(typedInterviewer);
           await loadLocalInterviewers();

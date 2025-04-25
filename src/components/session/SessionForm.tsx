@@ -242,12 +242,19 @@ const SessionForm: React.FC<SessionFormProps> = ({
             throw error;
           }
           
-          const projectData = {
+          let typedExcludedIslands: ('Bonaire' | 'Saba' | 'Sint Eustatius')[] = [];
+          if (Array.isArray(project.excluded_islands)) {
+            typedExcludedIslands = project.excluded_islands.filter((island: string) => 
+              island === 'Bonaire' || island === 'Saba' || island === 'Sint Eustatius'
+            ) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+          }
+          
+          const projectData: Project = {
             id: project.id,
             name: project.name,
             start_date: project.start_date,
             end_date: project.end_date,
-            excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+            excluded_islands: typedExcludedIslands
           };
           
           await saveProject(projectData);
@@ -355,9 +362,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       console.log("Starting session with project ID:", projectId);
+      console.log("Interviewer ID:", interviewerId);
       
       const currentLocation = await getCurrentLocation();
-
+      console.log("Current location:", currentLocation);
+      
       const newSession: Session = {
         id: uuidv4(),
         interviewer_id: interviewerId,
@@ -380,22 +389,23 @@ const SessionForm: React.FC<SessionFormProps> = ({
         try {
           const { data: session, error: insertError } = await supabase
             .from('sessions')
-            .insert([
-              {
-                interviewer_id: interviewerId,
-                project_id: projectId,
-                start_latitude: currentLocation?.latitude || null,
-                start_longitude: currentLocation?.longitude || null,
-                start_address: currentLocation?.address || null,
-                is_active: true
-              }
-            ])
+            .insert([{
+              interviewer_id: interviewerId,
+              project_id: projectId,
+              start_latitude: currentLocation?.latitude || null,
+              start_longitude: currentLocation?.longitude || null,
+              start_address: currentLocation?.address || null,
+              is_active: true
+            }])
             .select()
             .single();
             
           if (!insertError && session) {
             newSession.id = session.id;
             newSession.sync_status = 'synced';
+            console.log("Successfully created session on server:", session.id);
+          } else {
+            console.error("Error inserting session on server:", insertError);
           }
         } catch (error) {
           console.error("Error creating session on server, proceeding with local only:", error);
@@ -403,7 +413,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
 
       const savedSession = await saveSession(newSession);
-      console.log("Session created successfully:", savedSession);
+      console.log("Session saved locally:", savedSession);
       
       setActiveSession(savedSession);
       setIsRunning(true);

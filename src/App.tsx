@@ -12,6 +12,8 @@ import Login from "@/pages/admin/Login";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import SyncStatusBar from "@/components/sync/SyncStatusBar";
 import { AuthProvider } from "@/context/AuthContext";
+import Costs from "@/pages/admin/Costs";
+import InteractiveScheduling from "@/pages/admin/InteractiveScheduling";
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
               <Route path="/admin/interviewers" element={<Interviewers />} />
               <Route path="/admin/projects" element={<Projects />} />
               <Route path="/admin/dashboard" element={<Dashboard />} />
+              <Route path="/admin/costs" element={<Costs />} />
+              <Route path="/admin/scheduling" element={<InteractiveScheduling />} />
             </Routes>
             <Toaster />
           </Router>
