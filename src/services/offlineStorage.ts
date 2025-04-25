@@ -1,7 +1,16 @@
+
 import localforage from 'localforage';
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Interviewer, Project } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+
+// Define SyncStatus interface
+export interface SyncStatus {
+  lastSyncAttempt: string;
+  lastSuccessfulSync: string | null;
+  isOnline: boolean;
+  isSyncing: boolean;
+}
 
 // Initialize local storage instances
 const sessionsStorage = localforage.createInstance({
