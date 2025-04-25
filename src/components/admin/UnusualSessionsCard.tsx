@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSessionActions } from "@/hooks/useSessionActions";
+import { formatInTimeZone } from 'date-fns-tz';
 
 interface UnusualSessionsCardProps {
   sessions: Session[];
@@ -78,9 +79,25 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   
   const handleEditClick = (session: Session) => {
     setEditingSession(session);
+    
+    // Convert UTC to AST for the input fields
     // Format the datetime for the datetime-local input (YYYY-MM-DDThh:mm)
-    setStartTime(session.start_time.substring(0, 16));
-    setEndTime(session.end_time ? session.end_time.substring(0, 16) : '');
+    const startDateTime = formatInTimeZone(
+      new Date(session.start_time),
+      'America/Puerto_Rico',
+      "yyyy-MM-dd'T'HH:mm"
+    );
+    
+    const endDateTime = session.end_time 
+      ? formatInTimeZone(
+          new Date(session.end_time),
+          'America/Puerto_Rico',
+          "yyyy-MM-dd'T'HH:mm"
+        )
+      : '';
+    
+    setStartTime(startDateTime);
+    setEndTime(endDateTime);
     setIsEditDialogOpen(true);
   };
   
