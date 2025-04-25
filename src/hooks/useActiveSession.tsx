@@ -1,19 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
-import { useOffline } from "@/contexts/OfflineContext";
-import { v4 as uuidv4 } from "uuid";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
-  const { 
-    isOnline, 
-    saveSession, 
-    getSessionById, 
-    updateSession, 
-    sessions: localSessions 
-  } = useOffline();
   
   // State variables
   const [interviewerCode, setInterviewerCode] = useState(initialInterviewerCode);
@@ -48,7 +40,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     saveInterviewerCode();
   }, [interviewerCode, isPrimaryUser]);
 
-  // Check if there's an active session for this interviewer
+  // Check if there's an active session for this interviewer on code change
   useEffect(() => {
     const checkActiveSession = async () => {
       if (!interviewerCode.trim()) {
@@ -58,48 +50,40 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       try {
         setLoading(true);
         
-        // First check local sessions - restructured to avoid await in filter function
-        const interviewerId = await getInterviewerIdFromCode(interviewerCode);
+        // Get the interviewer by code
+        const { data: interviewers, error: interviewerError } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .limit(1);
+          
+        if (interviewerError) {
+          throw interviewerError;
+        }
         
-        const activeLocalSession = localSessions.find(
-          s => s.is_active === true && 
-          (s.interviewer_id === interviewerCode || 
-           (interviewerId && s.interviewer_id === interviewerId))
-        );
-        
-        if (activeLocalSession) {
-          console.log("Found active local session:", activeLocalSession);
-          updateSessionState(activeLocalSession);
+        if (!interviewers || interviewers.length === 0) {
           return;
         }
         
-        // Only check Supabase if online
-        if (isOnline && interviewerId) {
-          // Check for active sessions
-          const { data: sessions, error: sessionError } = await supabase
-            .from('sessions')
-            .select('*')
-            .eq('interviewer_id', interviewerId)
-            .eq('is_active', true)
-            .limit(1);
-            
-          if (sessionError) {
-            throw sessionError;
-          }
+        const interviewerId = interviewers[0].id;
+        
+        // Check for active sessions
+        const { data: sessions, error: sessionError } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('interviewer_id', interviewerId)
+          .eq('is_active', true)
+          .limit(1);
           
-          if (sessions && sessions.length > 0) {
-            console.log("Found active session from server:", sessions[0]);
-            
-            // Save to local storage
-            const savedSession = await saveSession({
-              ...sessions[0],
-              sync_status: 'synced'
-            });
-            
-            updateSessionState(savedSession);
-          } else {
-            resetSessionState();
-          }
+        if (sessionError) {
+          throw sessionError;
+        }
+        
+        if (sessions && sessions.length > 0) {
+          console.log("Found active session:", sessions[0]);
+          updateSessionState(sessions[0]);
+        } else {
+          resetSessionState();
         }
       } catch (error) {
         console.error("Error checking active session:", error);
@@ -114,45 +98,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     checkActiveSession();
-  }, [interviewerCode, isOnline, localSessions, saveSession, toast]);
-
-  // Helper function to get interviewer ID from code
-  const getInterviewerIdFromCode = async (code: string): Promise<string | null> => {
-    try {
-      // Try to find interviewer in local storage first
-      const interviewerFromLocal = localSessions.find(s => 
-        s.interviewer_id === code || s.interviewer_id.includes(code)
-      );
-      
-      if (interviewerFromLocal) {
-        return interviewerFromLocal.interviewer_id;
-      }
-      
-      // If not found locally and we're online, check Supabase
-      if (isOnline) {
-        const { data: interviewers, error: interviewerError } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', code)
-          .limit(1);
-            
-        if (interviewerError) {
-          throw interviewerError;
-        }
-          
-        if (!interviewers || interviewers.length === 0) {
-          return null;
-        }
-          
-        return interviewers[0].id;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error("Error getting interviewer ID:", error);
-      return null;
-    }
-  };
+  }, [interviewerCode, toast]);
 
   // Helper function to update session state
   const updateSessionState = (session: Session) => {
