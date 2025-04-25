@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,7 +91,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   }, [activeSession, fetchActiveInterview]);
 
-  // Get interviewer ID either from local storage or Supabase
   useEffect(() => {
     const getInterviewerId = async () => {
       if (!interviewerCode.trim() || !interviewerVerified) {
@@ -103,7 +101,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       try {
         console.log("Getting interviewer ID for code:", interviewerCode);
         
-        // First try local storage
         const localInterviewers = await getInterviewers();
         const localInterviewer = localInterviewers.find(i => i.code === interviewerCode);
         
@@ -113,7 +110,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // If online, try Supabase
         if (isOnline) {
           const { data, error } = await supabase
             .from('interviewers')
@@ -130,8 +126,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           console.log("Found interviewer ID from Supabase:", data.id);
           setInterviewerId(data.id);
         } else {
-          // If offline and not found in local storage, use the code as ID
-          console.log("Offline mode: Using interviewer code as ID");
           setInterviewerId(interviewerCode);
         }
       } catch (error) {
@@ -143,7 +137,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     getInterviewerId();
   }, [interviewerCode, isOnline, getInterviewers, interviewerVerified]);
 
-  // Fetch available projects
   useEffect(() => {
     const fetchProjects = async () => {
       if (!interviewerId) {
@@ -154,7 +147,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       try {
         console.log("Fetching projects for interviewer ID:", interviewerId);
         
-        // First try to get cached projects from local storage
         const localProjects = await getInterviewerProjects(interviewerId);
         
         if (localProjects && localProjects.length > 0) {
@@ -171,7 +163,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // If online and no cached projects, fetch from Supabase
         if (isOnline) {
           const { data: projectAssignments, error: projectsError } = await supabase
             .from('project_interviewers')
@@ -186,7 +177,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
             const projects = projectAssignments.map(pa => pa.projects as Project);
             console.log("Found projects from Supabase:", projects);
             
-            // Save projects to local storage for offline use
             await saveInterviewerProjects(interviewerId, projects);
             for (const project of projects) {
               await saveProject(project);
@@ -206,8 +196,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
             setSelectedProjectId(null);
           }
         } else {
-          // If offline and no cached projects, show empty list
-          console.log("Offline and no cached projects");
           setAvailableProjects([]);
           setSelectedProjectId(null);
         }
@@ -220,7 +208,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchProjects();
   }, [interviewerId, isRunning, isOnline, getInterviewerProjects, saveInterviewerProjects, saveProject]);
 
-  // Get active project details
   useEffect(() => {
     const fetchActiveProject = async () => {
       if (!selectedProjectId) {
@@ -229,7 +216,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       try {
-        // First try to get project from available projects
         const projectFromAvailable = availableProjects.find(p => p.id === selectedProjectId);
         
         if (projectFromAvailable) {
@@ -237,7 +223,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // Then try to get from local storage
         const localProjects = await getProjects();
         const projectFromLocal = localProjects.find(p => p.id === selectedProjectId);
         
@@ -246,7 +231,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
-        // If online, try to get from Supabase
         if (isOnline) {
           const { data: project, error } = await supabase
             .from('projects')
@@ -266,7 +250,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
             excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
           };
           
-          // Save to local storage
           await saveProject(projectData);
           
           setActiveProject(projectData);
@@ -375,9 +358,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       const currentLocation = await getCurrentLocation();
 
-      // Create session object
-      const newSession = {
-        id: uuidv4(), // Generate a temporary ID
+      const newSession: Session = {
+        id: uuidv4(),
         interviewer_id: interviewerId,
         project_id: projectId,
         start_time: new Date().toISOString(),
@@ -392,9 +374,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
         is_unusual_reviewed: false,
         sync_status: 'unsynced',
         local_id: uuidv4()
-      } as Session;
+      };
       
-      // If online, try to create on server first
       if (isOnline) {
         try {
           const { data: session, error: insertError } = await supabase
@@ -413,17 +394,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
             .single();
             
           if (!insertError && session) {
-            // Use server-generated ID and mark as synced
             newSession.id = session.id;
             newSession.sync_status = 'synced';
           }
         } catch (error) {
           console.error("Error creating session on server, proceeding with local only:", error);
-          // Continue with local session creation
         }
       }
 
-      // Save session locally
       const savedSession = await saveSession(newSession);
       console.log("Session created successfully:", savedSession);
       
@@ -467,8 +445,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       const currentLocation = await getCurrentLocation();
       
-      // Update session locally
-      const updatedSession = {
+      const updatedSession: Session = {
         ...activeSession,
         end_time: new Date().toISOString(),
         end_latitude: currentLocation?.latitude || null,
@@ -480,7 +457,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       await saveSession(updatedSession);
       
-      // If online and session was already synced, update on server
       if (isOnline && activeSession.sync_status === 'synced') {
         try {
           await supabase

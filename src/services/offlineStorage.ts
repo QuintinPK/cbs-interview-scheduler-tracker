@@ -1,7 +1,7 @@
 
 import localforage from 'localforage';
 import { v4 as uuidv4 } from 'uuid';
-import { Session, Interview, Interviewer } from '@/types';
+import { Session, Interview, Interviewer, Project } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
 // Initialize local storage instances
