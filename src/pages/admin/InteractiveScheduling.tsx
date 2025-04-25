@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import AdminLayout from "@/components/layout/AdminLayout";
 import GlobalFilter from "@/components/GlobalFilter";
@@ -19,8 +19,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
 
 const InteractiveScheduling = () => {
+  const [searchParams] = useSearchParams();
+  const interviewerCodeFromUrl = searchParams.get("interviewer");
+  
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
 
@@ -36,12 +40,24 @@ const InteractiveScheduling = () => {
   const weekStartStr = format(currentWeekStart, "yyyy-MM-dd");
   const weekEndStr = format(addDays(currentWeekStart, 6), "yyyy-MM-dd");
 
-  // Set default interviewer if none selected
+  // Find interviewer by code from URL param
   useEffect(() => {
-    if (filteredInterviewers.length > 0 && !selectedInterviewerId) {
+    if (interviewerCodeFromUrl && filteredInterviewers.length > 0 && !selectedInterviewerId) {
+      const matchedInterviewer = filteredInterviewers.find(
+        (interviewer) => interviewer.code?.toLowerCase() === interviewerCodeFromUrl.toLowerCase()
+      );
+      
+      if (matchedInterviewer) {
+        setSelectedInterviewerId(matchedInterviewer.id);
+      } else {
+        // If no match found and we have interviewers, default to first one
+        setSelectedInterviewerId(filteredInterviewers[0].id);
+      }
+    } else if (filteredInterviewers.length > 0 && !selectedInterviewerId) {
+      // Default to first interviewer if no code in URL
       setSelectedInterviewerId(filteredInterviewers[0].id);
     }
-  }, [filteredInterviewers, selectedInterviewerId]);
+  }, [filteredInterviewers, interviewerCodeFromUrl, selectedInterviewerId]);
 
   // Fetch schedules for the selected interviewer and week
   const {
@@ -76,12 +92,8 @@ const InteractiveScheduling = () => {
   }, 0);
 
   // Navigate to previous/next week
-  const navigateToNextWeek = () => {
-    setCurrentWeekStart(addWeeks(currentWeekStart, 1));
-  };
-
-  const navigateToPrevWeek = () => {
-    setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+  const handleWeekChange = (newWeekStart: Date) => {
+    setCurrentWeekStart(newWeekStart);
   };
 
   // Reset to current week
@@ -112,36 +124,11 @@ const InteractiveScheduling = () => {
         </div>
 
         {/* Week Navigator */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-lg border">
-          <div className="flex items-center space-x-4">
-            <Button 
-              onClick={navigateToPrevWeek} 
-              variant="outline"
-              size="sm"
-              aria-label="Previous week"
-            >
-              ←
-            </Button>
-            <div className="font-medium">
-              Week of {format(currentWeekStart, "MMMM d, yyyy")}
-            </div>
-            <Button 
-              onClick={navigateToNextWeek} 
-              variant="outline"
-              size="sm"
-              aria-label="Next week"
-            >
-              →
-            </Button>
-          </div>
-          <Button 
-            onClick={resetToCurrentWeek} 
-            variant="secondary"
-            size="sm"
-          >
-            Current Week
-          </Button>
-        </div>
+        <WeekNavigator
+          currentWeekStart={currentWeekStart}
+          onWeekChange={handleWeekChange}
+          onResetToCurrentWeek={resetToCurrentWeek}
+        />
 
         {/* Interviewer selector */}
         {filteredInterviewers.length > 0 && (
