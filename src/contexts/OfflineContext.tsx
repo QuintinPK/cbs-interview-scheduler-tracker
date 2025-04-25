@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Interview, Session, Interviewer, Project } from '@/types';
 import { 
@@ -58,15 +57,12 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Initialize storage and check online status
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Initialize sync status
         const status = await initSyncStatus();
         setSyncStatus(status);
         
-        // Load local sessions
         await refreshSessions();
       } catch (error) {
         console.error('Error initializing offline storage:', error);
@@ -76,10 +72,8 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     initialize();
   }, []);
 
-  // Setup synchronization
   useEffect(() => {
     const cleanup = setupConnectivityListeners(
-      // Online callback
       async () => {
         setIsOnline(true);
         setSyncStatus(prev => prev ? { ...prev, isOnline: true } : null);
@@ -88,7 +82,6 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           description: "Your data will be synchronized automatically",
         });
       },
-      // Offline callback
       async () => {
         setIsOnline(false);
         setSyncStatus(prev => prev ? { ...prev, isOnline: false } : null);
@@ -103,19 +96,15 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return cleanup;
   }, [toast]);
 
-  // Auto-sync setup
   useEffect(() => {
     const cleanup = setupAutoSync(
-      // On sync start
       () => {
         setIsSyncing(true);
       },
-      // On sync complete
       (result) => {
         setIsSyncing(false);
         
         if (result.success) {
-          // Only show notification if we're actually syncing something
           getSyncStatus().then(status => {
             setSyncStatus(status);
             refreshSessions();
@@ -124,7 +113,6 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
           console.error('Sync failed:', result.message);
         }
       },
-      // Sync interval (5 minutes)
       300000
     );
     

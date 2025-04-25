@@ -8,11 +8,17 @@ import { Wifi, WifiOff, Loader2, Save } from "lucide-react";
 const SyncStatusBar: React.FC = () => {
   const { 
     isOnline, 
-    isSyncing, 
-    lastSyncTime, 
-    unsyncedCount, 
+    syncStatus, 
     syncNow 
   } = useOffline();
+  
+  // Derive the values we need from syncStatus
+  const isSyncing = syncStatus?.isSyncing || false;
+  const lastSyncTime = syncStatus?.lastSuccessfulSync;
+
+  // Calculate unsynced items (in a real app, this would come from your context)
+  // This is a placeholder - you might want to implement the actual count in the OfflineContext
+  const unsyncedCount = 0; 
   
   const handleSyncNow = () => {
     syncNow();
