@@ -14,16 +14,6 @@ import {
   DialogFooter,
   DialogDescription 
 } from "@/components/ui/dialog";
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle 
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +34,6 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
 }) => {
   const [unusualSessions, setUnusualSessions] = useState<Session[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -89,14 +78,10 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   
   const handleEditClick = (session: Session) => {
     setEditingSession(session);
-    setStartTime(session.start_time.split('.')[0]); // Remove milliseconds
-    setEndTime(session.end_time ? session.end_time.split('.')[0] : ''); // Remove milliseconds
+    // Format the datetime for the datetime-local input (YYYY-MM-DDThh:mm)
+    setStartTime(session.start_time.substring(0, 16));
+    setEndTime(session.end_time ? session.end_time.substring(0, 16) : '');
     setIsEditDialogOpen(true);
-  };
-  
-  const handleDeleteClick = (session: Session) => {
-    setEditingSession(session);
-    setIsDeleteDialogOpen(true);
   };
   
   const handleSaveEdit = async () => {
@@ -128,7 +113,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     if (success) {
       // Remove from local state
       setUnusualSessions(prev => prev.filter(s => s.id !== editingSession.id));
-      setIsDeleteDialogOpen(false);
+      setIsEditDialogOpen(false);
     }
   };
   
@@ -203,14 +188,6 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-destructive"
-                            onClick={() => handleDeleteClick(session)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => handleMarkAsSeen(session.id)}
@@ -229,7 +206,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
         </CardContent>
       </Card>
       
-      {/* Edit Dialog */}
+      {/* Edit Dialog with Delete option inside */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -263,33 +240,26 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit}>
-              Save Changes
-            </Button>
+            <div className="flex justify-between w-full">
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete Session
+              </Button>
+              <div className="space-x-2">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit}>
+                  Save Changes
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this session. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };

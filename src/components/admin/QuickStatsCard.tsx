@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info } from "lucide-react";
+import { formatInTimeZone } from "date-fns-tz";
 
 interface QuickStatsCardProps {
   sessions: Session[];
@@ -31,19 +32,19 @@ const QuickStatsCard: React.FC<QuickStatsCardProps> = ({
 
   const activeSessions = sessions.filter(session => session.is_active).length;
   
-  // Get today's sessions
-  const today = new Date().toISOString().split('T')[0];
+  // Get today's sessions - Fix for correct timezone comparison
+  const today = formatInTimeZone(new Date(), 'America/Puerto_Rico', 'yyyy-MM-dd');
   const sessionsToday = sessions.filter(session => {
-    const sessionDate = new Date(session.start_time).toISOString().split('T')[0];
+    const sessionDate = formatInTimeZone(new Date(session.start_time), 'America/Puerto_Rico', 'yyyy-MM-dd');
     return sessionDate === today;
   }).length;
   
   // Calculate total hours this week
-    const startOfWeek = new Date();
-    const day = startOfWeek.getDay(); // 0 (Sun) to 6 (Sat)
-    const diffToMonday = (day === 0 ? -6 : 1) - day;
-    startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
+  const startOfWeek = new Date();
+  const day = startOfWeek.getDay(); // 0 (Sun) to 6 (Sat)
+  const diffToMonday = (day === 0 ? -6 : 1) - day;
+  startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+  startOfWeek.setHours(0, 0, 0, 0);
   
   const calculateSessionDuration = (session: Session) => {
     if (!session.end_time || session.is_active) return 0;

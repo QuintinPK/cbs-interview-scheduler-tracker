@@ -23,10 +23,16 @@ const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({
     return sessionDate === today;
   });
   
-  // Get interviewer code from ID
-  const getInterviewerCode = (interviewerId: string) => {
+  // Get interviewer code and details from ID
+  const getInterviewerDetails = (interviewerId: string) => {
     const interviewer = interviewers.find(i => i.id === interviewerId);
-    return interviewer ? interviewer.code : 'Unknown';
+    if (!interviewer) return { code: 'Unknown', fullName: '', island: '' };
+    
+    return {
+      code: interviewer.code,
+      fullName: `${interviewer.first_name} ${interviewer.last_name}`,
+      island: interviewer.island || ''
+    };
   };
   
   return (
@@ -41,26 +47,29 @@ const RecentlyActiveCard: React.FC<RecentlyActiveCardProps> = ({
           <p className="text-muted-foreground text-center py-4">No interviewers active today</p>
         ) : (
           <div className="space-y-4">
-            {todaySessions.map((session) => (
-              <div key={session.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
-                <div>
-                  <p className="font-medium">{getInterviewerCode(session.interviewer_id)}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {session.is_active 
-                      ? `Started at ${formatTime(session.start_time)}`
-                      : `${formatTime(session.start_time)} - ${formatTime(session.end_time!)}`
-                    }
-                  </p>
+            {todaySessions.map((session) => {
+              const { code, fullName, island } = getInterviewerDetails(session.interviewer_id);
+              return (
+                <div key={session.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                  <div>
+                    <p className="font-medium">{code}: ({fullName} | {island})</p>
+                    <p className="text-sm text-muted-foreground">
+                      {session.is_active 
+                        ? `Started at ${formatTime(session.start_time)}`
+                        : `${formatTime(session.start_time)} - ${formatTime(session.end_time!)}`
+                      }
+                    </p>
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${
+                    session.is_active 
+                      ? "bg-green-100 text-green-800" 
+                      : "bg-gray-100 text-gray-800"
+                  }`}>
+                    {session.is_active ? "Active" : "Completed"}
+                  </div>
                 </div>
-                <div className={`px-2 py-1 rounded text-xs font-medium ${
-                  session.is_active 
-                    ? "bg-green-100 text-green-800" 
-                    : "bg-gray-100 text-gray-800"
-                }`}>
-                  {session.is_active ? "Active" : "Completed"}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </CardContent>
