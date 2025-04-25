@@ -67,6 +67,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [interviewerVerified, setInterviewerVerified] = useState(false);
+  const [stoppingSession, setStoppingSession] = useState(false);
   
   const {
     activeInterview,
@@ -439,6 +440,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const handleSessionEnd = async () => {
     try {
       setLoading(true);
+      setStoppingSession(true);
       
       if (activeInterview) {
         toast({
@@ -446,10 +448,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: "Stopping active interview before ending session...",
         });
         
-        await stopInterview();
+        try {
+          await stopInterview();
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (interviewError) {
+          console.error("Error stopping interview:", interviewError);
+        }
       }
       
       if (!activeSession) {
+        setStoppingSession(false);
         return;
       }
       
@@ -462,7 +470,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         end_longitude: currentLocation?.longitude || null,
         end_address: currentLocation?.address || null,
         is_active: false,
-        sync_status: activeSession.sync_status === 'synced' ? 'unsynced' : 'unsynced'
+        sync_status: 'unsynced'
       };
       
       await saveSession(updatedSession);
@@ -499,6 +507,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       });
     } finally {
       setLoading(false);
+      setStoppingSession(false);
     }
   };
 
@@ -577,7 +586,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
             isInterviewActive={!!activeInterview}
             loading={isInterviewLoading}
             onClick={handleInterviewAction}
-            disabled={loading}
+            disabled={loading || stoppingSession}
           />
         )}
         
@@ -586,7 +595,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
           loading={loading}
           interviewerCode={interviewerCode && interviewerVerified ? interviewerCode : ""}
           onClick={handleStartStop}
-          disabled={false}
+          disabled={stoppingSession}
+          disabledReason={stoppingSession ? "Stopping session..." : undefined}
         />
       </div>
       

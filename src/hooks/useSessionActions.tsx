@@ -18,6 +18,25 @@ export const useSessionActions = (
       
       const currentLocation = await getCurrentLocation();
       
+      // First check if the session is still active (in case it was updated elsewhere)
+      const { data: currentSession, error: fetchError } = await supabase
+        .from('sessions')
+        .select('is_active')
+        .eq('id', session.id)
+        .single();
+      
+      if (fetchError) {
+        console.error("Error checking session status:", fetchError);
+        // Continue with the stop operation even if there's an error checking status
+      } else if (currentSession && !currentSession.is_active) {
+        // Session is already stopped
+        toast({
+          title: "Session Already Stopped",
+          description: "This session has already been stopped.",
+        });
+        return true;
+      }
+      
       const { error } = await supabase
         .from('sessions')
         .update({

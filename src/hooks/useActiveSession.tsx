@@ -26,6 +26,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
   const [localInterviewers, setLocalInterviewers] = useState<Interviewer[]>([]);
+  const [sessionStopping, setSessionStopping] = useState(false);
 
   useEffect(() => {
     const loadSavedInterviewerCode = () => {
@@ -211,6 +212,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setIsRunning(false);
     setStartTime(null);
     setStartLocation(undefined);
+    setSessionStopping(false);
   };
 
   const switchUser = () => {
@@ -288,6 +290,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setIsPrimaryUser,
     switchUser,
     endSession,
-    verifyInterviewerCode
+    verifyInterviewerCode,
+    sessionStopping
   };
 };
