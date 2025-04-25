@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Location, Project, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -223,6 +222,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   };
 
   const endSession = () => {
+    // Just reset the session state without additional processing
     resetSessionState();
   };
 

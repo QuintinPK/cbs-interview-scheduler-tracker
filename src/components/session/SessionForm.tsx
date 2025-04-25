@@ -327,7 +327,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
         setLoading(false);
       }
     } else {
-      await handleSessionEnd();
+      if (!stoppingSession) {
+        await handleSessionEnd();
+      }
     }
   };
 
@@ -439,6 +441,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
 
   const handleSessionEnd = async () => {
     try {
+      if (stoppingSession) return; // Prevent multiple stop attempts
+      
       setLoading(true);
       setStoppingSession(true);
       
@@ -449,8 +453,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
         });
         
         try {
-          await stopInterview();
-          await new Promise(resolve => setTimeout(resolve, 500));
+          const stopSuccess = await stopInterview();
+          
+          if (stopSuccess === false) {
+            setLoading(false);
+            return; // Will be called again after interview is fully completed
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 300));
         } catch (interviewError) {
           console.error("Error stopping interview:", interviewError);
         }
@@ -458,6 +468,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       if (!activeSession) {
         setStoppingSession(false);
+        setLoading(false);
         return;
       }
       

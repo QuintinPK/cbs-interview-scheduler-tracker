@@ -153,15 +153,15 @@ export const useInterviewActions = (sessionId: string | null) => {
     }
   };
   
-  const stopInterview = async () => {
-    if (!activeInterview) return;
+  const stopInterview = async (): Promise<boolean> => {
+    if (!activeInterview) return true;
     
     try {
       setIsInterviewLoading(true);
       
       const currentLocation = await getCurrentLocation();
       
-      // Update local interview with end location
+      // Update local interview with end location but keep it active until result is set
       const updatedInterview = await updateInterview({
         ...activeInterview,
         end_time: new Date().toISOString(),
@@ -187,6 +187,9 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       // Show dialog to select interview result
       setShowResultDialog(true);
+      
+      // Return false to indicate that stopping is not complete yet (needs result)
+      return false;
     } catch (error) {
       console.error("Error stopping interview:", error);
       toast({
@@ -194,13 +197,14 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not stop interview",
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsInterviewLoading(false);
     }
   };
   
-  const setInterviewResult = async (result: 'response' | 'non-response') => {
-    if (!activeInterview) return;
+  const setInterviewResult = async (result: 'response' | 'non-response'): Promise<boolean> => {
+    if (!activeInterview) return false;
     
     try {
       setIsInterviewLoading(true);
@@ -239,6 +243,8 @@ export const useInterviewActions = (sessionId: string | null) => {
         title: "Interview Completed",
         description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}`,
       });
+      
+      return true;
     } catch (error) {
       console.error("Error setting interview result:", error);
       toast({
@@ -246,6 +252,7 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not complete interview",
         variant: "destructive",
       });
+      return false;
     } finally {
       setIsInterviewLoading(false);
     }
