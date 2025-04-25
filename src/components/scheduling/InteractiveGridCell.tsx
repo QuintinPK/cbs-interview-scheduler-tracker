@@ -133,7 +133,7 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
     } else if (isFullHour) {
       style.top = '0%';
       style.height = '100%';
-      style.borderTop = '3px solid rgb(134 239 172)';
+      style.borderTop = '1px solid rgb(134 239 172)';
       style.borderBottom = '3px solid rgb(134 239 172)';
     } else {
       if (isStart) {
@@ -143,18 +143,18 @@ export const InteractiveGridCell: React.FC<InteractiveGridCellProps> = ({
         if (isEnd) {
           const endPercent = (endMinuteOffset / 60) * 100;
           style.height = `${endPercent - startPercent}%`;
-          style.borderTop = '3px solid rgb(134 239 172)';
+          style.borderTop = '1px solid rgb(134 239 172)';
           style.borderBottom = '3px solid rgb(134 239 172)';
         } else {
           style.height = `${100 - startPercent}%`;
-          style.borderTop = '3px solid rgb(134 239 172)';
+          style.borderTop = '1px solid rgb(134 239 172)';
           style.borderBottom = 'none';
         }
       } else if (isEnd) {
         const endPercent = (endMinuteOffset / 60) * 100;
         style.top = '0%';
         style.height = `${endPercent}%`;
-        style.borderTop = '3px solid rgb(134 239 172)';
+        style.borderTop = '1px solid rgb(134 239 172)';
         style.borderBottom = '3px solid rgb(134 239 172)';
       }
     }
