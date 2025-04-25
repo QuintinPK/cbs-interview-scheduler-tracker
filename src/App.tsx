@@ -59,6 +59,7 @@ const AppRoutes = () => {
                 <Route path="costs" element={<Costs />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="scheduling" element={<InteractiveScheduling />} />
+                <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </FilterProvider>
