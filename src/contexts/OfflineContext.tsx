@@ -1,93 +1,97 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Interview, Session, Interviewer, Project } from '@/types';
-import { 
-  saveSessionLocally, 
-  getLocalSessions, 
-  updateLocalSession, 
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Session, Interview } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import {
+  saveSessionLocally,
+  getLocalSessions,
   getLocalSessionById,
-  saveInterviewLocally, 
-  getLocalInterviews, 
-  updateLocalInterview,
+  updateLocalSession,
+  removeLocalSession,
+  saveInterviewLocally,
+  getLocalInterviews,
   getLocalInterviewsForSession,
-  saveInterviewer,
-  getInterviewers,
-  getInterviewerByCode,
-  saveProject,
-  getProjects,
-  saveInterviewerProjects,
-  getInterviewerProjects,
-  SyncStatus,
-  initSyncStatus,
-  updateSyncStatus,
-  getSyncStatus,
+  updateLocalInterview,
+  removeLocalInterview,
   syncAll,
   setupConnectivityListeners,
-  setupAutoSync
+  setupAutoSync,
+  getSyncStatus,
+  updateSyncStatus,
+  SyncStatus,
+  initSyncStatus
 } from '@/services/offlineStorage';
-import { useToast } from '@/hooks/use-toast';
 
 interface OfflineContextType {
   isOnline: boolean;
-  syncStatus: SyncStatus | null;
+  isSyncing: boolean;
+  lastSyncTime: string | null;
+  unsyncedCount: number;
   sessions: Session[];
+  interviews: Interview[];
+  
+  // Session operations
   saveSession: (session: Session) => Promise<Session>;
   getSessionById: (id: string) => Promise<Session | null>;
   updateSession: (session: Session) => Promise<Session>;
+  removeSession: (id: string) => Promise<void>;
+  
+  // Interview operations
   saveInterview: (interview: Interview) => Promise<Interview>;
   getInterviews: () => Promise<Interview[]>;
   getInterviewsForSession: (sessionId: string) => Promise<Interview[]>;
   updateInterview: (interview: Interview) => Promise<Interview>;
-  saveInterviewer: (interviewer: Interviewer) => Promise<Interviewer>;
-  getInterviewers: () => Promise<Interviewer[]>;
-  getInterviewerByCode: (code: string) => Promise<Interviewer | null>;
-  saveProject: (project: Project) => Promise<Project>;
-  getProjects: () => Promise<Project[]>;
-  saveInterviewerProjects: (interviewerId: string, projects: Project[]) => Promise<void>;
-  getInterviewerProjects: (interviewerId: string) => Promise<Project[]>;
+  removeInterview: (id: string) => Promise<void>;
+  
+  // Sync operations
   syncNow: () => Promise<{ success: boolean; message: string }>;
-  refreshSessions: () => Promise<void>;
+  refreshData: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
 
-export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const OfflineProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [isSyncing, setIsSyncing] = useState(false);
-
+  const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
+  
+  // Initialize and load data
   useEffect(() => {
     const initialize = async () => {
-      try {
-        const status = await initSyncStatus();
-        setSyncStatus(status);
-        
-        await refreshSessions();
-      } catch (error) {
-        console.error('Error initializing offline storage:', error);
-      }
+      // Initialize sync status
+      const status = await initSyncStatus();
+      setIsOnline(status.isOnline);
+      setIsSyncing(status.isSyncing);
+      setLastSyncTime(status.lastSuccessfulSync);
+      
+      // Load initial data
+      await refreshData();
     };
     
     initialize();
   }, []);
-
+  
+  // Set up connectivity listeners
   useEffect(() => {
     const cleanup = setupConnectivityListeners(
-      async () => {
+      // Online callback
+      () => {
         setIsOnline(true);
-        setSyncStatus(prev => prev ? { ...prev, isOnline: true } : null);
         toast({
-          title: "You are online",
-          description: "Your data will be synchronized automatically",
+          title: "You're back online!",
+          description: "Your data will be synced automatically.",
         });
       },
-      async () => {
+      // Offline callback
+      () => {
         setIsOnline(false);
-        setSyncStatus(prev => prev ? { ...prev, isOnline: false } : null);
         toast({
-          title: "You are offline",
-          description: "Your data will be saved locally",
+          title: "You're offline",
+          description: "Your changes will be saved locally and synced when you're back online.",
           variant: "destructive",
         });
       }
@@ -95,38 +99,57 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     return cleanup;
   }, [toast]);
-
+  
+  // Set up auto-sync
   useEffect(() => {
     const cleanup = setupAutoSync(
+      // Sync start callback
       () => {
         setIsSyncing(true);
       },
+      // Sync complete callback
       (result) => {
         setIsSyncing(false);
-        
         if (result.success) {
-          getSyncStatus().then(status => {
-            setSyncStatus(status);
-            refreshSessions();
-          });
-        } else {
-          console.error('Sync failed:', result.message);
+          setLastSyncTime(new Date().toISOString());
+          refreshData();
         }
       },
-      300000
+      5 * 60 * 1000 // Sync every 5 minutes
     );
     
     return cleanup;
-  }, [toast]);
+  }, []);
   
-  const refreshSessions = async () => {
+  // Update unsynced count when data changes
+  useEffect(() => {
+    const countUnsynced = async () => {
+      const unsyncedSessions = sessions.filter(s => s.sync_status === 'unsynced').length;
+      const unsyncedInterviews = interviews.filter(i => i.sync_status === 'unsynced').length;
+      setUnsyncedCount(unsyncedSessions + unsyncedInterviews);
+    };
+    
+    countUnsynced();
+  }, [sessions, interviews]);
+  
+  // Load data from local storage
+  const refreshData = async () => {
     const localSessions = await getLocalSessions();
     setSessions(localSessions);
+    
+    const localInterviews = await getLocalInterviews();
+    setInterviews(localInterviews);
+    
+    const status = await getSyncStatus();
+    setIsOnline(status.isOnline);
+    setIsSyncing(status.isSyncing);
+    setLastSyncTime(status.lastSuccessfulSync);
   };
   
+  // Session operations
   const saveSession = async (session: Session): Promise<Session> => {
     const savedSession = await saveSessionLocally(session);
-    await refreshSessions();
+    await refreshData();
     return savedSession;
   };
   
@@ -136,12 +159,26 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   const updateSession = async (session: Session): Promise<Session> => {
     const updatedSession = await updateLocalSession(session);
-    await refreshSessions();
+    await refreshData();
     return updatedSession;
   };
   
+  const removeSession = async (id: string): Promise<void> => {
+    // Check if session is unsynced
+    const session = await getSessionById(id);
+    if (session && session.sync_status === 'unsynced') {
+      throw new Error('Cannot delete unsynced session');
+    }
+    
+    await removeLocalSession(id);
+    await refreshData();
+  };
+  
+  // Interview operations
   const saveInterview = async (interview: Interview): Promise<Interview> => {
-    return await saveInterviewLocally(interview);
+    const savedInterview = await saveInterviewLocally(interview);
+    await refreshData();
+    return savedInterview;
   };
   
   const getInterviews = async (): Promise<Interview[]> => {
@@ -153,62 +190,71 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
   
   const updateInterview = async (interview: Interview): Promise<Interview> => {
-    return await updateLocalInterview(interview);
+    const updatedInterview = await updateLocalInterview(interview);
+    await refreshData();
+    return updatedInterview;
   };
   
+  const removeInterview = async (id: string): Promise<void> => {
+    // Check if interview is unsynced
+    const allInterviews = await getLocalInterviews();
+    const interview = allInterviews.find(i => i.local_id === id || i.id === id);
+    
+    if (interview && interview.sync_status === 'unsynced') {
+      throw new Error('Cannot delete unsynced interview');
+    }
+    
+    const localId = interview?.local_id || id;
+    await removeLocalInterview(localId);
+    await refreshData();
+  };
+  
+  // Sync operations
   const syncNow = async (): Promise<{ success: boolean; message: string }> => {
     setIsSyncing(true);
+    const result = await syncAll();
+    setIsSyncing(false);
     
-    try {
-      const result = await syncAll();
-      
-      if (result.success) {
-        const status = await getSyncStatus();
-        setSyncStatus(status);
-        await refreshSessions();
-        
-        toast({
-          title: "Sync Completed",
-          description: `Last sync: ${new Date().toLocaleTimeString()}`,
-        });
-      } else {
-        toast({
-          title: "Sync Failed",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-      
-      return result;
-    } finally {
-      setIsSyncing(false);
+    if (result.success) {
+      setLastSyncTime(new Date().toISOString());
+      toast({
+        title: "Sync complete",
+        description: "All your data has been synced successfully.",
+      });
+      refreshData();
+    } else {
+      toast({
+        title: "Sync failed",
+        description: result.message,
+        variant: "destructive",
+      });
     }
+    
+    return result;
   };
-
+  
+  const value = {
+    isOnline,
+    isSyncing,
+    lastSyncTime,
+    unsyncedCount,
+    sessions,
+    interviews,
+    saveSession,
+    getSessionById,
+    updateSession,
+    removeSession,
+    saveInterview,
+    getInterviews,
+    getInterviewsForSession,
+    updateInterview,
+    removeInterview,
+    syncNow,
+    refreshData,
+  };
+  
   return (
-    <OfflineContext.Provider
-      value={{
-        isOnline,
-        syncStatus,
-        sessions,
-        saveSession,
-        getSessionById,
-        updateSession,
-        saveInterview,
-        getInterviews,
-        getInterviewsForSession,
-        updateInterview,
-        saveInterviewer,
-        getInterviewers,
-        getInterviewerByCode,
-        saveProject,
-        getProjects,
-        saveInterviewerProjects,
-        getInterviewerProjects,
-        syncNow,
-        refreshSessions
-      }}
-    >
+    <OfflineContext.Provider value={value}>
       {children}
     </OfflineContext.Provider>
   );
@@ -217,7 +263,7 @@ export const OfflineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 export const useOffline = () => {
   const context = useContext(OfflineContext);
   if (context === undefined) {
-    throw new Error("useOffline must be used within an OfflineProvider");
+    throw new Error('useOffline must be used within an OfflineProvider');
   }
   return context;
 };

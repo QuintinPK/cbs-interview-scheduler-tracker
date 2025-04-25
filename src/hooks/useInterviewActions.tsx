@@ -42,9 +42,9 @@ export const useInterviewActions = (sessionId: string | null) => {
           .select('*')
           .eq('session_id', sessionId)
           .eq('is_active', true)
-          .maybeSingle();
+          .single();
             
-        if (error) {
+        if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned" error
           throw error;
         }
           
@@ -82,7 +82,7 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "No active session to attach an interview to",
         variant: "destructive",
       });
-      return null;
+      return;
     }
     
     try {
@@ -92,7 +92,7 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       // Create a new interview locally
       const newInterview: Interview = {
-        id: uuidv4(),
+        id: uuidv4(), // Temporary ID, will be replaced by server on sync
         session_id: sessionId,
         project_id: projectId,
         start_time: new Date().toISOString(),
@@ -142,8 +142,6 @@ export const useInterviewActions = (sessionId: string | null) => {
       toast({
         title: "Interview Started",
       });
-      
-      return savedInterview;
     } catch (error) {
       console.error("Error starting interview:", error);
       toast({
@@ -151,21 +149,20 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not start interview",
         variant: "destructive",
       });
-      return null;
     } finally {
       setIsInterviewLoading(false);
     }
   };
   
   const stopInterview = async () => {
-    if (!activeInterview) return true;
+    if (!activeInterview) return;
     
     try {
       setIsInterviewLoading(true);
       
       const currentLocation = await getCurrentLocation();
       
-      // Update local interview with end location but keep it active until result is set
+      // Update local interview with end location
       const updatedInterview = await updateInterview({
         ...activeInterview,
         end_time: new Date().toISOString(),
@@ -191,9 +188,6 @@ export const useInterviewActions = (sessionId: string | null) => {
       
       // Show dialog to select interview result
       setShowResultDialog(true);
-      
-      // Return false to indicate that stopping is not complete yet (needs result)
-      return false;
     } catch (error) {
       console.error("Error stopping interview:", error);
       toast({
@@ -201,14 +195,13 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not stop interview",
         variant: "destructive",
       });
-      return false;
     } finally {
       setIsInterviewLoading(false);
     }
   };
   
   const setInterviewResult = async (result: 'response' | 'non-response') => {
-    if (!activeInterview) return false;
+    if (!activeInterview) return;
     
     try {
       setIsInterviewLoading(true);
@@ -247,8 +240,6 @@ export const useInterviewActions = (sessionId: string | null) => {
         title: "Interview Completed",
         description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}`,
       });
-      
-      return true;
     } catch (error) {
       console.error("Error setting interview result:", error);
       toast({
@@ -256,7 +247,6 @@ export const useInterviewActions = (sessionId: string | null) => {
         description: "Could not complete interview",
         variant: "destructive",
       });
-      return false;
     } finally {
       setIsInterviewLoading(false);
     }
@@ -264,11 +254,6 @@ export const useInterviewActions = (sessionId: string | null) => {
   
   const cancelResultDialog = () => {
     setShowResultDialog(false);
-  };
-  
-  // Function to check if stopping interview is in progress
-  const isStoppingInProgress = () => {
-    return activeInterview?.end_time !== null && activeInterview?.is_active === true;
   };
   
   return {
@@ -279,7 +264,6 @@ export const useInterviewActions = (sessionId: string | null) => {
     stopInterview,
     setInterviewResult,
     cancelResultDialog,
-    fetchActiveInterview,
-    isStoppingInProgress
+    fetchActiveInterview
   };
 };

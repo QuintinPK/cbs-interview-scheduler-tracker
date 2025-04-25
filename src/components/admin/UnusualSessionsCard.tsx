@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useSessionActions } from "@/hooks/useSessionActions";
 import { formatInTimeZone } from 'date-fns-tz';
 import { getHours } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,75 +52,13 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   const [endTime, setEndTime] = useState("");
   const [sessionToMarkAsSeen, setSessionToMarkAsSeen] = useState<string | null>(null);
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const updateSession = async (sessionId: string, data: Partial<Session>) => {
-    try {
-      setIsSubmitting(true);
-      const { error } = await supabase
-        .from('sessions')
-        .update(data)
-        .eq('id', sessionId);
-        
-      if (error) throw error;
-      
-      setUnusualSessions(prev => 
-        prev.map(s => 
-          s.id === sessionId 
-            ? { ...s, ...data } 
-            : s
-        )
-      );
-      
-      toast({
-        title: "Session Updated",
-        description: "Session details have been updated.",
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error updating session:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update session",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  const deleteSession = async (sessionId: string) => {
-    try {
-      setIsSubmitting(true);
-      const { error } = await supabase
-        .from('sessions')
-        .delete()
-        .eq('id', sessionId);
-        
-      if (error) throw error;
-      
-      setUnusualSessions(prev => prev.filter(s => s.id !== sessionId));
-      
-      toast({
-        title: "Session Deleted",
-        description: "Session has been permanently removed.",
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error deleting session:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete session",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const { updateSession, deleteSession } = useSessionActions(
+    sessions, 
+    () => {}, // We'll handle state updates manually
+    unusualSessions,
+    () => {},
+    toast
+  );
 
   const isUnusualStartTime = (startTime: string): boolean => {
     const hour = getHours(new Date(startTime));
@@ -188,6 +127,13 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     });
     
     if (success) {
+      setUnusualSessions(prev => 
+        prev.map(s => 
+          s.id === editingSession.id 
+            ? { ...s, start_time: startTime, end_time: endTime } 
+            : s
+        )
+      );
       setIsEditDialogOpen(false);
     }
   };
@@ -198,6 +144,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     const success = await deleteSession(editingSession.id);
     
     if (success) {
+      setUnusualSessions(prev => prev.filter(s => s.id !== editingSession.id));
       setIsEditDialogOpen(false);
     }
   };
@@ -386,16 +333,15 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
               <Button 
                 variant="destructive" 
                 onClick={handleDelete}
-                disabled={isSubmitting}
               >
                 <Trash2 className="h-4 w-4 mr-1" />
                 Delete Session
               </Button>
               <div className="space-x-2">
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSubmitting}>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdit} disabled={isSubmitting}>
+                <Button onClick={handleSaveEdit}>
                   Save Changes
                 </Button>
               </div>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Session, Location, Project } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { getCurrentLocation } from "@/lib/utils";
+import { Session, Location, Interview, Project } from "@/types";
 import CurrentSessionTime from "./CurrentSessionTime";
 import InterviewerCodeInput from "./InterviewerCodeInput";
 import SessionButton from "./SessionButton";
@@ -9,10 +11,8 @@ import InterviewButton from "../interview/InterviewButton";
 import ActiveInterviewInfo from "../interview/ActiveInterviewInfo";
 import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
+import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
-import { useOffline } from "@/contexts/OfflineContext";
-import { useSessionActions } from "@/hooks/useSessionActions";
-import { supabase } from "@/integrations/supabase/client";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -28,7 +28,6 @@ interface SessionFormProps {
   isPrimaryUser: boolean;
   switchUser: () => void;
   endSession: () => void;
-  verifyInterviewerCode?: (code: string) => Promise<boolean>;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -44,26 +43,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
   setActiveSession,
   isPrimaryUser,
   switchUser,
-  endSession,
-  verifyInterviewerCode
+  endSession
 }) => {
   const { toast } = useToast();
-  const { 
-    isOnline, 
-    getProjects,
-    getInterviewerProjects,
-    getInterviewers
-  } = useOffline();
-  
   const [loading, setLoading] = useState(false);
   const [interviewerId, setInterviewerId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [interviewerVerified, setInterviewerVerified] = useState(false);
-  
-  const { startSession, stopSession } = useSessionActions(setLoading, toast);
   
   const {
     activeInterview,
@@ -73,8 +61,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     stopInterview,
     setInterviewResult,
     cancelResultDialog,
-    fetchActiveInterview,
-    isStoppingInProgress
+    fetchActiveInterview
   } = useInterviewActions(activeSession?.id || null);
 
   useEffect(() => {
@@ -91,41 +78,27 @@ const SessionForm: React.FC<SessionFormProps> = ({
 
   useEffect(() => {
     const getInterviewerId = async () => {
-      if (!interviewerCode.trim() || !interviewerVerified) {
+      if (!interviewerCode.trim()) {
         setInterviewerId(null);
         return;
       }
       
       try {
-        const localInterviewers = await getInterviewers();
-        const localInterviewer = localInterviewers.find(i => i.code === interviewerCode);
-        
-        if (localInterviewer) {
-          setInterviewerId(localInterviewer.id);
+        console.log("Getting interviewer ID for code:", interviewerCode);
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .single();
+          
+        if (error) {
+          console.error("Error getting interviewer ID:", error);
+          setInterviewerId(null);
           return;
         }
         
-        if (isOnline) {
-          const { data, error } = await supabase
-            .from('interviewers')
-            .select('id')
-            .eq('code', interviewerCode)
-            .maybeSingle();
-            
-          if (error) {
-            console.error("Error getting interviewer ID:", error);
-            setInterviewerId(null);
-            return;
-          }
-          
-          if (data) {
-            setInterviewerId(data.id);
-          } else {
-            setInterviewerId(null);
-          }
-        } else {
-          setInterviewerId(interviewerCode);
-        }
+        console.log("Found interviewer ID:", data.id);
+        setInterviewerId(data.id);
       } catch (error) {
         console.error("Error getting interviewer ID:", error);
         setInterviewerId(null);
@@ -133,7 +106,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     getInterviewerId();
-  }, [interviewerCode, isOnline, getInterviewers, interviewerVerified]);
+  }, [interviewerCode]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -143,18 +116,32 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       try {
-        const localProjects = await getInterviewerProjects(interviewerId);
+        console.log("Fetching projects for interviewer ID:", interviewerId);
         
-        if (localProjects && localProjects.length > 0) {
-          setAvailableProjects(localProjects);
+        const { data: projectAssignments, error: projectsError } = await supabase
+          .from('project_interviewers')
+          .select('project_id, projects:project_id(*)')
+          .eq('interviewer_id', interviewerId);
           
-          if (localProjects.length === 1) {
-            setSelectedProjectId(localProjects[0].id);
-          } else if (localProjects.length > 1 && !isRunning) {
+        if (projectsError) {
+          throw projectsError;
+        }
+        
+        if (projectAssignments && projectAssignments.length > 0) {
+          const projects = projectAssignments.map(pa => pa.projects as Project);
+          console.log("Found projects:", projects);
+          setAvailableProjects(projects);
+          
+          if (projects.length === 1) {
+            console.log("Single project found, setting project ID:", projects[0].id);
+            setSelectedProjectId(projects[0].id);
+          } else if (projects.length > 1 && !isRunning) {
             setSelectedProjectId(null);
           }
-          
-          return;
+        } else {
+          console.log("No projects found for this interviewer");
+          setAvailableProjects([]);
+          setSelectedProjectId(null);
         }
       } catch (error) {
         console.error("Error fetching projects:", error);
@@ -163,7 +150,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchProjects();
-  }, [interviewerId, isRunning, getInterviewerProjects]);
+  }, [interviewerId, isRunning]);
 
   useEffect(() => {
     const fetchActiveProject = async () => {
@@ -173,19 +160,23 @@ const SessionForm: React.FC<SessionFormProps> = ({
       }
       
       try {
-        const projectFromAvailable = availableProjects.find(p => p.id === selectedProjectId);
-        
-        if (projectFromAvailable) {
-          setActiveProject(projectFromAvailable);
-          return;
+        const { data: project, error } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', selectedProjectId)
+          .single();
+          
+        if (error) {
+          throw error;
         }
         
-        const localProjects = await getProjects();
-        const projectFromLocal = localProjects.find(p => p.id === selectedProjectId);
-        
-        if (projectFromLocal) {
-          setActiveProject(projectFromLocal);
-        }
+        setActiveProject({
+          id: project.id,
+          name: project.name,
+          start_date: project.start_date,
+          end_date: project.end_date,
+          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+        });
       } catch (error) {
         console.error("Error fetching project details:", error);
         setActiveProject(null);
@@ -193,13 +184,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     fetchActiveProject();
-  }, [selectedProjectId, availableProjects, getProjects]);
+  }, [selectedProjectId]);
 
   const handleStartStop = async () => {
-    if (!interviewerCode.trim() || !interviewerVerified) {
+    if (!interviewerCode.trim()) {
       toast({
         title: "Error",
-        description: "Please verify your interviewer code first",
+        description: "Please enter your interviewer code",
         variant: "destructive",
       });
       return;
@@ -207,6 +198,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
     
     if (!isRunning) {
       try {
+        setLoading(true);
+        
         if (!interviewerId) {
           toast({
             title: "Error",
@@ -219,20 +212,20 @@ const SessionForm: React.FC<SessionFormProps> = ({
         if (availableProjects.length === 0) {
           toast({
             title: "Error",
-            description: isOnline ? 
-              "You are not assigned to any projects" : 
-              "No projects available offline. Please connect to internet first",
+            description: "You are not assigned to any projects",
             variant: "destructive",
           });
           return;
         }
         
         if (availableProjects.length === 1) {
+          console.log("Using the only available project:", availableProjects[0].id);
           await handleSessionStart(availableProjects[0].id);
           return;
         }
         
         if (availableProjects.length > 1) {
+          console.log("Multiple projects available, showing selection dialog");
           setShowProjectDialog(true);
           return;
         }
@@ -243,6 +236,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: "Could not start session",
           variant: "destructive",
         });
+      } finally {
+        setLoading(false);
       }
     } else {
       await handleSessionEnd();
@@ -250,6 +245,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const handleProjectSelect = async (projectId: string) => {
+    console.log("Project selected in dialog:", projectId);
     setSelectedProjectId(projectId);
     setShowProjectDialog(false);
     
@@ -257,68 +253,122 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const handleSessionStart = async (projectId: string) => {
-    if (!interviewerId) {
-      toast({
-        title: "Error",
-        description: "Interviewer code not found",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!projectId) {
-      toast({
-        title: "Error",
-        description: "No project selected. Please select a project first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const session = await startSession(interviewerId, projectId);
-    
-    if (session) {
+    try {
+      setLoading(true);
+      
+      if (!interviewerId) {
+        toast({
+          title: "Error",
+          description: "Interviewer code not found",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!projectId) {
+        console.error("No project ID provided for session start");
+        toast({
+          title: "Error",
+          description: "No project selected. Please select a project first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log("Starting session with project ID:", projectId);
+      
+      const currentLocation = await getCurrentLocation();
+      
+      const { data: session, error: insertError } = await supabase
+        .from('sessions')
+        .insert([
+          {
+            interviewer_id: interviewerId,
+            project_id: projectId,
+            start_latitude: currentLocation?.latitude || null,
+            start_longitude: currentLocation?.longitude || null,
+            start_address: currentLocation?.address || null,
+            is_active: true
+          }
+        ])
+        .select()
+        .single();
+        
+      if (insertError) {
+        throw insertError;
+      }
+      
+      console.log("Session created successfully:", session);
       setActiveSession(session);
       setIsRunning(true);
       setStartTime(session.start_time);
-      if (session.start_latitude && session.start_longitude) {
-        setStartLocation({
-          latitude: session.start_latitude,
-          longitude: session.start_longitude,
-          address: session.start_address || undefined
-        });
-      }
+      setStartLocation(currentLocation);
+      
+      toast({
+        title: "Session Started",
+        description: `Started at ${new Date().toLocaleTimeString()}`,
+      });
+    } catch (error) {
+      console.error("Error starting session:", error);
+      toast({
+        title: "Error",
+        description: "Could not start session",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSessionEnd = async () => {
-    if (isInterviewLoading) return;
-    
-    // Check if there's an active interview that needs to be stopped first
-    if (activeInterview) {
+    try {
       setLoading(true);
-      toast({
-        title: "Active Interview",
-        description: "Stopping active interview before ending session...",
-      });
       
-      const interviewStopped = await stopInterview();
-      setLoading(false);
-      
-      if (interviewStopped === false) {
-        // Interview stopping is in progress, need to complete it first
+      if (activeInterview) {
+        toast({
+          title: "Error",
+          description: "Please stop the active interview before ending your session",
+          variant: "destructive",
+        });
         return;
       }
-    }
-    
-    if (!activeSession) return;
-    
-    setLoading(true);
-    const success = await stopSession(activeSession);
-    setLoading(false);
-    
-    if (success) {
+      
+      if (!activeSession) {
+        return;
+      }
+      
+      const currentLocation = await getCurrentLocation();
+      
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({
+          end_time: new Date().toISOString(),
+          end_latitude: currentLocation?.latitude || null,
+          end_longitude: currentLocation?.longitude || null,
+          end_address: currentLocation?.address || null,
+          is_active: false
+        })
+        .eq('id', activeSession.id);
+        
+      if (updateError) {
+        throw updateError;
+      }
+      
       endSession();
+      
+      toast({
+        title: "Session Ended",
+        description: `Ended at ${new Date().toLocaleTimeString()}`,
+      });
+    } catch (error) {
+      console.error("Error ending session:", error);
+      toast({
+        title: "Error",
+        description: "Could not end session",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -330,13 +380,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   };
 
-  const handleVerifySuccess = () => {
-    setInterviewerVerified(true);
-  };
-
-  // Check if session stopping is in progress (interview stopping dialog showing)
-  const isSessionStoppingInProgress = isStoppingInProgress();
-
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
       <InterviewerCodeInput
@@ -346,8 +389,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
-        verifyInterviewerCode={verifyInterviewerCode}
-        onVerify={handleVerifySuccess}
       />
       
       {activeProject && isRunning && (
@@ -400,17 +441,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
             isInterviewActive={!!activeInterview}
             loading={isInterviewLoading}
             onClick={handleInterviewAction}
-            disabled={loading || isSessionStoppingInProgress}
+            disabled={loading}
           />
         )}
         
         <SessionButton
           isRunning={isRunning}
-          loading={loading || isInterviewLoading}
-          interviewerCode={interviewerCode && interviewerVerified ? interviewerCode : ""}
+          loading={loading}
+          interviewerCode={interviewerCode}
           onClick={handleStartStop}
-          disabled={isSessionStoppingInProgress || isInterviewLoading}
-          disabledReason={isSessionStoppingInProgress ? "Complete interview result first" : undefined}
+          disabled={isRunning && !!activeInterview}
         />
       </div>
       
@@ -427,15 +467,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
         onProjectSelect={handleProjectSelect}
         onClose={() => setShowProjectDialog(false)}
       />
-
-      {!isOnline && !isRunning && (
-        <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 text-amber-800">
-          <p className="font-medium">Offline Mode</p>
-          <p className="text-sm">
-            You're working offline. All data will be saved locally and synchronized when you go online again.
-          </p>
-        </div>
-      )}
     </div>
   );
 };
