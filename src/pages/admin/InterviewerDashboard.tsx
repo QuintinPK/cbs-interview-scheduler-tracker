@@ -333,11 +333,11 @@ const InterviewerDashboard = () => {
             ) : !(selectedIsland && interviewer && interviewer.island !== selectedIsland) ? (
               <SessionHistory
                 sessions={filteredSessions}
+                interviews={interviews}
                 dateRange={dateRange}
                 setDateRange={setDateRange}
                 showProject={true}
                 projectNameResolver={getProjectName}
-                interviews={interviews}
               />
             ) : (
               <p className="text-center py-10 text-muted-foreground">No data available for the selected filters.</p>

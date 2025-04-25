@@ -1,270 +1,299 @@
 
-import React from "react";
-import { DateRange } from "react-day-picker";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { formatDateTime } from "@/lib/utils";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+import React, { useState } from 'react';
+import { DateRange } from 'react-day-picker';
+import { format, parseISO } from 'date-fns';
+import { Session, Interview } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { calculateDuration, formatDateTime, cn } from '@/lib/utils';
+import { ChevronDown, ChevronRight, Loader2, MapPin, MessageCircle } from 'lucide-react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
 } from "@/components/ui/table";
-import { Session, Interview } from "@/types";
-import { MapPin, ChevronDown, ChevronUp } from "lucide-react";
-import CoordinatePopup from "../ui/CoordinatePopup";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Badge } from '@/components/ui/badge';
+import CoordinatePopup from '../ui/CoordinatePopup';
+import { useSessionSorting } from '@/hooks/useSessionSorting';
 
 interface SessionHistoryProps {
   sessions: Session[];
+  interviews: Interview[];
   dateRange: DateRange | undefined;
   setDateRange: (range: DateRange | undefined) => void;
-  showProject?: boolean;
-  projectNameResolver?: (projectId: string) => string;
-  interviews?: Interview[];
+  showProject: boolean;
+  projectNameResolver: (id: string) => string;
 }
 
-export const SessionHistory: React.FC<SessionHistoryProps> = ({
+const SessionHistory: React.FC<SessionHistoryProps> = ({
   sessions,
+  interviews,
   dateRange,
   setDateRange,
-  showProject = false,
-  projectNameResolver = (id) => id,
-  interviews = []
+  showProject,
+  projectNameResolver
 }) => {
-  const [isMapOpen, setIsMapOpen] = React.useState(false);
-  const [selectedCoordinate, setSelectedCoordinate] = React.useState<{lat: number, lng: number} | null>(null);
-  const [expandedSessions, setExpandedSessions] = React.useState<Record<string, boolean>>({});
+  const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   
-  const handleViewLocation = (session: Session) => {
-    if (session.start_latitude && session.start_longitude) {
-      setSelectedCoordinate({
-        lat: session.start_latitude,
-        lng: session.start_longitude
-      });
-      setIsMapOpen(true);
-    }
-  };
+  const getInterviewerCode = (id: string) => id; // This is just a placeholder as we're in the interviewer's context
+  
+  const {
+    sortedSessions,
+    sortField,
+    sortDirection,
+    toggleSort
+  } = useSessionSorting(sessions, getInterviewerCode, projectNameResolver);
 
-  const toggleSessionExpand = (sessionId: string) => {
+  const SortableHeader: React.FC<{
+    field: 'interviewer_code' | 'project' | 'duration' | 'start_time' | 'end_time';
+    children: React.ReactNode;
+  }> = ({ field, children }) => (
+    <Button
+      variant="ghost"
+      className={cn(
+        "h-8 flex items-center gap-1 -ml-2 font-medium",
+        "hover:bg-accent hover:text-accent-foreground",
+        "transition-colors duration-200",
+        "group"
+      )}
+      onClick={() => toggleSort(field)}
+    >
+      <span className="group-hover:text-primary">{children}</span>
+      <div className="w-4">
+        {sortField === field ? (
+          sortDirection === 'asc' ? 
+            <ArrowUp className="h-3 w-3 text-primary" /> : 
+            <ArrowDown className="h-3 w-3 text-primary" />
+        ) : (
+          <div className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <ArrowUp className="h-3 w-3 text-muted-foreground" />
+          </div>
+        )}
+      </div>
+    </Button>
+  );
+
+  const toggleSessionExpanded = (sessionId: string) => {
     setExpandedSessions(prev => ({
       ...prev,
       [sessionId]: !prev[sessionId]
     }));
   };
 
-  const getSessionInterviews = (sessionId: string): Interview[] => {
-    return interviews.filter(interview => interview.session_id === sessionId);
+  const getInterviewsCountForSession = (sessionId: string) => {
+    return interviews.filter(interview => interview.session_id === sessionId).length;
   };
+
+  const handleCoordinateClick = (lat: number | null, lng: number | null) => {
+    if (lat !== null && lng !== null) {
+      setSelectedCoordinate({ lat, lng });
+      setIsMapOpen(true);
+    }
+  };
+
+  const sessionInterviewsMap = interviews.reduce((acc, interview) => {
+    if (!acc[interview.session_id]) {
+      acc[interview.session_id] = [];
+    }
+    acc[interview.session_id].push(interview);
+    return acc;
+  }, {} as Record<string, Interview[]>);
+
+  import { ArrowDown, ArrowUp } from "lucide-react";
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h3 className="text-lg font-semibold">Session History</h3>
-        <DateRangePicker
-          value={dateRange}
-          onChange={setDateRange}
-        />
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                  </>
+                ) : (
+                  format(dateRange.from, "LLL dd, y")
+                )
+              ) : (
+                <span>All time</span>
+              )}
+              <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={setDateRange}
+              initialFocus
+            />
+            {dateRange?.from && (
+              <div className="p-3 border-t border-border">
+                <Button variant="ghost" size="sm" onClick={() => setDateRange(undefined)}>
+                  Reset date filter
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
-      
-      {sessions.length === 0 ? (
-        <p className="text-center text-muted-foreground py-10">No sessions found.</p>
-      ) : (
-        <div className="border rounded-md">
-          <ScrollArea className="h-[500px]">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30px]"></TableHead>
-                  {showProject && <TableHead>Project</TableHead>}
-                  <TableHead>Start Time</TableHead>
-                  <TableHead>End Time</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[100px]">Location</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sessions.map((session) => {
-                  const startTime = new Date(session.start_time);
-                  const endTime = session.end_time ? new Date(session.end_time) : null;
-                  const duration = endTime
-                    ? Math.floor((endTime.getTime() - startTime.getTime()) / (1000 * 60))
-                    : null;
-                  
-                  const hours = duration ? Math.floor(duration / 60) : null;
-                  const minutes = duration ? duration % 60 : null;
 
-                  const sessionInterviews = getSessionInterviews(session.id);
-                  const hasInterviews = sessionInterviews.length > 0;
-                  const isExpanded = expandedSessions[session.id] || false;
-                  
-                  return (
-                    <React.Fragment key={session.id}>
-                      <TableRow className={hasInterviews ? "cursor-pointer hover:bg-muted/50" : ""}>
-                        <TableCell>
-                          {hasInterviews && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button 
-                                    onClick={() => toggleSessionExpand(session.id)} 
-                                    className="p-1 rounded-full hover:bg-muted"
-                                  >
-                                    {isExpanded ? (
-                                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                                    ) : (
-                                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                    )}
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{isExpanded ? "Hide" : "Show"} interviews ({sessionInterviews.length})</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </TableCell>
-                        {showProject && (
-                          <TableCell onClick={() => hasInterviews && toggleSessionExpand(session.id)}>
-                            {session.project_id ? projectNameResolver(session.project_id) : "—"}
-                          </TableCell>
-                        )}
-                        <TableCell onClick={() => hasInterviews && toggleSessionExpand(session.id)}>
-                          {formatDateTime(session.start_time)}
-                        </TableCell>
-                        <TableCell onClick={() => hasInterviews && toggleSessionExpand(session.id)}>
-                          {endTime ? formatDateTime(session.end_time as string) : "Active"}
-                        </TableCell>
-                        <TableCell onClick={() => hasInterviews && toggleSessionExpand(session.id)}>
-                          {duration
-                            ? `${hours}h ${minutes}m`
-                            : "—"}
-                        </TableCell>
-                        <TableCell onClick={() => hasInterviews && toggleSessionExpand(session.id)}>
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              session.is_active
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                {showProject && (
+                  <TableHead>
+                    <SortableHeader field="project">Project</SortableHeader>
+                  </TableHead>
+                )}
+                <TableHead>
+                  <SortableHeader field="start_time">Start Date/Time</SortableHeader>
+                </TableHead>
+                <TableHead>
+                  <SortableHeader field="end_time">End Date/Time</SortableHeader>
+                </TableHead>
+                <TableHead>
+                  <SortableHeader field="duration">Duration</SortableHeader>
+                </TableHead>
+                <TableHead>Start Location</TableHead>
+                <TableHead>End Location</TableHead>
+                <TableHead>Interviews</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedSessions.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={showProject ? 8 : 7} className="text-center py-6 text-muted-foreground">
+                    No sessions found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sortedSessions.map((session) => (
+                  <React.Fragment key={session.id}>
+                    <TableRow className={expandedSessions[session.id] ? "bg-gray-50" : ""}>
+                      <TableCell>
+                        {getInterviewsCountForSession(session.id) > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleSessionExpanded(session.id)}
                           >
-                            {session.is_active ? "Active" : "Completed"}
-                          </span>
-                        </TableCell>
+                            {expandedSessions[session.id] ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                      </TableCell>
+                      {showProject && (
                         <TableCell>
-                          {session.start_latitude && session.start_longitude ? (
-                            <button
-                              onClick={() => handleViewLocation(session)}
-                              className="text-blue-600 hover:text-blue-800 flex items-center"
-                            >
-                              <MapPin className="h-4 w-4 mr-1" />
-                              <span className="text-xs">View</span>
-                            </button>
-                          ) : (
-                            "—"
-                          )}
+                          <Badge variant="outline">{projectNameResolver(session.project_id || '')}</Badge>
+                        </TableCell>
+                      )}
+                      <TableCell>{formatDateTime(session.start_time)}</TableCell>
+                      <TableCell>
+                        {session.end_time ? formatDateTime(session.end_time) : (
+                          <Badge variant="warning">Active</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.end_time ? calculateDuration(session.start_time, session.end_time) : "Ongoing"}
+                      </TableCell>
+                      <TableCell>
+                        {session.start_latitude && session.start_longitude ? (
+                          <button 
+                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={() => handleCoordinateClick(session.start_latitude, session.start_longitude)}
+                          >
+                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                            {session.start_latitude.toFixed(4)}, {session.start_longitude.toFixed(4)}
+                          </button>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {session.end_latitude && session.end_longitude ? (
+                          <button 
+                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            onClick={() => handleCoordinateClick(session.end_latitude, session.end_longitude)}
+                          >
+                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                            {session.end_latitude.toFixed(4)}, {session.end_longitude.toFixed(4)}
+                          </button>
+                        ) : (
+                          "N/A"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getInterviewsCountForSession(session.id) > 0 ? (
+                          <Badge 
+                            variant="purple" 
+                            className="flex items-center space-x-1 cursor-pointer"
+                            onClick={() => toggleSessionExpanded(session.id)}
+                          >
+                            <MessageCircle className="h-3 w-3 mr-1" />
+                            <span>{getInterviewsCountForSession(session.id)}</span>
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-400 text-sm">No interviews</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    
+                    {expandedSessions[session.id] && getInterviewsCountForSession(session.id) > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={showProject ? 8 : 7} className="p-0 border-t-0">
+                          <div className="bg-gray-50 pl-12 pr-4 py-4">
+                            <div className="space-y-2">
+                              {sessionInterviewsMap[session.id]?.map((interview) => (
+                                <div key={interview.id} className="bg-white p-3 rounded border">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <div className="flex items-center space-x-2 mb-1">
+                                        <span className="text-sm font-medium">
+                                          {format(parseISO(interview.start_time), "MMM d, yyyy • h:mm a")}
+                                        </span>
+                                        {interview.result && (
+                                          <Badge variant={interview.result === 'response' ? 'success' : 'destructive'}>
+                                            {interview.result === 'response' ? 'Response' : 'Non-response'}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        Duration: {interview.end_time 
+                                          ? calculateDuration(interview.start_time, interview.end_time) 
+                                          : "Ongoing"}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </TableCell>
                       </TableRow>
-
-                      {hasInterviews && (
-                        <TableRow>
-                          <TableCell colSpan={showProject ? 7 : 6} className="p-0 border-t-0">
-                            <Collapsible open={isExpanded} onOpenChange={() => toggleSessionExpand(session.id)}>
-                              <CollapsibleContent>
-                                <div className="bg-muted/30 px-4 py-2">
-                                  <h4 className="text-sm font-medium mb-2">Interviews in this session:</h4>
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Start Time</TableHead>
-                                        <TableHead>End Time</TableHead>
-                                        <TableHead>Duration</TableHead>
-                                        <TableHead>Result</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {sessionInterviews.map(interview => {
-                                        const intStartTime = new Date(interview.start_time);
-                                        const intEndTime = interview.end_time ? new Date(interview.end_time) : null;
-                                        const intDuration = intEndTime
-                                          ? Math.floor((intEndTime.getTime() - intStartTime.getTime()) / (1000 * 60))
-                                          : null;
-                                        
-                                        return (
-                                          <TableRow key={interview.id}>
-                                            <TableCell>{formatDateTime(interview.start_time)}</TableCell>
-                                            <TableCell>
-                                              {intEndTime ? formatDateTime(interview.end_time as string) : "Active"}
-                                            </TableCell>
-                                            <TableCell>
-                                              {intDuration ? `${intDuration} min` : "—"}
-                                            </TableCell>
-                                            <TableCell>
-                                              <HoverCard>
-                                                <HoverCardTrigger>
-                                                  <span
-                                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                      interview.result === 'response'
-                                                        ? "bg-green-100 text-green-800"
-                                                        : interview.result === 'non-response'
-                                                        ? "bg-red-100 text-red-800"
-                                                        : "bg-gray-100 text-gray-800"
-                                                    }`}
-                                                  >
-                                                    {interview.result || "No result"}
-                                                  </span>
-                                                </HoverCardTrigger>
-                                                <HoverCardContent className="w-80">
-                                                  <div className="space-y-1">
-                                                    <p className="text-sm font-medium">Interview Details</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                      {interview.result === 'response' 
-                                                        ? "Survey successfully completed." 
-                                                        : interview.result === 'non-response'
-                                                        ? "Survey could not be completed."
-                                                        : "Interview status unknown."}
-                                                    </p>
-                                                  </div>
-                                                </HoverCardContent>
-                                              </HoverCard>
-                                            </TableCell>
-                                          </TableRow>
-                                        );
-                                      })}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </ScrollArea>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
+      </div>
       
       <CoordinatePopup
         isOpen={isMapOpen}
@@ -274,3 +303,5 @@ export const SessionHistory: React.FC<SessionHistoryProps> = ({
     </div>
   );
 };
+
+export default SessionHistory;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { format, isSameDay, getHours, parseISO, getMinutes, addHours } from 'date-fns';
 import { Schedule, Session } from '@/types';
@@ -91,14 +92,18 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       });
     });
     
+    // Fix: Ensure we're properly checking each schedule against the grid
     schedules.forEach(schedule => {
       const startTime = new Date(schedule.start_time);
-      const dayIndex = weekDates.findIndex(date => isSameDay(date, startTime));
-      const hour = startTime.getHours();
+      const scheduleDay = startTime.getDay();
+      const scheduleHour = startTime.getHours();
       
-      if (dayIndex >= 0 && hours.includes(hour)) {
-        newGrid[dayIndex][hour] = {
-          ...newGrid[dayIndex][hour],
+      // Find the matching day index in our week dates
+      const dayIndex = weekDates.findIndex(date => isSameDay(date, startTime));
+      
+      if (dayIndex >= 0 && hours.includes(scheduleHour)) {
+        newGrid[dayIndex][scheduleHour] = {
+          ...newGrid[dayIndex][scheduleHour],
           isScheduled: true,
           scheduleId: schedule.id,
           status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
