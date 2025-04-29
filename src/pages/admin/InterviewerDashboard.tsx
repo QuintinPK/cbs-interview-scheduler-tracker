@@ -11,6 +11,7 @@ import { useInterviewerActivity } from "@/hooks/useInterviewerActivity";
 import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
 import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
+import { useInterviewers } from "@/hooks/useInterviewers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -32,6 +33,7 @@ const InterviewerDashboard = () => {
   });
   
   const { interviewer, loading: interviewerLoading } = useInterviewer(id || '');
+  const { interviewers } = useInterviewers();
   const { sessions, sessionsInPlanTime, avgSessionDuration, earliestStartTime, latestEndTime, loading: sessionsLoading } = useInterviewerSessions([], []);
   const { sessions: allSessions } = useSessions();
   const { daysSinceLastActive, avgDaysPerWeek, daysWorkedInMonth } = useInterviewerActivity([]);
@@ -135,6 +137,7 @@ const InterviewerDashboard = () => {
                   interviews={interviews}
                   interviewer={interviewer}
                   allInterviewersSessions={allSessions}
+                  interviewers={interviewers}
                   onCompare={handleCompare}
                 />
               </TabsContent>
