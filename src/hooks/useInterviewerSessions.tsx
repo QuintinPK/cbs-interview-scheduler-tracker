@@ -31,6 +31,8 @@ export const useInterviewerSessions = (sessions: Session[] = [], schedules: Sche
     sessionsInPlanTime,
     avgSessionDuration,
     earliestStartTime,
-    latestEndTime
+    latestEndTime,
+    sessions,
+    loading: false
   };
 };

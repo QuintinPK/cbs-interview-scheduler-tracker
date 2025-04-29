@@ -5,7 +5,7 @@ import { DateRange } from "react-day-picker";
 import { addDays } from "date-fns";
 
 import AdminLayout from "@/components/layout/AdminLayout";
-import { useInterviewer } from "@/hooks/useInterviewers";
+import { useInterviewer } from "@/hooks/useInterviewer";
 import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
 import { useInterviewerActivity } from "@/hooks/useInterviewerActivity";
 import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
@@ -31,11 +31,18 @@ const InterviewerDashboard = () => {
   });
   
   const { interviewer, loading: interviewerLoading } = useInterviewer(id || '');
-  const { sessions, interviews, loading: sessionsLoading } = useInterviewerSessions(id || '', dateRange);
-  const { activeHours, totalInterviews, responseRate } = useInterviewerActivity(sessions, interviews);
-  const { workHoursByDay, workHoursByWeek } = useInterviewerWorkHours(sessions);
-  const { performanceMetrics } = useInterviewerMetrics(sessions, interviews);
-  const { getProjectName } = useProjects();
+  const { sessions, loading: sessionsLoading } = useInterviewerSessions([]); // Will need to update this when we have the actual sessions hook
+  const { daysSinceLastActive, avgDaysPerWeek, daysWorkedInMonth } = useInterviewerActivity([]);
+  const { totalActiveTime, totalActiveSeconds } = useInterviewerWorkHours();
+  const { projects } = useProjects();
+  
+  const getProjectName = (id: string) => {
+    const project = projects.find(p => p.id === id);
+    return project ? project.name : 'Unknown Project';
+  };
+  
+  // Determine if interviewer has active sessions
+  const hasActiveSessions = false; // To be updated when we have session data
   
   if (interviewerLoading) {
     return (
@@ -66,14 +73,14 @@ const InterviewerDashboard = () => {
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <InterviewerHeader interviewer={interviewer} />
+          <InterviewerHeader interviewer={interviewer} loading={interviewerLoading} />
           <GlobalFilter />
         </div>
         
         <InterviewerQuickStats 
-          activeHours={activeHours} 
-          totalInterviews={totalInterviews} 
-          responseRate={responseRate} 
+          interviewer={interviewer}
+          totalTime={totalActiveTime}
+          hasActiveSessions={hasActiveSessions}
         />
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -87,13 +94,13 @@ const InterviewerDashboard = () => {
               
               <TabsContent value="overview" className="space-y-4">
                 <ActivitySummary 
-                  workHoursByDay={workHoursByDay} 
-                  workHoursByWeek={workHoursByWeek} 
+                  daysSinceLastActive={daysSinceLastActive}
+                  avgDaysPerWeek={avgDaysPerWeek}
+                  daysWorkedInMonth={daysWorkedInMonth}
                 />
                 
                 <SessionHistory
-                  sessions={sessions}
-                  interviews={interviews}
+                  sessions={sessions || []}
                   dateRange={dateRange}
                   setDateRange={setDateRange}
                   showProject={true}
@@ -102,7 +109,11 @@ const InterviewerDashboard = () => {
               </TabsContent>
               
               <TabsContent value="performance" className="space-y-4">
-                <PerformanceMetrics metrics={performanceMetrics} />
+                <PerformanceMetrics 
+                  daysSinceLastActive={daysSinceLastActive}
+                  avgDaysPerWeek={avgDaysPerWeek}
+                  daysWorkedInMonth={daysWorkedInMonth}
+                />
               </TabsContent>
               
               <TabsContent value="evaluations" className="space-y-4">
