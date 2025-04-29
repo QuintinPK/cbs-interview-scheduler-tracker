@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import { addDays } from "date-fns";
 
@@ -9,7 +9,7 @@ import { useInterviewer } from "@/hooks/useInterviewer";
 import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
 import { useInterviewerActivity } from "@/hooks/useInterviewerActivity";
 import { useInterviewerWorkHours } from "@/hooks/useInterviewerWorkHours";
-import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
+import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,6 +25,7 @@ import EvaluationsCard from "@/components/interviewer/EvaluationsCard";
 
 const InterviewerDashboard = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
@@ -32,6 +33,7 @@ const InterviewerDashboard = () => {
   
   const { interviewer, loading: interviewerLoading } = useInterviewer(id || '');
   const { sessions, sessionsInPlanTime, avgSessionDuration, earliestStartTime, latestEndTime, loading: sessionsLoading } = useInterviewerSessions([], []);
+  const { sessions: allSessions } = useSessions();
   const { daysSinceLastActive, avgDaysPerWeek, daysWorkedInMonth } = useInterviewerActivity([]);
   const { totalActiveTime, totalActiveSeconds } = useInterviewerWorkHours();
   const { projects } = useProjects();
@@ -49,6 +51,12 @@ const InterviewerDashboard = () => {
   
   // Determine if interviewer has active sessions
   const hasActiveSessions = false; // To be updated when we have session data
+  
+  // Handle interviewer comparison
+  const handleCompare = useCallback((comparisonId: string) => {
+    if (comparisonId === id) return;
+    navigate(`/admin/interviewer/${comparisonId}`);
+  }, [navigate, id]);
   
   if (interviewerLoading) {
     return (
@@ -126,6 +134,8 @@ const InterviewerDashboard = () => {
                   sessions={sessions}
                   interviews={interviews}
                   interviewer={interviewer}
+                  allInterviewersSessions={allSessions}
+                  onCompare={handleCompare}
                 />
               </TabsContent>
               

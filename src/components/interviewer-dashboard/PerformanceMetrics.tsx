@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Session, Interview, Interviewer } from "@/types";
@@ -11,7 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info, Scale } from "lucide-react";
+import { Info } from "lucide-react";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { Button } from "@/components/ui/button";
 
