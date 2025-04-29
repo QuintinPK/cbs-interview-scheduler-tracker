@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { 
   Table, 
@@ -10,13 +9,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Calendar, BarChart, Users, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Calendar, BarChart, Users, Loader2, Star } from "lucide-react";
 import { Interviewer, Project } from "@/types";
 import { useProjects } from "@/hooks/useProjects";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { useEvaluations } from "@/hooks/useEvaluations";
+import RatingStars from "./RatingStars";
+import EvaluationDialog from "./EvaluationDialog";
 
 interface InterviewerListProps {
   interviewers: Interviewer[];
@@ -40,7 +42,9 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const { toast } = useToast();
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
+  const { getAverageRating } = useEvaluations();
   const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
 
@@ -111,6 +115,11 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
       !project.excluded_islands?.includes(interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius')
     );
   };
+  
+  const handleEvaluate = (interviewer: Interviewer) => {
+    setSelectedInterviewer(interviewer);
+    setShowEvaluationDialog(true);
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -121,6 +130,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Island</TableHead>
+              <TableHead>Rating</TableHead>
               <TableHead>Assigned to</TableHead>
               <TableHead>Projects</TableHead>
               <TableHead>Contact</TableHead>
@@ -130,7 +140,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10">
+                <TableCell colSpan={8} className="text-center py-10">
                   <div className="flex justify-center items-center">
                     <Loader2 className="h-8 w-8 animate-spin text-cbs" />
                   </div>
@@ -138,7 +148,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               </TableRow>
             ) : interviewers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                   No interviewers found
                 </TableCell>
               </TableRow>
@@ -157,6 +167,9 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                     ) : (
                       <span className="text-muted-foreground text-sm">Not assigned</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <RatingStars rating={getAverageRating(interviewer.id)} />
                   </TableCell>
                   <TableCell>
                     {interviewerProjects[interviewer.id] && interviewerProjects[interviewer.id].length > 0 ? (
@@ -201,6 +214,15 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                         title="Edit Interviewer"
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEvaluate(interviewer)}
+                        title="Evaluate Interviewer"
+                      >
+                        <Star className="h-4 w-4" />
                       </Button>
                       
                       <Button
@@ -274,6 +296,12 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <EvaluationDialog
+        open={showEvaluationDialog}
+        onOpenChange={setShowEvaluationDialog}
+        interviewer={selectedInterviewer}
+      />
     </div>
   );
 };
