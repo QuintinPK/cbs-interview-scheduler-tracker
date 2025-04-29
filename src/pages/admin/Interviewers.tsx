@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Input } from "@/components/ui/input";
@@ -13,7 +12,6 @@ import { useProjects } from "@/hooks/useProjects";
 import { useFilter } from "@/contexts/FilterContext";
 import { CsvInterviewer } from "@/utils/csvUtils";
 import type { Interviewer } from "@/types";
-import EvaluationDialog from "@/components/interviewer/EvaluationDialog";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +29,6 @@ const Interviewers = () => {
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showAddEditDialog, setShowAddEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [interviewerProjects, setInterviewerProjects] = useState<{[key: string]: any[]}>({});
@@ -123,11 +120,6 @@ const Interviewers = () => {
   const handleDelete = (interviewer: Interviewer) => {
     setSelectedInterviewer(interviewer);
     setShowDeleteDialog(true);
-  };
-  
-  const handleEvaluate = (interviewer: Interviewer) => {
-    setSelectedInterviewer(interviewer);
-    setShowEvaluationDialog(true);
   };
   
   const handleSubmit = async () => {
@@ -256,7 +248,6 @@ const Interviewers = () => {
           onSchedule={handleSchedule}
           onViewDashboard={handleViewDashboard}
           interviewerProjects={interviewerProjects}
-          onEvaluate={handleEvaluate}
         />
       </div>
       
@@ -322,19 +313,6 @@ const Interviewers = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Add evaluation dialog */}
-      {selectedInterviewer && (
-        <EvaluationDialog
-          open={showEvaluationDialog}
-          onOpenChange={setShowEvaluationDialog}
-          interviewer={selectedInterviewer}
-          onSuccess={() => {
-            setShowEvaluationDialog(false);
-            setSelectedInterviewer(null);
-          }}
-        />
-      )}
     </AdminLayout>
   );
 };

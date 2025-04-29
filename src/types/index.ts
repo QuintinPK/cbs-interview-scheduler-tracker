@@ -73,22 +73,3 @@ export interface ProjectInterviewer {
   project_id: string;
   interviewer_id: string;
 }
-
-export interface EvaluationTag {
-  id: string;
-  name: string;
-  category: string;
-  created_at: string;
-}
-
-export interface InterviewerEvaluation {
-  id: string;
-  interviewer_id: string;
-  project_id?: string;
-  session_id?: string;
-  rating: number;
-  remarks?: string;
-  created_at: string;
-  created_by?: string;
-  tags?: EvaluationTag[];
-}
