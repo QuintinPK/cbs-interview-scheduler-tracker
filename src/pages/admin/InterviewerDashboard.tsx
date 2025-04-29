@@ -31,10 +31,16 @@ const InterviewerDashboard = () => {
   });
   
   const { interviewer, loading: interviewerLoading } = useInterviewer(id || '');
-  const { sessions, loading: sessionsLoading } = useInterviewerSessions([]); // Will need to update this when we have the actual sessions hook
+  const { sessions, sessionsInPlanTime, avgSessionDuration, earliestStartTime, latestEndTime, loading: sessionsLoading } = useInterviewerSessions([], []);
   const { daysSinceLastActive, avgDaysPerWeek, daysWorkedInMonth } = useInterviewerActivity([]);
   const { totalActiveTime, totalActiveSeconds } = useInterviewerWorkHours();
   const { projects } = useProjects();
+  
+  // Mock empty interviews array for now
+  const interviews = [];
+  
+  // Mock active sessions
+  const activeSessions = [];
   
   const getProjectName = (id: string) => {
     const project = projects.find(p => p.id === id);
@@ -94,13 +100,20 @@ const InterviewerDashboard = () => {
               
               <TabsContent value="overview" className="space-y-4">
                 <ActivitySummary 
+                  sessions={sessions}
                   daysSinceLastActive={daysSinceLastActive}
                   avgDaysPerWeek={avgDaysPerWeek}
                   daysWorkedInMonth={daysWorkedInMonth}
+                  sessionsInPlanTime={sessionsInPlanTime}
+                  avgSessionDuration={avgSessionDuration}
+                  earliestStartTime={earliestStartTime}
+                  latestEndTime={latestEndTime}
+                  activeSessions={activeSessions}
                 />
                 
                 <SessionHistory
                   sessions={sessions || []}
+                  interviews={interviews}
                   dateRange={dateRange}
                   setDateRange={setDateRange}
                   showProject={true}
@@ -110,9 +123,9 @@ const InterviewerDashboard = () => {
               
               <TabsContent value="performance" className="space-y-4">
                 <PerformanceMetrics 
-                  daysSinceLastActive={daysSinceLastActive}
-                  avgDaysPerWeek={avgDaysPerWeek}
-                  daysWorkedInMonth={daysWorkedInMonth}
+                  sessions={sessions}
+                  interviews={interviews}
+                  interviewer={interviewer}
                 />
               </TabsContent>
               
