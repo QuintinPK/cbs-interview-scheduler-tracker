@@ -1,150 +1,71 @@
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
-import { DateRange } from "react-day-picker";
+import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import { supabase } from "@/integrations/supabase/client";
-import { Session, Interviewer, Interview, Project } from "@/types";
-import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
-import { useSchedules } from "@/hooks/useSchedules";
-import { useFilter } from "@/contexts/FilterContext";
-
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
-import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
-import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
-import SessionHistory from "@/components/interviewer-dashboard/SessionHistory";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
+import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
+import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
+import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
-import GlobalFilter from "@/components/GlobalFilter";
-import { Button } from "@/components/ui/button";
-import { X, Scale } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+import { DateRangePicker } from "@/components/ui/date-range-picker"; 
+import { useInterviewers } from "@/hooks/useInterviewers";
+import { useSessions } from "@/hooks/useSessions";
+import { useProjects } from "@/hooks/useProjects";
+import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
+import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
+import EvaluationsCard from "@/components/interviewer/EvaluationsCard";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
 
 const InterviewerDashboard = () => {
-  const { id } = useParams<{ id: string }>();
-  const { selectedProject, selectedIsland } = useFilter();
-  const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
-  const [comparisonInterviewer, setComparisonInterviewer] = useState<Interviewer | null>(null);
-  const [comparisonSessions, setComparisonSessions] = useState<Session[]>([]);
-  const [comparisonInterviews, setComparisonInterviews] = useState<Interview[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: undefined,
-    to: undefined
-  });
-  const [filteredSessions, setFilteredSessions] = useState<Session[]>([]);
-  const [interviews, setInterviews] = useState<Interview[]>([]);
-  const [allSessions, setAllSessions] = useState<Session[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  
-  const metrics = useInterviewerMetrics(id, sessions);
-  const { schedules } = useSchedules(id);
+  const navigate = useNavigate();
+  const { interviewerId } = useParams<{ interviewerId: string }>();
 
-  const applyGlobalFilters = (sessionsToFilter: Session[]) => {
-    let filtered = [...sessionsToFilter];
+  const { interviewers, loading: interviewersLoading } = useInterviewers();
+  const { getInterviewerSessions, getInterviewerInterviews } = useSessions();
+  const { getProjectName } = useProjects();
+
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: new Date(new Date().setDate(1)), // First day of current month
+    to: new Date()
+  });
+
+  const [interviewer, setInterviewer] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [interviews, setInterviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load interviewer data
+  useEffect(() => {
+    if (!interviewerId || interviewersLoading) return;
     
-    if (selectedProject) {
-      filtered = filtered.filter(session => session.project_id === selectedProject.id);
+    const findInterviewer = interviewers.find(i => i.id === interviewerId);
+    if (findInterviewer) {
+      setInterviewer(findInterviewer);
+    } else {
+      navigate("/admin/interviewers", { replace: true });
     }
-    
-    return filtered;
-  };
-  
+  }, [interviewerId, interviewers, interviewersLoading, navigate]);
+
+  // Load sessions and interviews data based on date range
   useEffect(() => {
     const fetchData = async () => {
-      if (!id) return;
+      if (!interviewerId || !dateRange.from || !dateRange.to) return;
       
+      setLoading(true);
       try {
-        setLoading(true);
+        // Format dates for API
+        const fromStr = format(dateRange.from, "yyyy-MM-dd");
+        const toStr = format(new Date(dateRange.to.setHours(23, 59, 59)), "yyyy-MM-dd'T'HH:mm:ss");
         
-        const { data: interviewerData, error: interviewerError } = await supabase
-          .from('interviewers')
-          .select('*')
-          .eq('id', id)
-          .single();
-          
-        if (interviewerError) throw interviewerError;
+        // Fetch sessions
+        const sessionsData = await getInterviewerSessions(interviewerId, fromStr, toStr);
+        setSessions(sessionsData);
         
-        const typedInterviewer: Interviewer = {
-          id: interviewerData.id,
-          code: interviewerData.code,
-          first_name: interviewerData.first_name,
-          last_name: interviewerData.last_name,
-          phone: interviewerData.phone || "",
-          email: interviewerData.email || "",
-          island: (interviewerData.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
-        };
-        
-        setInterviewer(typedInterviewer);
-        
-        if (selectedIsland && typedInterviewer.island !== selectedIsland) {
-          setSessions([]);
-          setFilteredSessions([]);
-          setInterviews([]);
-          setAllSessions([]);
-          setLoading(false);
-          return;
-        }
-        
-        const { data: projectsData, error: projectsError } = await supabase
-          .from('projects')
-          .select('*');
-          
-        if (projectsError) throw projectsError;
-        
-        const typedProjects: Project[] = (projectsData || []).map(project => ({
-          id: project.id,
-          name: project.name,
-          start_date: project.start_date,
-          end_date: project.end_date,
-          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
-        }));
-        
-        setProjects(typedProjects);
-        
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('interviewer_id', id)
-          .order('start_time', { ascending: false });
-          
-        if (sessionsError) throw sessionsError;
-        
-        const transformedSessions = sessionsData.map(session => ({
-          ...session,
-          start_latitude: session.start_latitude !== null ? Number(session.start_latitude) : null,
-          start_longitude: session.start_longitude !== null ? Number(session.start_longitude) : null,
-          end_latitude: session.end_latitude !== null ? Number(session.end_latitude) : null,
-          end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
-        }));
-        
-        const globalFilteredSessions = applyGlobalFilters(transformedSessions || []);
-        
-        setSessions(globalFilteredSessions);
-        setFilteredSessions(globalFilteredSessions);
-        
-        const { data: interviewsData, error: interviewsError } = await supabase
-          .from('interviews')
-          .select('*')
-          .in('session_id', (transformedSessions || []).map(s => s.id))
-          .order('start_time', { ascending: false });
-            
-        if (interviewsError) throw interviewsError;
-          
-        setInterviews(interviewsData || []);
-        
-        const { data: allSessionsData, error: allSessionsError } = await supabase
-          .from('sessions')
-          .select('*');
-          
-        if (allSessionsError) throw allSessionsError;
-        
-        const globalFilteredAllSessions = applyGlobalFilters(allSessionsData || []);
-        setAllSessions(globalFilteredAllSessions);
+        // Fetch interviews
+        const interviewsData = await getInterviewerInterviews(interviewerId, fromStr, toStr);
+        setInterviews(interviewsData);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -153,265 +74,98 @@ const InterviewerDashboard = () => {
     };
     
     fetchData();
-  }, [id, selectedProject, selectedIsland]);
-  
-  useEffect(() => {
-    if (!dateRange || !dateRange.from) {
-      setFilteredSessions(sessions);
-      return;
-    }
-    
-    let filtered = [...sessions];
-    
-    const fromDate = new Date(dateRange.from);
-    const toDate = dateRange.to ? new Date(dateRange.to) : fromDate;
-    
-    fromDate.setHours(0, 0, 0, 0);
-    toDate.setHours(23, 59, 59, 999);
-    
-    filtered = filtered.filter(session => {
-      const sessionDate = new Date(session.start_time);
-      return sessionDate >= fromDate && sessionDate <= toDate;
-    });
-    
-    setFilteredSessions(filtered);
-  }, [dateRange, sessions]);
-  
-  const calculateTotalTime = () => {
-    if (!sessions.length) return "0h 0m";
-    
-    let totalMinutes = 0;
-    
-    sessions.forEach(session => {
-      if (session.start_time && session.end_time) {
-        const start = new Date(session.start_time);
-        const end = new Date(session.end_time);
-        totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
-      }
-    });
-    
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = Math.floor(totalMinutes % 60);
-    
-    return `${hours}h ${minutes}m`;
-  };
-  
-  const activeSessions = sessions.filter(session => session.is_active);
-  
-  const getProjectName = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    return project ? project.name : projectId;
-  };
+  }, [interviewerId, dateRange, getInterviewerSessions, getInterviewerInterviews]);
 
-  const handleCompare = async (comparisonId: string) => {
-    if (!comparisonId || comparisonId === id) {
-      setComparisonInterviewer(null);
-      setComparisonSessions([]);
-      setComparisonInterviews([]);
-      return;
-    }
+  // Calculate metrics
+  const { 
+    sessionsInPlanTime, 
+    avgSessionDuration, 
+    earliestStartTime, 
+    latestEndTime 
+  } = useInterviewerSessions(sessions);
 
-    try {
-      setLoading(true);
-
-      const { data: interviewerData, error: interviewerError } = await supabase
-        .from('interviewers')
-        .select('*')
-        .eq('id', comparisonId)
-        .single();
-        
-      if (interviewerError) throw interviewerError;
-      
-      const typedInterviewer: Interviewer = {
-        id: interviewerData.id,
-        code: interviewerData.code,
-        first_name: interviewerData.first_name,
-        last_name: interviewerData.last_name,
-        phone: interviewerData.phone || "",
-        email: interviewerData.email || "",
-        island: (interviewerData.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined)
-      };
-      
-      setComparisonInterviewer(typedInterviewer);
-
-      const { data: sessionsData, error: sessionsError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('interviewer_id', comparisonId)
-        .order('start_time', { ascending: false });
-        
-      if (sessionsError) throw sessionsError;
-      
-      const transformedSessions = sessionsData.map(session => ({
-        ...session,
-        start_latitude: session.start_latitude !== null ? Number(session.start_latitude) : null,
-        start_longitude: session.start_longitude !== null ? Number(session.start_longitude) : null,
-        end_latitude: session.end_latitude !== null ? Number(session.end_latitude) : null,
-        end_longitude: session.end_longitude !== null ? Number(session.end_longitude) : null,
-      }));
-      
-      const filteredSessions = applyGlobalFilters(transformedSessions || []);
-      setComparisonSessions(filteredSessions);
-      
-      const { data: interviewsData, error: interviewsError } = await supabase
-        .from('interviews')
-        .select('*')
-        .in('session_id', (transformedSessions || []).map(s => s.id))
-        .order('start_time', { ascending: false });
-          
-      if (interviewsError) throw interviewsError;
-        
-      setComparisonInterviews(interviewsData || []);
-    } catch (error) {
-      console.error("Error fetching comparison data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const clearComparison = () => {
-    setComparisonInterviewer(null);
-    setComparisonSessions([]);
-    setComparisonInterviews([]);
-  };
+  const {
+    daysSinceLastActive,
+    avgDaysPerWeek,
+    daysWorkedInMonth,
+    responseRate,
+    nonResponseRate,
+    avgInterviewsPerSession
+  } = useInterviewerMetrics(sessions, interviews);
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <InterviewerHeader 
           interviewer={interviewer} 
-          loading={loading} 
+          loading={loading || interviewersLoading} 
         />
-        
-        <div className="mb-6">
-          <GlobalFilter />
-          {selectedIsland && interviewer && interviewer.island !== selectedIsland && (
-            <p className="mt-3 text-amber-600 bg-amber-50 p-2 rounded-md border border-amber-200">
-              This interviewer is from {interviewer.island} and does not match the current island filter ({selectedIsland}).
-            </p>
-          )}
-        </div>
-        
-        {interviewer && !(selectedIsland && interviewer.island !== selectedIsland) && (
-          <InterviewerQuickStats
-            interviewer={interviewer}
-            totalTime={calculateTotalTime()}
-            hasActiveSessions={activeSessions.length > 0}
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-lg shadow-sm border">
+          <div className="text-sm text-muted-foreground">
+            Filter data by date range:
+          </div>
+          <DateRangePicker
+            dateRange={dateRange}
+            setDateRange={setDateRange}
           />
-        )}
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="sessions">Sessions</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="contact">Contact Information</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="space-y-4 pt-4">
-            {loading ? (
-              <p className="text-center py-10 text-muted-foreground">Loading...</p>
-            ) : !(selectedIsland && interviewer && interviewer.island !== selectedIsland) ? (
-              <ActivitySummary
-                sessions={sessions}
-                daysSinceLastActive={metrics.daysSinceLastActive}
-                avgDaysPerWeek={metrics.avgDaysPerWeek}
-                daysWorkedInMonth={metrics.daysWorkedInMonth}
-                sessionsInPlanTime={metrics.sessionsInPlanTime}
-                avgSessionDuration={metrics.avgSessionDuration}
-                earliestStartTime={metrics.earliestStartTime}
-                latestEndTime={metrics.latestEndTime}
-                activeSessions={activeSessions}
-              />
-            ) : (
-              <p className="text-center py-10 text-muted-foreground">No data available for the selected filters.</p>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="sessions" className="pt-4">
-            {loading ? (
-              <p className="text-center py-10 text-muted-foreground">Loading...</p>
-            ) : !(selectedIsland && interviewer && interviewer.island !== selectedIsland) ? (
-              <SessionHistory
-                sessions={filteredSessions}
-                interviews={interviews}
-                dateRange={dateRange}
-                setDateRange={setDateRange}
-                showProject={true}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <InterviewerQuickStats 
+              loading={loading}
+              sessions={sessions.length}
+              interviews={interviews.length}
+              responseRate={responseRate}
+              nonResponseRate={nonResponseRate}
+            />
+
+            <SessionHistory 
+              sessions={sessions}
+              interviews={interviews}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
+              showProject={true}
+              projectNameResolver={getProjectName}
+            />
+          </div>
+
+          <div className="space-y-6">
+            <ContactInformation 
+              interviewer={interviewer} 
+              loading={loading || interviewersLoading} 
+            />
+
+            <ActivitySummary 
+              sessions={sessions}
+              sessionsInPlanTime={sessionsInPlanTime}
+              avgSessionDuration={avgSessionDuration}
+              earliestStartTime={earliestStartTime}
+              latestEndTime={latestEndTime}
+              loading={loading}
+            />
+            
+            <PerformanceMetrics
+              daysSinceLastActive={daysSinceLastActive}
+              avgDaysPerWeek={avgDaysPerWeek}
+              daysWorkedInMonth={daysWorkedInMonth}
+              responseRate={responseRate}
+              nonResponseRate={nonResponseRate}
+              avgInterviewsPerSession={avgInterviewsPerSession}
+              loading={loading}
+              interviewerId={interviewerId}
+              interviewer={interviewer}
+            />
+
+            {interviewer && (
+              <EvaluationsCard
+                interviewer={interviewer}
                 projectNameResolver={getProjectName}
               />
-            ) : (
-              <p className="text-center py-10 text-muted-foreground">No data available for the selected filters.</p>
             )}
-          </TabsContent>
-          
-          <TabsContent value="performance" className="pt-4">
-            {loading ? (
-              <p className="text-center py-10 text-muted-foreground">Loading...</p>
-            ) : !(selectedIsland && interviewer && interviewer.island !== selectedIsland) ? (
-              <>
-                {comparisonInterviewer && (
-                  <div className="mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-lg font-semibold flex items-center">
-                        <Scale className="h-5 w-5 mr-2 text-primary" />
-                        Comparing with: {comparisonInterviewer.first_name} {comparisonInterviewer.last_name} ({comparisonInterviewer.code})
-                      </h3>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={clearComparison}
-                        className="flex items-center gap-1"
-                      >
-                        <X className="h-4 w-4" />
-                        Clear comparison
-                      </Button>
-                    </div>
-                    <Separator className="mb-6" />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="text-md font-medium mb-4">{interviewer?.first_name} {interviewer?.last_name}</h4>
-                        <PerformanceMetrics
-                          sessions={sessions}
-                          interviews={interviews}
-                          interviewer={interviewer}
-                          allInterviewersSessions={allSessions}
-                          onCompare={handleCompare}
-                        />
-                      </div>
-                      <div>
-                        <h4 className="text-md font-medium mb-4">{comparisonInterviewer.first_name} {comparisonInterviewer.last_name}</h4>
-                        <PerformanceMetrics
-                          sessions={comparisonSessions}
-                          interviews={comparisonInterviews}
-                          interviewer={comparisonInterviewer}
-                          allInterviewersSessions={allSessions}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {!comparisonInterviewer && (
-                  <PerformanceMetrics
-                    sessions={sessions}
-                    interviews={interviews}
-                    interviewer={interviewer}
-                    allInterviewersSessions={allSessions}
-                    onCompare={handleCompare}
-                  />
-                )}
-              </>
-            ) : (
-              <p className="text-center py-10 text-muted-foreground">No data available for the selected filters.</p>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="contact" className="pt-4">
-            <ContactInformation interviewer={interviewer} />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </div>
     </AdminLayout>
   );

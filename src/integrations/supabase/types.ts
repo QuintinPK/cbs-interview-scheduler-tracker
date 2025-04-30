@@ -33,6 +33,112 @@ export type Database = {
         }
         Relationships: []
       }
+      evaluation_tags: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      evaluation_tags_junction: {
+        Row: {
+          evaluation_id: string
+          tag_id: string
+        }
+        Insert: {
+          evaluation_id: string
+          tag_id: string
+        }
+        Update: {
+          evaluation_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evaluation_tags_junction_evaluation_id_fkey"
+            columns: ["evaluation_id"]
+            isOneToOne: false
+            referencedRelation: "interviewer_evaluations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evaluation_tags_junction_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "evaluation_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interviewer_evaluations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          interviewer_id: string
+          project_id: string | null
+          rating: number
+          remarks: string | null
+          session_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interviewer_id: string
+          project_id?: string | null
+          rating: number
+          remarks?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interviewer_id?: string
+          project_id?: string | null
+          rating?: number
+          remarks?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviewer_evaluations_interviewer_id_fkey"
+            columns: ["interviewer_id"]
+            isOneToOne: false
+            referencedRelation: "interviewers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interviewer_evaluations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interviewer_evaluations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interviewers: {
         Row: {
           code: string

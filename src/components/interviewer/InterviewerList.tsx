@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Table, 
   TableBody, 
@@ -10,13 +10,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Calendar, BarChart, Users, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Calendar, BarChart, Loader2, Users, Star } from "lucide-react";
 import { Interviewer, Project } from "@/types";
 import { useProjects } from "@/hooks/useProjects";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { StarRating } from "@/components/ui/star-rating";
+import { useEvaluations } from "@/hooks/useEvaluations";
+import EvaluationDialog from "./EvaluationDialog";
 
 interface InterviewerListProps {
   interviewers: Interviewer[];
@@ -40,9 +43,29 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const { toast } = useToast();
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
+  const { getAllAverageRatings } = useEvaluations();
   const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [averageRatings, setAverageRatings] = useState<Record<string, number>>({});
+  const [ratingsLoading, setRatingsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRatings = async () => {
+      setRatingsLoading(true);
+      try {
+        const ratings = await getAllAverageRatings();
+        setAverageRatings(ratings);
+      } catch (error) {
+        console.error("Error loading ratings:", error);
+      } finally {
+        setRatingsLoading(false);
+      }
+    };
+
+    loadRatings();
+  }, [getAllAverageRatings]);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
@@ -112,130 +135,162 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     );
   };
 
+  const handleEvaluate = (interviewer: Interviewer) => {
+    setSelectedInterviewer(interviewer);
+    setShowEvaluationDialog(true);
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Island</TableHead>
-              <TableHead>Assigned to</TableHead>
-              <TableHead>Projects</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+    <>
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-10">
-                  <div className="flex justify-center items-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-cbs" />
-                  </div>
-                </TableCell>
+                <TableHead>Code</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Island</TableHead>
+                <TableHead>Rating</TableHead>
+                <TableHead>Assigned to</TableHead>
+                <TableHead>Projects</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ) : interviewers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
-                  No interviewers found
-                </TableCell>
-              </TableRow>
-            ) : (
-              interviewers.map((interviewer) => (
-                <TableRow key={interviewer.id}>
-                  <TableCell className="font-medium">{interviewer.code}</TableCell>
-                  <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
-                  <TableCell>
-                    {interviewer.island ? (
-                      <Badge 
-                        {...getIslandBadgeStyle(interviewer.island)}
-                      >
-                        {interviewer.island}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Not assigned</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {interviewerProjects[interviewer.id] && interviewerProjects[interviewer.id].length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {interviewerProjects[interviewer.id].map(project => (
-                          <Badge key={project.id} variant="outline" className="mb-1">
-                            {project.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">No projects</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleManageProjects(interviewer)}
-                      className="text-xs"
-                    >
-                      <Users className="h-3 w-3 mr-1" />
-                      Manage Projects
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      {interviewer.phone && (
-                        <div className="text-sm">{interviewer.phone}</div>
-                      )}
-                      {interviewer.email && (
-                        <div className="text-sm text-muted-foreground">{interviewer.email}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(interviewer)}
-                        title="Edit Interviewer"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onSchedule(interviewer)}
-                        title="Schedule Interviewer"
-                      >
-                        <Calendar className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onViewDashboard(interviewer)}
-                        title="View Dashboard"
-                      >
-                        <BarChart className="h-4 w-4" />
-                      </Button>
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDelete(interviewer)}
-                        title="Delete Interviewer"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-10">
+                    <div className="flex justify-center items-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-cbs" />
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : interviewers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
+                    No interviewers found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                interviewers.map((interviewer) => (
+                  <TableRow key={interviewer.id}>
+                    <TableCell className="font-medium">{interviewer.code}</TableCell>
+                    <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
+                    <TableCell>
+                      {interviewer.island ? (
+                        <Badge 
+                          {...getIslandBadgeStyle(interviewer.island)}
+                        >
+                          {interviewer.island}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Not assigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {ratingsLoading ? (
+                        <div className="flex items-center">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <span className="text-xs text-muted-foreground">Loading</span>
+                        </div>
+                      ) : averageRatings[interviewer.id] ? (
+                        <div className="flex items-center gap-1">
+                          <StarRating rating={averageRatings[interviewer.id]} readOnly size={16} />
+                          <span className="text-sm ml-1">{averageRatings[interviewer.id]}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Not rated</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {interviewerProjects[interviewer.id] && interviewerProjects[interviewer.id].length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {interviewerProjects[interviewer.id].map(project => (
+                            <Badge key={project.id} variant="outline" className="mb-1">
+                              {project.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No projects</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleManageProjects(interviewer)}
+                        className="text-xs"
+                      >
+                        <Users className="h-3 w-3 mr-1" />
+                        Manage Projects
+                      </Button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        {interviewer.phone && (
+                          <div className="text-sm">{interviewer.phone}</div>
+                        )}
+                        {interviewer.email && (
+                          <div className="text-sm text-muted-foreground">{interviewer.email}</div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onEdit(interviewer)}
+                          title="Edit Interviewer"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEvaluate(interviewer)}
+                          title="Evaluate Interviewer"
+                        >
+                          <Star className="h-4 w-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onSchedule(interviewer)}
+                          title="Schedule Interviewer"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onViewDashboard(interviewer)}
+                          title="View Dashboard"
+                        >
+                          <BarChart className="h-4 w-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDelete(interviewer)}
+                          title="Delete Interviewer"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
@@ -274,7 +329,17 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           </ScrollArea>
         </DialogContent>
       </Dialog>
-    </div>
+
+      <EvaluationDialog
+        interviewer={selectedInterviewer}
+        open={showEvaluationDialog}
+        onOpenChange={setShowEvaluationDialog}
+        projects={selectedInterviewer ? 
+          (interviewerProjects[selectedInterviewer.id] || []) : 
+          []
+        }
+      />
+    </>
   );
 };
 

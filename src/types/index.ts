@@ -1,3 +1,4 @@
+
 export interface Interviewer {
   id: string;
   code: string;
@@ -72,4 +73,23 @@ export interface ProjectInterviewer {
   id: string;
   project_id: string;
   interviewer_id: string;
+}
+
+export interface EvaluationTag {
+  id: string;
+  name: string;
+  category: string;
+  created_at: string;
+}
+
+export interface Evaluation {
+  id: string;
+  interviewer_id: string;
+  project_id?: string | null;
+  session_id?: string | null;
+  rating: number;
+  remarks?: string | null;
+  created_at: string;
+  created_by?: string | null;
+  tags?: EvaluationTag[];
 }
