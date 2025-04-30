@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -71,10 +72,18 @@ const InterviewerDashboard = () => {
         // Filter interviews by session ids - We'll now fetch interviews directly
         // since they're not available from the useSessions hook
         try {
+          // Check if we have any sessions before trying to fetch interviews
+          if (filteredSessions.length === 0) {
+            setInterviews([]);
+            return;
+          }
+          
+          const sessionIds = filteredSessions.map(s => s.id);
+          
           const { data: interviewsData } = await supabase
             .from('interviews')
             .select('*')
-            .in('session_id', filteredSessions.map(s => s.id));
+            .in('session_id', sessionIds);
             
           setInterviews(interviewsData || []);
         } catch (error) {
