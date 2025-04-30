@@ -78,7 +78,7 @@ const InterviewerDashboard = () => {
             return;
           }
           
-          const sessionIds = filteredSessions.map(s => s.id);
+          const sessionIds: string[] = filteredSessions.map(s => String(s.id));
           
           // Use in query with proper type casting to fix the TypeScript error
           const { data: interviewsData, error } = await supabase
