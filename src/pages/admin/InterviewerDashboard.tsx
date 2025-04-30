@@ -32,9 +32,9 @@ const InterviewerDashboard = () => {
     to: new Date()
   });
 
-  const [interviewer, setInterviewer] = useState(null);
-  const [sessions, setSessions] = useState([]);
-  const [interviews, setInterviews] = useState([]);
+  const [interviewer, setInterviewer] = useState<any>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Load interviewer data
@@ -69,22 +69,24 @@ const InterviewerDashboard = () => {
         );
         setSessions(filteredSessions);
         
-        // Filter interviews by session ids - We'll now fetch interviews directly
-        // since they're not available from the useSessions hook
+        // Fetch interviews based on session IDs
         try {
           // Check if we have any sessions before trying to fetch interviews
           if (filteredSessions.length === 0) {
             setInterviews([]);
+            setLoading(false);
             return;
           }
           
           const sessionIds = filteredSessions.map(s => s.id);
           
-          const { data: interviewsData } = await supabase
+          // Use in query with proper types
+          const { data: interviewsData, error } = await supabase
             .from('interviews')
             .select('*')
-            .in('session_id', sessionIds as string[])
+            .in('session_id', sessionIds);
             
+          if (error) throw error;
           setInterviews(interviewsData || []);
         } catch (error) {
           console.error("Error fetching interviews:", error);
