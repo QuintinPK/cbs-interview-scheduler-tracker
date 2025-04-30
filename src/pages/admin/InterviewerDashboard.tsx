@@ -80,11 +80,11 @@ const InterviewerDashboard = () => {
           
           const sessionIds = filteredSessions.map(s => s.id);
           
-          // Use in query with proper types
+          // Use in query with proper types - Fix: Add explicit type casting to sessionIds
           const { data: interviewsData, error } = await supabase
             .from('interviews')
             .select('*')
-            .in('session_id', sessionIds);
+            .in('session_id', sessionIds as string[]);
             
           if (error) throw error;
           setInterviews(interviewsData || []);
