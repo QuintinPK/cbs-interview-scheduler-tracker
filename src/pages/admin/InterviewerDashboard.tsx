@@ -83,7 +83,7 @@ const InterviewerDashboard = () => {
           const { data: interviewsData } = await supabase
             .from('interviews')
             .select('*')
-            .in('session_id', sessionIds);
+            .in('session_id', sessionIds as string[])
             
           setInterviews(interviewsData || []);
         } catch (error) {
