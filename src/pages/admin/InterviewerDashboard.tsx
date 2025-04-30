@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -17,13 +16,14 @@ import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
 import EvaluationsCard from "@/components/interviewer/EvaluationsCard";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
+import { supabase } from "@/integrations/supabase/client";
 
 const InterviewerDashboard = () => {
   const navigate = useNavigate();
   const { interviewerId } = useParams<{ interviewerId: string }>();
 
   const { interviewers, loading: interviewersLoading } = useInterviewers();
-  const { sessions: allSessions, interviews: allInterviews } = useSessions();
+  const { sessions: allSessions } = useSessions();
   const { projects } = useProjects();
 
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -68,12 +68,19 @@ const InterviewerDashboard = () => {
         );
         setSessions(filteredSessions);
         
-        // Filter interviews by session ids
-        const sessionIds = filteredSessions.map(s => s.id);
-        const filteredInterviews = allInterviews.filter(interview => 
-          sessionIds.includes(interview.session_id)
-        );
-        setInterviews(filteredInterviews);
+        // Filter interviews by session ids - We'll now fetch interviews directly
+        // since they're not available from the useSessions hook
+        try {
+          const { data: interviewsData } = await supabase
+            .from('interviews')
+            .select('*')
+            .in('session_id', filteredSessions.map(s => s.id));
+            
+          setInterviews(interviewsData || []);
+        } catch (error) {
+          console.error("Error fetching interviews:", error);
+          setInterviews([]);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -82,7 +89,7 @@ const InterviewerDashboard = () => {
     };
     
     fetchData();
-  }, [interviewerId, dateRange, allSessions, allInterviews]);
+  }, [interviewerId, dateRange, allSessions]);
 
   // Get project name resolver function
   const getProjectName = (projectId: string | null | undefined) => {
@@ -134,6 +141,7 @@ const InterviewerDashboard = () => {
       <div className="space-y-6">
         <InterviewerHeader 
           interviewer={interviewer}
+          loading={loading}
         />
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-lg shadow-sm border">
@@ -142,7 +150,7 @@ const InterviewerDashboard = () => {
           </div>
           <DateRangePicker
             value={dateRange}
-            onValueChange={setDateRange}
+            onChange={setDateRange}
           />
         </div>
 
