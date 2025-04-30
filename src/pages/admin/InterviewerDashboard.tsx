@@ -5,7 +5,7 @@ import AdminLayout from "@/components/layout/AdminLayout";
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
-import { SessionHistory } from "@/components/interviewer-dashboard/SessionHistory";
+import SessionHistory from "@/components/interviewer-dashboard/SessionHistory";
 import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
@@ -23,8 +23,8 @@ const InterviewerDashboard = () => {
   const { interviewerId } = useParams<{ interviewerId: string }>();
 
   const { interviewers, loading: interviewersLoading } = useInterviewers();
-  const { getInterviewerSessions, getInterviewerInterviews } = useSessions();
-  const { getProjectName } = useProjects();
+  const { sessions: allSessions, interviews: allInterviews } = useSessions();
+  const { projects } = useProjects();
 
   const [dateRange, setDateRange] = useState<DateRange>({
     from: new Date(new Date().setDate(1)), // First day of current month
@@ -55,17 +55,25 @@ const InterviewerDashboard = () => {
       
       setLoading(true);
       try {
-        // Format dates for API
-        const fromStr = format(dateRange.from, "yyyy-MM-dd");
-        const toStr = format(new Date(dateRange.to.setHours(23, 59, 59)), "yyyy-MM-dd'T'HH:mm:ss");
+        // Format dates for filtering
+        const fromDate = dateRange.from;
+        const toDate = new Date(dateRange.to.getTime());
+        toDate.setHours(23, 59, 59, 999);
         
-        // Fetch sessions
-        const sessionsData = await getInterviewerSessions(interviewerId, fromStr, toStr);
-        setSessions(sessionsData);
+        // Filter sessions by interviewer and date range
+        const filteredSessions = allSessions.filter(session => 
+          session.interviewer_id === interviewerId &&
+          new Date(session.start_time) >= fromDate &&
+          new Date(session.start_time) <= toDate
+        );
+        setSessions(filteredSessions);
         
-        // Fetch interviews
-        const interviewsData = await getInterviewerInterviews(interviewerId, fromStr, toStr);
-        setInterviews(interviewsData);
+        // Filter interviews by session ids
+        const sessionIds = filteredSessions.map(s => s.id);
+        const filteredInterviews = allInterviews.filter(interview => 
+          sessionIds.includes(interview.session_id)
+        );
+        setInterviews(filteredInterviews);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -74,7 +82,14 @@ const InterviewerDashboard = () => {
     };
     
     fetchData();
-  }, [interviewerId, dateRange, getInterviewerSessions, getInterviewerInterviews]);
+  }, [interviewerId, dateRange, allSessions, allInterviews]);
+
+  // Get project name resolver function
+  const getProjectName = (projectId: string | null | undefined) => {
+    if (!projectId) return "No project";
+    const project = projects.find(p => p.id === projectId);
+    return project ? project.name : "Unknown project";
+  };
 
   // Calculate metrics
   const { 
@@ -87,18 +102,38 @@ const InterviewerDashboard = () => {
   const {
     daysSinceLastActive,
     avgDaysPerWeek,
-    daysWorkedInMonth,
-    responseRate,
-    nonResponseRate,
-    avgInterviewsPerSession
+    daysWorkedInMonth
   } = useInterviewerMetrics(sessions, interviews);
+
+  // Calculate additional metrics
+  const responseCount = interviews.filter(i => i.result === 'response').length;
+  const responseRate = interviews.length > 0 ? (responseCount / interviews.length) * 100 : 0;
+  const nonResponseRate = interviews.length > 0 ? 100 - responseRate : 0;
+  const avgInterviewsPerSession = sessions.length > 0 ? interviews.length / sessions.length : 0;
+  
+  // Check for active sessions
+  const activeSessions = sessions.filter(s => s.is_active);
+  const hasActiveSessions = activeSessions.length > 0;
+  
+  // Calculate total time
+  const totalMinutes = sessions.reduce((total, session) => {
+    if (session.end_time) {
+      const start = new Date(session.start_time);
+      const end = new Date(session.end_time);
+      return total + ((end.getTime() - start.getTime()) / (1000 * 60));
+    }
+    return total;
+  }, 0);
+  
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = Math.round(totalMinutes % 60);
+  const totalTime = `${totalHours}h ${remainingMinutes}m`;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         <InterviewerHeader 
-          interviewer={interviewer} 
-          loading={loading || interviewersLoading} 
+          interviewer={interviewer}
         />
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-lg shadow-sm border">
@@ -106,19 +141,17 @@ const InterviewerDashboard = () => {
             Filter data by date range:
           </div>
           <DateRangePicker
-            dateRange={dateRange}
-            setDateRange={setDateRange}
+            value={dateRange}
+            onValueChange={setDateRange}
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <InterviewerQuickStats 
-              loading={loading}
-              sessions={sessions.length}
-              interviews={interviews.length}
-              responseRate={responseRate}
-              nonResponseRate={nonResponseRate}
+              interviewer={interviewer}
+              totalTime={totalTime}
+              hasActiveSessions={hasActiveSessions}
             />
 
             <SessionHistory 
@@ -133,28 +166,24 @@ const InterviewerDashboard = () => {
 
           <div className="space-y-6">
             <ContactInformation 
-              interviewer={interviewer} 
-              loading={loading || interviewersLoading} 
+              interviewer={interviewer}
             />
 
             <ActivitySummary 
               sessions={sessions}
+              daysSinceLastActive={daysSinceLastActive}
+              avgDaysPerWeek={avgDaysPerWeek}
+              daysWorkedInMonth={daysWorkedInMonth}
               sessionsInPlanTime={sessionsInPlanTime}
               avgSessionDuration={avgSessionDuration}
               earliestStartTime={earliestStartTime}
               latestEndTime={latestEndTime}
-              loading={loading}
+              activeSessions={activeSessions}
             />
             
             <PerformanceMetrics
-              daysSinceLastActive={daysSinceLastActive}
-              avgDaysPerWeek={avgDaysPerWeek}
-              daysWorkedInMonth={daysWorkedInMonth}
-              responseRate={responseRate}
-              nonResponseRate={nonResponseRate}
-              avgInterviewsPerSession={avgInterviewsPerSession}
-              loading={loading}
-              interviewerId={interviewerId}
+              sessions={sessions}
+              interviews={interviews}
               interviewer={interviewer}
             />
 

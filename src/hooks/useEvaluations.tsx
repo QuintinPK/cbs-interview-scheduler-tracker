@@ -166,7 +166,8 @@ export const useEvaluations = () => {
       
       if (!data || data.length === 0) return null;
       
-      const total = data.reduce((sum, eval) => sum + eval.rating, 0);
+      // Changed 'eval' to 'item' to avoid reserved keyword issue
+      const total = data.reduce((sum, item) => sum + item.rating, 0);
       return Number((total / data.length).toFixed(1));
     } catch (error) {
       console.error("Error getting average rating:", error);
@@ -187,11 +188,12 @@ export const useEvaluations = () => {
       // Group evaluations by interviewer and calculate averages
       const ratingsByInterviewer: Record<string, number[]> = {};
       
-      data.forEach(eval => {
-        if (!ratingsByInterviewer[eval.interviewer_id]) {
-          ratingsByInterviewer[eval.interviewer_id] = [];
+      // Changed 'eval' to 'evaluation' to avoid reserved keyword issue
+      data.forEach(evaluation => {
+        if (!ratingsByInterviewer[evaluation.interviewer_id]) {
+          ratingsByInterviewer[evaluation.interviewer_id] = [];
         }
-        ratingsByInterviewer[eval.interviewer_id].push(eval.rating);
+        ratingsByInterviewer[evaluation.interviewer_id].push(evaluation.rating);
       });
       
       const averageRatings: Record<string, number> = {};
