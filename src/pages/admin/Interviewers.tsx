@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Input } from "@/components/ui/input";
@@ -164,6 +163,7 @@ const Interviewers = () => {
   };
   
   const handleViewDashboard = (interviewer: Interviewer) => {
+    console.log("Navigating to interviewer dashboard:", interviewer.id); // Add for debugging
     navigate(`/admin/interviewer/${interviewer.id}`);
   };
   

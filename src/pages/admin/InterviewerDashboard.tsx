@@ -37,10 +37,16 @@ const InterviewerDashboard = () => {
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Debug the interviewerId parameter
+  console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
+
   // Load interviewer data - ensure it runs if interviewerId changes
   useEffect(() => {
     const fetchInterviewer = async () => {
+      console.log("Attempting to fetch interviewer with ID:", interviewerId);
+      
       if (!interviewerId) {
+        console.error("No interviewerId provided in URL parameters");
         navigate("/admin/interviewers", { replace: true });
         return;
       }
@@ -50,15 +56,21 @@ const InterviewerDashboard = () => {
       try {
         // First try to find the interviewer in the already loaded interviewers
         if (!interviewersLoading && interviewers.length > 0) {
+          console.log("Searching in loaded interviewers array:", interviewers.length, "interviewers");
           const foundInterviewer = interviewers.find(i => i.id === interviewerId);
+          
           if (foundInterviewer) {
+            console.log("Found interviewer in loaded interviewers:", foundInterviewer);
             setInterviewer(foundInterviewer);
             setLoading(false);
             return;
+          } else {
+            console.log("Interviewer not found in loaded interviewers, trying direct fetch");
           }
         }
         
         // If not found or interviewers not loaded yet, fetch directly from Supabase
+        console.log("Fetching interviewer directly from Supabase");
         const { data, error } = await supabase
           .from('interviewers')
           .select('*')
@@ -66,17 +78,18 @@ const InterviewerDashboard = () => {
           .single();
           
         if (error) {
-          console.error("Error fetching interviewer:", error);
+          console.error("Error fetching interviewer from Supabase:", error);
           navigate("/admin/interviewers", { replace: true });
           return;
         }
         
         if (!data) {
-          console.error("Interviewer not found");
+          console.error("Interviewer not found in database");
           navigate("/admin/interviewers", { replace: true });
           return;
         }
         
+        console.log("Successfully fetched interviewer from Supabase:", data);
         setInterviewer(data);
       } catch (error) {
         console.error("Error in fetchInterviewer:", error);

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -20,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { StarRating } from "@/components/ui/star-rating";
 import { useEvaluations } from "@/hooks/useEvaluations";
 import EvaluationDialog from "./EvaluationDialog";
+import { useNavigate } from "react-router-dom";
 
 interface InterviewerListProps {
   interviewers: Interviewer[];
