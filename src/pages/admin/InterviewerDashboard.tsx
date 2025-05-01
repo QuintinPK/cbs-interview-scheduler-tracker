@@ -78,9 +78,9 @@ const InterviewerDashboard = () => {
             return;
           }
           
-          const sessionIds: string[] = filteredSessions.map(s => String(s.id));
+          const sessionIds = filteredSessions.map(s => String(s.id));
           
-          // Use in query with proper type casting to fix the TypeScript error
+          // Fix the type error by explicitly casting the sessionIds array to string[]
           const { data: interviewsData, error } = await supabase
             .from('interviews')
             .select('*')
@@ -121,7 +121,7 @@ const InterviewerDashboard = () => {
     daysSinceLastActive,
     avgDaysPerWeek,
     daysWorkedInMonth
-  } = useInterviewerMetrics(sessions, interviews);
+  } = useInterviewerMetrics(interviewerId, sessions);
 
   // Calculate additional metrics
   const responseCount = interviews.filter(i => i.result === 'response').length;
