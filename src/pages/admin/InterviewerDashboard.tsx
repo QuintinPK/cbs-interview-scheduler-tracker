@@ -2,11 +2,11 @@
 import React from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
-import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
 import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
+import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
@@ -24,12 +24,6 @@ const InterviewerDashboard = () => {
     getProjectName
   } = useInterviewerDashboard();
 
-  // Calculate additional metrics
-  const responseCount = interviews.filter(i => i.result === 'response').length;
-  const responseRate = interviews.length > 0 ? (responseCount / interviews.length) * 100 : 0;
-  const nonResponseRate = interviews.length > 0 ? 100 - responseRate : 0;
-  const avgInterviewsPerSession = sessions.length > 0 ? interviews.length / sessions.length : 0;
-  
   // Check for active sessions
   const activeSessions = sessions.filter(s => s.is_active);
   const hasActiveSessions = activeSessions.length > 0;

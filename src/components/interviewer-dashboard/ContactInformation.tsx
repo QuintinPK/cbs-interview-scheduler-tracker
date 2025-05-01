@@ -1,68 +1,71 @@
 
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { Interviewer } from "@/types";
-import { Mail, Phone } from "lucide-react";
 
 interface ContactInformationProps {
   interviewer: Interviewer | null;
 }
 
-export const ContactInformation: React.FC<ContactInformationProps> = ({
-  interviewer,
-}) => {
-  const formatPhoneNumber = (phone: string) => {
-    // Remove any non-digit character
-    return phone.replace(/\D/g, '');
-  };
+export const ContactInformation: React.FC<ContactInformationProps> = ({ interviewer }) => {
+  if (!interviewer) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        No interviewer information available
+      </div>
+    );
+  }
 
   return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
-      <CardHeader className="bg-gradient-to-r from-cbs to-cbs-light text-white">
-        <CardTitle>Contact Information</CardTitle>
-      </CardHeader>
-      <CardContent className="p-6">
-        <div className="space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>Contact Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3">
+            <Mail className="h-5 w-5 text-primary mt-0.5" />
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Email</p>
+              <p className="font-medium">{interviewer.email || "No email provided"}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Phone className="h-5 w-5 text-primary mt-0.5" />
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Phone</p>
+              <p className="font-medium">{interviewer.phone || "No phone provided"}</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <MapPin className="h-5 w-5 text-primary mt-0.5" />
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Island</p>
+              <p className="font-medium">{interviewer.island || "Not specified"}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>Additional Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <div>
-            <h3 className="font-medium text-gray-700 mb-1">Name</h3>
-            <p className="text-lg">
-              {interviewer?.first_name} {interviewer?.last_name}
-            </p>
+            <p className="text-sm text-muted-foreground mb-1">Full Name</p>
+            <p className="font-medium">{interviewer.first_name} {interviewer.last_name}</p>
           </div>
           
           <div>
-            <h3 className="font-medium text-gray-700 mb-1">Phone</h3>
-            {interviewer?.phone ? (
-              <a 
-                href={`https://wa.me/${formatPhoneNumber(interviewer.phone)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center text-green-600 hover:text-green-800 transition-colors group"
-              >
-                <Phone className="h-5 w-5 mr-2" />
-                <span className="text-lg group-hover:underline">{interviewer.phone}</span>
-              </a>
-            ) : (
-              <p className="text-muted-foreground italic">Not provided</p>
-            )}
+            <p className="text-sm text-muted-foreground mb-1">Interviewer Code</p>
+            <p className="font-medium">{interviewer.code}</p>
           </div>
-          
-          <div>
-            <h3 className="font-medium text-gray-700 mb-1">Email</h3>
-            {interviewer?.email ? (
-              <a 
-                href={`mailto:${interviewer.email}`}
-                className="flex items-center text-blue-600 hover:text-blue-800 transition-colors group"
-              >
-                <Mail className="h-5 w-5 mr-2" />
-                <span className="text-lg group-hover:underline">{interviewer.email}</span>
-              </a>
-            ) : (
-              <p className="text-muted-foreground italic">Not provided</p>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };

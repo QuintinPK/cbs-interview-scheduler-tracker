@@ -80,7 +80,14 @@ export const useInterviewerDashboard = () => {
         }
         
         console.log("Successfully fetched interviewer from Supabase:", data);
-        setInterviewer(data);
+        
+        // Type casting the island property to ensure it matches the expected type
+        const typedInterviewer: Interviewer = {
+          ...data,
+          island: data.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined
+        };
+        
+        setInterviewer(typedInterviewer);
       } catch (error) {
         console.error("Error in fetchInterviewer:", error);
         navigate("/admin/interviewers", { replace: true });
