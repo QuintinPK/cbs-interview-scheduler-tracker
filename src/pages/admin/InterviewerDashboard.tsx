@@ -23,7 +23,7 @@ const InterviewerDashboard = () => {
   const navigate = useNavigate();
   const { interviewerId } = useParams<{ interviewerId: string }>();
 
-  const { interviewers, loading: interviewersLoading } = useInterviewers();
+  const { interviewers, loading: interviewersLoading, refresh: refreshInterviewers } = useInterviewers();
   const { sessions: allSessions } = useSessions();
   const { projects } = useProjects();
 
@@ -37,16 +37,56 @@ const InterviewerDashboard = () => {
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load interviewer data
+  // Load interviewer data - ensure it runs if interviewerId changes
   useEffect(() => {
-    if (!interviewerId || interviewersLoading) return;
+    const fetchInterviewer = async () => {
+      if (!interviewerId) {
+        navigate("/admin/interviewers", { replace: true });
+        return;
+      }
+      
+      setLoading(true);
+      
+      try {
+        // First try to find the interviewer in the already loaded interviewers
+        if (!interviewersLoading && interviewers.length > 0) {
+          const foundInterviewer = interviewers.find(i => i.id === interviewerId);
+          if (foundInterviewer) {
+            setInterviewer(foundInterviewer);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        // If not found or interviewers not loaded yet, fetch directly from Supabase
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('*')
+          .eq('id', interviewerId)
+          .single();
+          
+        if (error) {
+          console.error("Error fetching interviewer:", error);
+          navigate("/admin/interviewers", { replace: true });
+          return;
+        }
+        
+        if (!data) {
+          console.error("Interviewer not found");
+          navigate("/admin/interviewers", { replace: true });
+          return;
+        }
+        
+        setInterviewer(data);
+      } catch (error) {
+        console.error("Error in fetchInterviewer:", error);
+        navigate("/admin/interviewers", { replace: true });
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    const findInterviewer = interviewers.find(i => i.id === interviewerId);
-    if (findInterviewer) {
-      setInterviewer(findInterviewer);
-    } else {
-      navigate("/admin/interviewers", { replace: true });
-    }
+    fetchInterviewer();
   }, [interviewerId, interviewers, interviewersLoading, navigate]);
 
   // Load sessions and interviews data based on date range
@@ -146,6 +186,12 @@ const InterviewerDashboard = () => {
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMinutes = Math.round(totalMinutes % 60);
   const totalTime = `${totalHours}h ${remainingMinutes}m`;
+
+  // For debugging purposes
+  useEffect(() => {
+    console.log("Current interviewerId from params:", interviewerId);
+    console.log("Loaded interviewer data:", interviewer);
+  }, [interviewerId, interviewer]);
 
   return (
     <AdminLayout>
