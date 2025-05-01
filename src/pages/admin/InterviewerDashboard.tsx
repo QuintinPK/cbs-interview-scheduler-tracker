@@ -1,182 +1,28 @@
 
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
-import SessionHistory from "@/components/interviewer-dashboard/SessionHistory";
-import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
-import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
+import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
+import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
+import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
-import { useInterviewers } from "@/hooks/useInterviewers";
-import { useSessions } from "@/hooks/useSessions";
-import { useProjects } from "@/hooks/useProjects";
-import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
-import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
-import EvaluationsCard from "@/components/interviewer/EvaluationsCard";
-import { format } from "date-fns";
-import { DateRange } from "react-day-picker";
-import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
 
 const InterviewerDashboard = () => {
-  const navigate = useNavigate();
-  const { interviewerId } = useParams<{ interviewerId: string }>();
-
-  const { interviewers, loading: interviewersLoading, refresh: refreshInterviewers } = useInterviewers();
-  const { sessions: allSessions } = useSessions();
-  const { projects } = useProjects();
-
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(1)), // First day of current month
-    to: new Date()
-  });
-
-  const [interviewer, setInterviewer] = useState<any>(null);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [interviews, setInterviews] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
-
-  // Debug the interviewerId parameter
-  console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
-
-  // Load interviewer data - ensure it runs if interviewerId changes
-  useEffect(() => {
-    const fetchInterviewer = async () => {
-      console.log("Attempting to fetch interviewer with ID:", interviewerId);
-      
-      if (!interviewerId) {
-        console.error("No interviewerId provided in URL parameters");
-        navigate("/admin/interviewers", { replace: true });
-        return;
-      }
-      
-      setLoading(true);
-      
-      try {
-        // First try to find the interviewer in the already loaded interviewers
-        if (!interviewersLoading && interviewers.length > 0) {
-          console.log("Searching in loaded interviewers array:", interviewers.length, "interviewers");
-          const foundInterviewer = interviewers.find(i => i.id === interviewerId);
-          
-          if (foundInterviewer) {
-            console.log("Found interviewer in loaded interviewers:", foundInterviewer);
-            setInterviewer(foundInterviewer);
-            setLoading(false);
-            return;
-          } else {
-            console.log("Interviewer not found in loaded interviewers, trying direct fetch");
-          }
-        }
-        
-        // If not found or interviewers not loaded yet, fetch directly from Supabase
-        console.log("Fetching interviewer directly from Supabase");
-        const { data, error } = await supabase
-          .from('interviewers')
-          .select('*')
-          .eq('id', interviewerId)
-          .single();
-          
-        if (error) {
-          console.error("Error fetching interviewer from Supabase:", error);
-          navigate("/admin/interviewers", { replace: true });
-          return;
-        }
-        
-        if (!data) {
-          console.error("Interviewer not found in database");
-          navigate("/admin/interviewers", { replace: true });
-          return;
-        }
-        
-        console.log("Successfully fetched interviewer from Supabase:", data);
-        setInterviewer(data);
-      } catch (error) {
-        console.error("Error in fetchInterviewer:", error);
-        navigate("/admin/interviewers", { replace: true });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchInterviewer();
-  }, [interviewerId, interviewers, interviewersLoading, navigate]);
-
-  // Load sessions and interviews data based on date range
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!interviewerId || !dateRange.from || !dateRange.to) return;
-      
-      setLoading(true);
-      try {
-        // Format dates for filtering
-        const fromDate = dateRange.from;
-        const toDate = new Date(dateRange.to.getTime());
-        toDate.setHours(23, 59, 59, 999);
-        
-        // Filter sessions by interviewer and date range
-        const filteredSessions = allSessions.filter(session => 
-          session.interviewer_id === interviewerId &&
-          new Date(session.start_time) >= fromDate &&
-          new Date(session.start_time) <= toDate
-        );
-        setSessions(filteredSessions);
-        
-        // Fetch interviews based on session IDs
-        try {
-          // Check if we have any sessions before trying to fetch interviews
-          if (filteredSessions.length === 0) {
-            setInterviews([]);
-            setLoading(false);
-            return;
-          }
-          
-          const sessionIds = filteredSessions.map(s => String(s.id));
-          
-          // Fix the type error by explicitly casting the sessionIds array to string[]
-          const { data: interviewsData, error } = await supabase
-            .from('interviews')
-            .select('*')
-            .in('session_id', sessionIds as string[]);
-            
-          if (error) throw error;
-          setInterviews(interviewsData || []);
-        } catch (error) {
-          console.error("Error fetching interviews:", error);
-          setInterviews([]);
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-  }, [interviewerId, dateRange, allSessions]);
-
-  // Get project name resolver function
-  const getProjectName = (projectId: string | null | undefined) => {
-    if (!projectId) return "No project";
-    const project = projects.find(p => p.id === projectId);
-    return project ? project.name : "Unknown project";
-  };
-
-  // Calculate metrics
-  const { 
-    sessionsInPlanTime, 
-    avgSessionDuration, 
-    earliestStartTime, 
-    latestEndTime 
-  } = useInterviewerSessions(sessions);
-
   const {
-    daysSinceLastActive,
-    avgDaysPerWeek,
-    daysWorkedInMonth
-  } = useInterviewerMetrics(interviewerId, sessions);
+    interviewer,
+    loading,
+    sessions,
+    interviews,
+    dateRange,
+    setDateRange,
+    activeTab,
+    setActiveTab,
+    getProjectName
+  } = useInterviewerDashboard();
 
   // Calculate additional metrics
   const responseCount = interviews.filter(i => i.result === 'response').length;
@@ -254,49 +100,26 @@ const InterviewerDashboard = () => {
           </div>
           
           <TabsContent value="overview" className="m-0 p-0">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-3">
-                <ActivitySummary 
-                  sessions={sessions}
-                  daysSinceLastActive={daysSinceLastActive}
-                  avgDaysPerWeek={avgDaysPerWeek}
-                  daysWorkedInMonth={daysWorkedInMonth}
-                  sessionsInPlanTime={sessionsInPlanTime}
-                  avgSessionDuration={avgSessionDuration}
-                  earliestStartTime={earliestStartTime}
-                  latestEndTime={latestEndTime}
-                  activeSessions={activeSessions}
-                />
-              </div>
-            </div>
+            <OverviewTab sessions={sessions} activeSessions={activeSessions} />
           </TabsContent>
 
           <TabsContent value="sessions" className="m-0 p-0">
-            <SessionHistory 
+            <SessionsTab 
               sessions={sessions}
               interviews={interviews}
               dateRange={dateRange}
               setDateRange={setDateRange}
-              showProject={true}
-              projectNameResolver={getProjectName}
+              getProjectName={getProjectName}
             />
           </TabsContent>
 
           <TabsContent value="performance" className="m-0 p-0">
-            <PerformanceMetrics
+            <PerformanceTab
               sessions={sessions}
               interviews={interviews}
               interviewer={interviewer}
+              getProjectName={getProjectName}
             />
-
-            {interviewer && (
-              <div className="mt-6">
-                <EvaluationsCard
-                  interviewer={interviewer}
-                  projectNameResolver={getProjectName}
-                />
-              </div>
-            )}
           </TabsContent>
 
           <TabsContent value="contact" className="m-0 p-0">
