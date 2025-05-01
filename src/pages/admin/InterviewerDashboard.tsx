@@ -18,6 +18,7 @@ import EvaluationsCard from "@/components/interviewer/EvaluationsCard";
 import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const InterviewerDashboard = () => {
   const navigate = useNavigate();
@@ -36,6 +37,7 @@ const InterviewerDashboard = () => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Debug the interviewerId parameter
   console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
@@ -200,12 +202,6 @@ const InterviewerDashboard = () => {
   const remainingMinutes = Math.round(totalMinutes % 60);
   const totalTime = `${totalHours}h ${remainingMinutes}m`;
 
-  // For debugging purposes
-  useEffect(() => {
-    console.log("Current interviewerId from params:", interviewerId);
-    console.log("Loaded interviewer data:", interviewer);
-  }, [interviewerId, interviewer]);
-
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -214,24 +210,68 @@ const InterviewerDashboard = () => {
           loading={loading}
         />
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-lg shadow-sm border">
-          <div className="text-sm text-muted-foreground">
-            Filter data by date range:
-          </div>
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <InterviewerQuickStats 
+            interviewer={interviewer}
+            totalTime={totalTime}
+            hasActiveSessions={hasActiveSessions}
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <InterviewerQuickStats 
-              interviewer={interviewer}
-              totalTime={totalTime}
-              hasActiveSessions={hasActiveSessions}
-            />
+        <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-8 border-b w-full justify-start rounded-none h-auto p-0 bg-transparent">
+            <TabsTrigger 
+              value="overview" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger 
+              value="sessions" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Sessions
+            </TabsTrigger>
+            <TabsTrigger 
+              value="performance" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Performance
+            </TabsTrigger>
+            <TabsTrigger 
+              value="contact" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Contact Information
+            </TabsTrigger>
+          </TabsList>
 
+          <div className="mb-4 bg-white p-4 rounded-lg shadow-sm border">
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+            />
+          </div>
+          
+          <TabsContent value="overview" className="m-0 p-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-3">
+                <ActivitySummary 
+                  sessions={sessions}
+                  daysSinceLastActive={daysSinceLastActive}
+                  avgDaysPerWeek={avgDaysPerWeek}
+                  daysWorkedInMonth={daysWorkedInMonth}
+                  sessionsInPlanTime={sessionsInPlanTime}
+                  avgSessionDuration={avgSessionDuration}
+                  earliestStartTime={earliestStartTime}
+                  latestEndTime={latestEndTime}
+                  activeSessions={activeSessions}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="sessions" className="m-0 p-0">
             <SessionHistory 
               sessions={sessions}
               interviews={interviews}
@@ -240,25 +280,9 @@ const InterviewerDashboard = () => {
               showProject={true}
               projectNameResolver={getProjectName}
             />
-          </div>
+          </TabsContent>
 
-          <div className="space-y-6">
-            <ContactInformation 
-              interviewer={interviewer}
-            />
-
-            <ActivitySummary 
-              sessions={sessions}
-              daysSinceLastActive={daysSinceLastActive}
-              avgDaysPerWeek={avgDaysPerWeek}
-              daysWorkedInMonth={daysWorkedInMonth}
-              sessionsInPlanTime={sessionsInPlanTime}
-              avgSessionDuration={avgSessionDuration}
-              earliestStartTime={earliestStartTime}
-              latestEndTime={latestEndTime}
-              activeSessions={activeSessions}
-            />
-            
+          <TabsContent value="performance" className="m-0 p-0">
             <PerformanceMetrics
               sessions={sessions}
               interviews={interviews}
@@ -266,13 +290,21 @@ const InterviewerDashboard = () => {
             />
 
             {interviewer && (
-              <EvaluationsCard
-                interviewer={interviewer}
-                projectNameResolver={getProjectName}
-              />
+              <div className="mt-6">
+                <EvaluationsCard
+                  interviewer={interviewer}
+                  projectNameResolver={getProjectName}
+                />
+              </div>
             )}
-          </div>
-        </div>
+          </TabsContent>
+
+          <TabsContent value="contact" className="m-0 p-0">
+            <ContactInformation 
+              interviewer={interviewer}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
     </AdminLayout>
   );

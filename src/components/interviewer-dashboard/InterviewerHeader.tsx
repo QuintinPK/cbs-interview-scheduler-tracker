@@ -21,10 +21,10 @@ export const InterviewerHeader: React.FC<InterviewerHeaderProps> = ({
       <div>
         <Button
           variant="ghost"
-          className="mb-2 -ml-4"
+          className="mb-2 -ml-4 text-gray-600 hover:text-gray-900"
           onClick={() => navigate("/admin/interviewers")}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="mr-1 h-4 w-4" />
           Back to Interviewers
         </Button>
         <h1 className="text-2xl md:text-3xl font-bold">
@@ -37,6 +37,7 @@ export const InterviewerHeader: React.FC<InterviewerHeaderProps> = ({
           variant="outline"
           onClick={() => interviewer && navigate(`/admin/interactive-scheduling?interviewer=${interviewer.code}`)}
           disabled={loading || !interviewer}
+          className="bg-white border-gray-200 hover:bg-gray-100"
         >
           <Calendar className="mr-2 h-4 w-4" />
           Schedule

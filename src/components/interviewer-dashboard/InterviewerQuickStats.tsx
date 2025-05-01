@@ -16,8 +16,8 @@ export const InterviewerQuickStats: React.FC<InterviewerQuickStatsProps> = ({
   hasActiveSessions,
 }) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card>
+    <>
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Interviewer Code</CardTitle>
         </CardHeader>
@@ -26,19 +26,19 @@ export const InterviewerQuickStats: React.FC<InterviewerQuickStatsProps> = ({
         </CardContent>
       </Card>
       
-      <Card>
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Total Active Time</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center">
-            <Clock className="h-5 w-5 mr-2 text-cbs" />
+            <Clock className="h-5 w-5 mr-2 text-primary" />
             <p className="text-2xl font-bold">{totalTime}</p>
           </div>
         </CardContent>
       </Card>
       
-      <Card>
+      <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Current Status</CardTitle>
         </CardHeader>
@@ -49,6 +49,6 @@ export const InterviewerQuickStats: React.FC<InterviewerQuickStatsProps> = ({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </>
   );
 };
