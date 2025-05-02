@@ -30,7 +30,7 @@ export const useInterviewerDashboard = () => {
   // Debug the interviewerId parameter
   console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
 
-  // Load interviewer data
+  // Load interviewer data - only once when component mounts or interviewerId changes
   useEffect(() => {
     const fetchInterviewer = async () => {
       console.log("Attempting to fetch interviewer with ID:", interviewerId);
@@ -99,12 +99,15 @@ export const useInterviewerDashboard = () => {
     fetchInterviewer();
   }, [interviewerId, interviewers, interviewersLoading, navigate]);
 
-  // Load sessions and interviews data based on date range
+  // Load sessions and interviews data based on date range - separate effect to handle date range changes
   useEffect(() => {
     const fetchData = async () => {
       if (!interviewerId || !dateRange.from || !dateRange.to) return;
       
-      setLoading(true);
+      // Don't set loading to true here, as it would reset the interviewer name in the title
+      // Only set loading for specific data pieces
+      const sessionsLoading = true;
+      
       try {
         // Format dates for filtering
         const fromDate = dateRange.from;
@@ -124,7 +127,6 @@ export const useInterviewerDashboard = () => {
           // Check if we have any sessions before trying to fetch interviews
           if (filteredSessions.length === 0) {
             setInterviews([]);
-            setLoading(false);
             return;
           }
           
@@ -144,8 +146,6 @@ export const useInterviewerDashboard = () => {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
       }
     };
     

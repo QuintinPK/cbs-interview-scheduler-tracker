@@ -25,11 +25,11 @@ const InterviewerDashboard = () => {
     getProjectName
   } = useInterviewerDashboard();
 
-  // Update page title only when interviewer changes, not on every render or date change
+  // Update page title whenever interviewer changes
   useEffect(() => {
     let title = "CBS Interviewer Portal";
     
-    if (!loading && interviewer) {
+    if (interviewer) {
       title = `${interviewer.first_name} ${interviewer.last_name}'s Dashboard`;
     } else if (loading) {
       title = "Loading...";
@@ -128,7 +128,8 @@ const InterviewerDashboard = () => {
               interviews={interviews}
               dateRange={dateRange}
               setDateRange={setDateRange}
-              getProjectName={getProjectName}
+              showProject={true}
+              projectNameResolver={getProjectName}
             />
           </TabsContent>
 
