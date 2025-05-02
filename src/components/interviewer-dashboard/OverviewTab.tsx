@@ -1,7 +1,6 @@
 
 import React from "react";
 import { ActivitySummary } from "@/components/interviewer-dashboard/ActivitySummary";
-import { useInterviewerSessions } from "@/hooks/useInterviewerSessions";
 import { useInterviewerMetrics } from "@/hooks/useInterviewerMetrics";
 import { Session } from "@/types";
 
@@ -11,18 +10,15 @@ interface OverviewTabProps {
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({ sessions, activeSessions }) => {
-  // Calculate metrics
-  const { 
-    sessionsInPlanTime, 
-    avgSessionDuration, 
-    earliestStartTime, 
-    latestEndTime 
-  } = useInterviewerSessions(sessions);
-
+  // Use the refactored hook to get all metrics
   const {
     daysSinceLastActive,
     avgDaysPerWeek,
-    daysWorkedInMonth
+    daysWorkedInMonth,
+    sessionsInPlanTime,
+    avgSessionDuration,
+    earliestStartTime,
+    latestEndTime
   } = useInterviewerMetrics(undefined, sessions);
 
   return (
