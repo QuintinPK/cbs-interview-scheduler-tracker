@@ -9,7 +9,8 @@ interface SessionsTabProps {
   interviews: any[];
   dateRange: DateRange;
   setDateRange: React.Dispatch<React.SetStateAction<DateRange>>;
-  getProjectName: (projectId: string | null | undefined) => string;
+  showProject: boolean;
+  projectNameResolver: (projectId: string | null | undefined) => string;
 }
 
 export const SessionsTab: React.FC<SessionsTabProps> = ({ 
@@ -17,7 +18,8 @@ export const SessionsTab: React.FC<SessionsTabProps> = ({
   interviews, 
   dateRange, 
   setDateRange, 
-  getProjectName 
+  showProject,
+  projectNameResolver 
 }) => {
   return (
     <SessionHistory 
@@ -25,8 +27,8 @@ export const SessionsTab: React.FC<SessionsTabProps> = ({
       interviews={interviews}
       dateRange={dateRange}
       setDateRange={setDateRange}
-      showProject={true}
-      projectNameResolver={getProjectName}
+      showProject={showProject}
+      projectNameResolver={projectNameResolver}
     />
   );
 };
