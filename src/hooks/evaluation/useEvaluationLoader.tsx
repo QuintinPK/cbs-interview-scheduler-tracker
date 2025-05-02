@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEvaluationBase } from "./useEvaluationBase";
 import { Evaluation } from "@/types";
@@ -9,11 +9,25 @@ export const useEvaluationLoader = () => {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const evaluationsCache = useRef<Record<string, Evaluation[]>>({});
+  const lastFetch = useRef<Record<string, number>>({});
+  const CACHE_TTL = 1 * 60 * 1000; // 1 minute cache
   
-  const loadEvaluationsByInterviewer = async (interviewerId: string) => {
+  const loadEvaluationsByInterviewer = useCallback(async (interviewerId: string, forceRefresh = false) => {
+    // Return cached data if available and not expired
+    const now = Date.now();
+    if (
+      !forceRefresh && 
+      evaluationsCache.current[interviewerId] && 
+      lastFetch.current[interviewerId] && 
+      (now - lastFetch.current[interviewerId]) < CACHE_TTL
+    ) {
+      setEvaluations(evaluationsCache.current[interviewerId]);
+      return;
+    }
+    
     try {
       setLoadingEvaluations(true);
-      setLoading(true);
       setError(null);
       console.log("Loading evaluations for interviewer:", interviewerId);
       
@@ -34,6 +48,9 @@ export const useEvaluationLoader = () => {
       if (!evaluationsData || evaluationsData.length === 0) {
         console.log("No evaluations found");
         setEvaluations([]);
+        // Update cache with empty array
+        evaluationsCache.current[interviewerId] = [];
+        lastFetch.current[interviewerId] = now;
         return;
       }
       
@@ -84,9 +101,15 @@ export const useEvaluationLoader = () => {
         );
         
         console.log("Evaluations with tags:", evaluationsWithTags);
+        
+        // Update cache
+        evaluationsCache.current[interviewerId] = evaluationsWithTags;
+        lastFetch.current[interviewerId] = now;
+        
         setEvaluations(evaluationsWithTags);
       } catch (err) {
         console.error("Error processing evaluations:", err);
+        // Fix: Using "evaluation" instead of "eval" to avoid reserved word
         setEvaluations(evaluationsData.map(evaluation => ({ ...evaluation, tags: [] })));
         setError("Error loading evaluation tags");
       }
@@ -101,9 +124,8 @@ export const useEvaluationLoader = () => {
       });
     } finally {
       setLoadingEvaluations(false);
-      setLoading(false);
     }
-  };
+  }, [setError, toast]);
 
   return {
     evaluations,

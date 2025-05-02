@@ -8,25 +8,35 @@ export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
   const ratingsCache = useRef<Record<string, number>>({});
   const allRatingsCache = useRef<Record<string, number> | null>(null);
-  const cacheTimestamp = useRef<number>(0);
+  const cacheTimestamp = useRef<Record<string, number>>({});
+  const allCacheTimestamp = useRef<number>(0);
   const CACHE_DURATION = 60000; // 1 minute cache
 
   // Clear cache when component unmounts or after cache duration
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      if (now - cacheTimestamp.current > CACHE_DURATION) {
+      
+      // Clear individual ratings cache if expired
+      Object.keys(cacheTimestamp.current).forEach(key => {
+        if (now - cacheTimestamp.current[key] > CACHE_DURATION) {
+          delete ratingsCache.current[key];
+          delete cacheTimestamp.current[key];
+        }
+      });
+      
+      // Clear all ratings cache if expired
+      if (now - allCacheTimestamp.current > CACHE_DURATION) {
         allRatingsCache.current = null;
-        ratingsCache.current = {};
       }
     }, CACHE_DURATION);
     
     return () => clearInterval(interval);
   }, []);
 
-  const getAverageRating = useCallback(async (interviewerId: string): Promise<number | null> => {
-    // Use cached value if available
-    if (ratingsCache.current[interviewerId]) {
+  const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false): Promise<number | null> => {
+    // Use cached value if available and not forcing refresh
+    if (!forceRefresh && ratingsCache.current[interviewerId]) {
       return ratingsCache.current[interviewerId];
     }
 
@@ -54,6 +64,7 @@ export const useEvaluationStats = () => {
       
       // Cache the result
       ratingsCache.current[interviewerId] = average;
+      cacheTimestamp.current[interviewerId] = Date.now();
       
       console.log("Average rating:", average);
       return average;
@@ -65,9 +76,9 @@ export const useEvaluationStats = () => {
     }
   }, []);
 
-  const getAllAverageRatings = useCallback(async (): Promise<Record<string, number>> => {
-    // Return cached ratings if available and not expired
-    if (allRatingsCache.current !== null) {
+  const getAllAverageRatings = useCallback(async (forceRefresh = false): Promise<Record<string, number>> => {
+    // Return cached ratings if available and not forcing refresh
+    if (!forceRefresh && allRatingsCache.current !== null) {
       return allRatingsCache.current;
     }
     
@@ -108,8 +119,14 @@ export const useEvaluationStats = () => {
       
       // Update both caches
       allRatingsCache.current = averageRatings;
-      ratingsCache.current = { ...ratingsCache.current, ...averageRatings };
-      cacheTimestamp.current = Date.now();
+      
+      // Update individual caches
+      Object.entries(averageRatings).forEach(([interviewerId, rating]) => {
+        ratingsCache.current[interviewerId] = rating;
+        cacheTimestamp.current[interviewerId] = Date.now();
+      });
+      
+      allCacheTimestamp.current = Date.now();
       
       console.log("All average ratings:", averageRatings);
       return averageRatings;

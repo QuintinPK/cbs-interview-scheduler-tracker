@@ -25,27 +25,40 @@ export function AddEditEvaluationDialog({
   onSuccess
 }: AddEditEvaluationDialogProps) {
   const { toast } = useToast();
-  const { addEvaluation, updateEvaluation, loadEvaluationTags, tags, loading, saving } = useEvaluations();
+  const { addEvaluation, updateEvaluation, loadEvaluationTags, tags, loading: evaluationsLoading, saving } = useEvaluations();
   const { projects } = useProjects();
   const [selectedRating, setSelectedRating] = useState(evaluation?.rating || 3);
   const [selectedTags, setSelectedTags] = useState<EvaluationTag[]>([]);
   const [tagsLoaded, setTagsLoaded] = useState(false);
-  const isEditing = Boolean(evaluation);
+  const [loading, setLoading] = useState(false);
   
   // Load tags when dialog opens
   useEffect(() => {
-    if (open && !tagsLoaded) {
+    if (open) {
       const fetchTags = async () => {
-        await loadEvaluationTags();
-        setTagsLoaded(true);
+        setLoading(true);
+        try {
+          await loadEvaluationTags();
+          setTagsLoaded(true);
+        } catch (error) {
+          console.error("Failed to load evaluation tags:", error);
+        } finally {
+          setLoading(false);
+        }
       };
-      fetchTags();
+      
+      // Only fetch if tags aren't already loaded
+      if (!tagsLoaded && tags.length === 0) {
+        fetchTags();
+      } else {
+        setTagsLoaded(true);
+      }
     }
 
     if (!open) {
       setTagsLoaded(false);
     }
-  }, [open, loadEvaluationTags, tagsLoaded]);
+  }, [open, loadEvaluationTags, tagsLoaded, tags.length]);
   
   // Initialize selected tags if editing
   useEffect(() => {
@@ -69,7 +82,7 @@ export function AddEditEvaluationDialog({
 
   const onSubmit = async (data: any) => {
     try {
-      if (isEditing && evaluation) {
+      if (evaluation) {
         await updateEvaluation(evaluation.id, {
           rating: selectedRating,
           remarks: data.remarks,
@@ -87,8 +100,8 @@ export function AddEditEvaluationDialog({
       }
       
       toast({
-        title: isEditing ? "Evaluation updated" : "Evaluation added",
-        description: isEditing 
+        title: evaluation ? "Evaluation updated" : "Evaluation added",
+        description: evaluation 
           ? "The evaluation has been successfully updated" 
           : "A new evaluation has been added for this interviewer",
       });
@@ -99,7 +112,7 @@ export function AddEditEvaluationDialog({
       console.error("Error saving evaluation:", error);
       toast({
         title: "Error",
-        description: `Failed to ${isEditing ? 'update' : 'add'} evaluation`,
+        description: `Failed to ${evaluation ? 'update' : 'add'} evaluation`,
         variant: "destructive",
       });
     }
@@ -110,11 +123,11 @@ export function AddEditEvaluationDialog({
       <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEditing ? "Edit Evaluation" : "Add New Evaluation"}
+            {evaluation ? "Edit Evaluation" : "Add New Evaluation"}
           </DialogTitle>
         </DialogHeader>
 
-        {(loading && !tagsLoaded) ? (
+        {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
@@ -143,14 +156,14 @@ export function AddEditEvaluationDialog({
           <Button 
             type="submit" 
             form="evaluation-form" 
-            disabled={saving || (loading && !tagsLoaded)}
+            disabled={saving || loading}
           >
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isEditing ? "Updating..." : "Adding..."}
+                {evaluation ? "Updating..." : "Adding..."}
               </>
-            ) : isEditing ? "Update Evaluation" : "Add Evaluation"}
+            ) : evaluation ? "Update Evaluation" : "Add Evaluation"}
           </Button>
         </DialogFooter>
       </DialogContent>
