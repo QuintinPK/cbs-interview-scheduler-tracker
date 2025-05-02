@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useEvaluations } from "@/hooks/useEvaluations";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface EvaluationDialogProps {
   interviewer: Interviewer | null;
@@ -167,19 +168,22 @@ const EvaluationDialog = ({
             {projects.length > 0 && (
               <div>
                 <Label htmlFor="project" className="mb-2 block">Project (Optional)</Label>
-                <select
-                  id="project"
-                  className="w-full p-2 border rounded"
-                  value={selectedProject || ""}
-                  onChange={(e) => setSelectedProject(e.target.value || undefined)}
+                <Select
+                  value={selectedProject || "no-project"}
+                  onValueChange={(value) => setSelectedProject(value === "no-project" ? undefined : value)}
                 >
-                  <option value="">Select a project</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-project">No project</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             
