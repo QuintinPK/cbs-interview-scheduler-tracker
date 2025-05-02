@@ -80,6 +80,14 @@ const EvaluationDialog = ({
     try {
       setSubmitting(true);
       
+      console.log("Submitting evaluation:", {
+        interviewer_id: interviewer.id,
+        project_id: selectedProject,
+        rating,
+        remarks,
+        tag_ids: selectedTags.length > 0 ? selectedTags : undefined
+      });
+      
       await addEvaluation({
         interviewer_id: interviewer.id,
         project_id: selectedProject,
@@ -88,9 +96,21 @@ const EvaluationDialog = ({
         tag_ids: selectedTags.length > 0 ? selectedTags : undefined
       });
       
+      console.log("Evaluation submitted successfully");
+      
+      toast({
+        title: "Evaluation submitted",
+        description: `Successfully evaluated ${interviewer.first_name} ${interviewer.last_name}`,
+      });
+      
       onOpenChange(false);
     } catch (error) {
       console.error("Error submitting evaluation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit evaluation",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }

@@ -35,17 +35,16 @@ export function EvaluationForm({
       rating: evaluation?.rating || 3,
       remarks: evaluation?.remarks || "",
       project_id: evaluation?.project_id || "",
-      tag_ids: [],
     },
   });
 
+  // Update form when evaluation changes
   React.useEffect(() => {
     if (evaluation) {
       form.reset({
         rating: evaluation.rating,
         remarks: evaluation.remarks || "",
         project_id: evaluation.project_id || "",
-        tag_ids: evaluation.tags?.map(tag => tag.id) || [],
       });
     }
   }, [evaluation, form]);
@@ -60,7 +59,7 @@ export function EvaluationForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form id="evaluation-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormItem>
           <FormLabel>Rating</FormLabel>
           <div className="flex items-center">
@@ -125,7 +124,6 @@ export function EvaluationForm({
           onSelectTag={handleTagSelection}
           onRemoveTag={(tag) => setSelectedTags(selectedTags.filter(t => t.id !== tag.id))}
         />
-        
       </form>
     </Form>
   );

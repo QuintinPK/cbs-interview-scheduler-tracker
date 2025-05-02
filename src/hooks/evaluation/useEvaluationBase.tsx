@@ -12,14 +12,20 @@ export const useEvaluationBase = () => {
   const loadEvaluationTags = async () => {
     try {
       setLoading(true);
+      console.log("Loading evaluation tags");
+      
       const { data, error } = await supabase
         .from('evaluation_tags')
         .select('*')
         .order('category', { ascending: true })
         .order('name', { ascending: true });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching tags:", error);
+        throw error;
+      }
       
+      console.log("Loaded tags:", data);
       setTags(data || []);
     } catch (error) {
       console.error("Error loading evaluation tags:", error);

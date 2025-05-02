@@ -7,6 +7,7 @@ import { useEvaluations } from "@/hooks/useEvaluations";
 import { Evaluation, EvaluationTag } from "@/types";
 import { useProjects } from "@/hooks/useProjects";
 import { EvaluationForm } from "./EvaluationForm";
+import { Loader2 } from "lucide-react";
 
 interface AddEditEvaluationDialogProps {
   open: boolean;
@@ -24,20 +25,25 @@ export function AddEditEvaluationDialog({
   onSuccess
 }: AddEditEvaluationDialogProps) {
   const { toast } = useToast();
-  const { addEvaluation, loadEvaluationTags, tags } = useEvaluations();
+  const { addEvaluation, loadEvaluationTags, tags, loading } = useEvaluations();
   const { projects } = useProjects();
   const [selectedRating, setSelectedRating] = useState(evaluation?.rating || 3);
   const [selectedTags, setSelectedTags] = useState<EvaluationTag[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const isEditing = Boolean(evaluation);
   
   // Load tags and initialize selected tags if editing
   useEffect(() => {
-    loadEvaluationTags();
-    
-    if (evaluation && evaluation.tags) {
-      setSelectedTags(evaluation.tags);
+    if (open) {
+      loadEvaluationTags();
+      
+      if (evaluation && evaluation.tags) {
+        setSelectedTags(evaluation.tags);
+      } else {
+        setSelectedTags([]);
+      }
     }
-  }, [evaluation, loadEvaluationTags]);
+  }, [evaluation, loadEvaluationTags, open]);
 
   // Update form when evaluation changes
   useEffect(() => {
@@ -52,6 +58,8 @@ export function AddEditEvaluationDialog({
 
   const onSubmit = async (data: any) => {
     try {
+      setSubmitting(true);
+      
       await addEvaluation({
         interviewer_id: interviewerId,
         rating: selectedRating,
@@ -76,6 +84,8 @@ export function AddEditEvaluationDialog({
         description: `Failed to ${isEditing ? 'update' : 'add'} evaluation`,
         variant: "destructive",
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -88,28 +98,43 @@ export function AddEditEvaluationDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <EvaluationForm
-          projects={projects}
-          tags={tags}
-          evaluation={evaluation}
-          selectedRating={selectedRating}
-          setSelectedRating={setSelectedRating}
-          selectedTags={selectedTags}
-          setSelectedTags={setSelectedTags}
-          onSubmit={onSubmit}
-        />
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <EvaluationForm
+            projects={projects}
+            tags={tags}
+            evaluation={evaluation}
+            selectedRating={selectedRating}
+            setSelectedRating={setSelectedRating}
+            selectedTags={selectedTags}
+            setSelectedTags={setSelectedTags}
+            onSubmit={onSubmit}
+          />
+        )}
         
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             Cancel
           </Button>
-          <Button type="submit" form="evaluation-form" onClick={() => {
-            const formElement = document.getElementById("evaluation-form");
-            if (formElement) {
-              formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-            }
-          }}>
-            {isEditing ? "Update" : "Add"} Evaluation
+          <Button 
+            type="submit" 
+            form="evaluation-form" 
+            disabled={submitting}
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isEditing ? "Updating..." : "Adding..."}
+              </>
+            ) : isEditing ? "Update Evaluation" : "Add Evaluation"}
           </Button>
         </DialogFooter>
       </DialogContent>

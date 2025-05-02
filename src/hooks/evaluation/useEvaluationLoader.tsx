@@ -11,6 +11,7 @@ export const useEvaluationLoader = () => {
   const loadEvaluationsByInterviewer = async (interviewerId: string) => {
     try {
       setLoading(true);
+      console.log("Loading evaluations for interviewer:", interviewerId);
       
       // Get evaluations
       const { data: evaluationsData, error: evaluationsError } = await supabase
@@ -19,27 +20,45 @@ export const useEvaluationLoader = () => {
         .eq('interviewer_id', interviewerId)
         .order('created_at', { ascending: false });
         
-      if (evaluationsError) throw evaluationsError;
+      if (evaluationsError) {
+        console.error("Error fetching evaluations:", evaluationsError);
+        throw evaluationsError;
+      }
+      
+      console.log("Found evaluations:", evaluationsData);
       
       // Get tags for each evaluation
       const evaluationsWithTags = await Promise.all(
         (evaluationsData || []).map(async (evaluation) => {
+          console.log("Getting tags for evaluation:", evaluation.id);
+          
           const { data: tagsData, error: tagsError } = await supabase
             .from('evaluation_tags_junction')
             .select('tag_id')
             .eq('evaluation_id', evaluation.id);
             
-          if (tagsError) throw tagsError;
+          if (tagsError) {
+            console.error("Error fetching tag junctions:", tagsError);
+            throw tagsError;
+          }
+          
+          console.log("Found tag junctions:", tagsData);
           
           if (tagsData && tagsData.length > 0) {
             const tagIds = tagsData.map(t => t.tag_id);
+            console.log("Tag IDs:", tagIds);
             
             const { data: tagDetails, error: tagDetailsError } = await supabase
               .from('evaluation_tags')
               .select('*')
               .in('id', tagIds);
               
-            if (tagDetailsError) throw tagDetailsError;
+            if (tagDetailsError) {
+              console.error("Error fetching tag details:", tagDetailsError);
+              throw tagDetailsError;
+            }
+            
+            console.log("Found tag details:", tagDetails);
             
             return {
               ...evaluation,
@@ -54,6 +73,7 @@ export const useEvaluationLoader = () => {
         })
       );
       
+      console.log("Evaluations with tags:", evaluationsWithTags);
       setEvaluations(evaluationsWithTags);
     } catch (error) {
       console.error("Error loading evaluations:", error);

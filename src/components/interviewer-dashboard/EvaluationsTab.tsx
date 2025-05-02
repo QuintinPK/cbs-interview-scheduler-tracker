@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { Interviewer, Evaluation } from "@/types";
 import { useEvaluations } from "@/hooks/useEvaluations";
@@ -26,6 +27,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   useEffect(() => {
     if (interviewer?.id) {
+      console.log("Loading evaluations for interviewer:", interviewer.id);
       loadEvaluationsByInterviewer(interviewer.id);
       
       // Load average rating
@@ -65,6 +67,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   const handleEvaluationSuccess = () => {
     if (interviewer?.id) {
+      console.log("Reloading evaluations after success");
       loadEvaluationsByInterviewer(interviewer.id);
       
       // Refresh average rating
@@ -252,4 +255,4 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
       )}
     </div>
   );
-};
+}
