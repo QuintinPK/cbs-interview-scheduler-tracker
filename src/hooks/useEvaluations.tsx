@@ -5,18 +5,21 @@ import { useEvaluationLoader } from "./evaluation/useEvaluationLoader";
 import { useEvaluationStats } from "./evaluation/useEvaluationStats";
 
 export const useEvaluations = () => {
-  const { loading, tags, loadEvaluationTags } = useEvaluationBase();
-  const { addEvaluation } = useEvaluationActions();
-  const { evaluations, loadEvaluationsByInterviewer } = useEvaluationLoader();
-  const { getAverageRating, getAllAverageRatings } = useEvaluationStats();
+  const { loading, error: baseError, tags, loadEvaluationTags } = useEvaluationBase();
+  const { addEvaluation, updateEvaluation, saving, error: actionError } = useEvaluationActions();
+  const { evaluations, loadingEvaluations, error: loaderError, loadEvaluationsByInterviewer } = useEvaluationLoader();
+  const { getAverageRating, getAllAverageRatings, loading: statsLoading } = useEvaluationStats();
 
   return {
     evaluations,
     tags,
-    loading,
+    loading: loading || loadingEvaluations || saving || statsLoading,
+    saving,
+    error: baseError || actionError || loaderError,
     loadEvaluationTags,
     loadEvaluationsByInterviewer,
     addEvaluation,
+    updateEvaluation,
     getAverageRating,
     getAllAverageRatings
   };

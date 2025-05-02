@@ -25,25 +25,36 @@ export function AddEditEvaluationDialog({
   onSuccess
 }: AddEditEvaluationDialogProps) {
   const { toast } = useToast();
-  const { addEvaluation, loadEvaluationTags, tags, loading } = useEvaluations();
+  const { addEvaluation, updateEvaluation, loadEvaluationTags, tags, loading, saving } = useEvaluations();
   const { projects } = useProjects();
   const [selectedRating, setSelectedRating] = useState(evaluation?.rating || 3);
   const [selectedTags, setSelectedTags] = useState<EvaluationTag[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [tagsLoaded, setTagsLoaded] = useState(false);
   const isEditing = Boolean(evaluation);
   
-  // Load tags and initialize selected tags if editing
+  // Load tags when dialog opens
   useEffect(() => {
-    if (open) {
-      loadEvaluationTags();
-      
-      if (evaluation && evaluation.tags) {
-        setSelectedTags(evaluation.tags);
-      } else {
-        setSelectedTags([]);
-      }
+    if (open && !tagsLoaded) {
+      const fetchTags = async () => {
+        await loadEvaluationTags();
+        setTagsLoaded(true);
+      };
+      fetchTags();
     }
-  }, [evaluation, loadEvaluationTags, open]);
+
+    if (!open) {
+      setTagsLoaded(false);
+    }
+  }, [open, loadEvaluationTags, tagsLoaded]);
+  
+  // Initialize selected tags if editing
+  useEffect(() => {
+    if (evaluation && evaluation.tags) {
+      setSelectedTags(evaluation.tags);
+    } else {
+      setSelectedTags([]);
+    }
+  }, [evaluation]);
 
   // Update form when evaluation changes
   useEffect(() => {
@@ -58,15 +69,22 @@ export function AddEditEvaluationDialog({
 
   const onSubmit = async (data: any) => {
     try {
-      setSubmitting(true);
-      
-      await addEvaluation({
-        interviewer_id: interviewerId,
-        rating: selectedRating,
-        remarks: data.remarks,
-        project_id: data.project_id || undefined,
-        tag_ids: selectedTags.map(tag => tag.id),
-      });
+      if (isEditing && evaluation) {
+        await updateEvaluation(evaluation.id, {
+          rating: selectedRating,
+          remarks: data.remarks,
+          project_id: data.project_id || undefined,
+          tag_ids: selectedTags.map(tag => tag.id),
+        });
+      } else {
+        await addEvaluation({
+          interviewer_id: interviewerId,
+          rating: selectedRating,
+          remarks: data.remarks,
+          project_id: data.project_id || undefined,
+          tag_ids: selectedTags.map(tag => tag.id),
+        });
+      }
       
       toast({
         title: isEditing ? "Evaluation updated" : "Evaluation added",
@@ -84,8 +102,6 @@ export function AddEditEvaluationDialog({
         description: `Failed to ${isEditing ? 'update' : 'add'} evaluation`,
         variant: "destructive",
       });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -98,7 +114,7 @@ export function AddEditEvaluationDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {loading ? (
+        {(loading && !tagsLoaded) ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
@@ -120,16 +136,16 @@ export function AddEditEvaluationDialog({
             type="button" 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            disabled={submitting}
+            disabled={saving}
           >
             Cancel
           </Button>
           <Button 
             type="submit" 
             form="evaluation-form" 
-            disabled={submitting}
+            disabled={saving || (loading && !tagsLoaded)}
           >
-            {submitting ? (
+            {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {isEditing ? "Updating..." : "Adding..."}

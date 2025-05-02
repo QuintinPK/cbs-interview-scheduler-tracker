@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Table, 
   TableBody, 
@@ -51,6 +52,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const [averageRatings, setAverageRatings] = useState<Record<string, number>>({});
   const [ratingsLoading, setRatingsLoading] = useState(true);
 
+  // Load ratings once when component mounts
   useEffect(() => {
     const loadRatings = async () => {
       setRatingsLoading(true);
@@ -66,6 +68,9 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
 
     loadRatings();
   }, [getAllAverageRatings]);
+
+  // Memoize ratings to prevent unnecessary re-renders
+  const memoizedRatings = useMemo(() => averageRatings, [averageRatings]);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
@@ -194,10 +199,10 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
                           <span className="text-xs text-muted-foreground">Loading</span>
                         </div>
-                      ) : averageRatings[interviewer.id] ? (
+                      ) : memoizedRatings[interviewer.id] ? (
                         <div className="flex items-center gap-1">
-                          <StarRating rating={averageRatings[interviewer.id]} readOnly size={16} />
-                          <span className="text-sm ml-1">{averageRatings[interviewer.id]}</span>
+                          <StarRating rating={memoizedRatings[interviewer.id]} readOnly size={16} />
+                          <span className="text-sm ml-1">{memoizedRatings[interviewer.id]}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">Not rated</span>

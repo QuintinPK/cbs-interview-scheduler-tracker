@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Interviewer, Evaluation } from "@/types";
 import { useEvaluations } from "@/hooks/useEvaluations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,29 +19,47 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   interviewer,
   getProjectName = (projectId) => projectId ? `Project: ${projectId}` : "No project" 
 }) => {
-  const { evaluations, loading, loadEvaluationsByInterviewer, getAverageRating } = useEvaluations();
+  const { 
+    evaluations, 
+    loading, 
+    loadEvaluationsByInterviewer, 
+    getAverageRating, 
+    loadEvaluationTags 
+  } = useEvaluations();
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | undefined>(undefined);
+  const [loadingRating, setLoadingRating] = useState(false);
 
+  // Load evaluations and average rating when interviewer ID changes
   useEffect(() => {
-    if (interviewer?.id) {
-      console.log("Loading evaluations for interviewer:", interviewer.id);
-      loadEvaluationsByInterviewer(interviewer.id);
-      
-      // Load average rating
-      const fetchAverageRating = async () => {
+    if (!interviewer?.id) return;
+
+    // Load evaluation tags in advance
+    loadEvaluationTags();
+    
+    // Load evaluations
+    loadEvaluationsByInterviewer(interviewer.id);
+    
+    // Load average rating
+    const fetchAverageRating = async () => {
+      setLoadingRating(true);
+      try {
         const rating = await getAverageRating(interviewer.id);
         setAverageRating(rating);
-      };
-      
-      fetchAverageRating();
-    }
-  }, [interviewer?.id, loadEvaluationsByInterviewer, getAverageRating]);
+      } catch (error) {
+        console.error("Error getting average rating:", error);
+      } finally {
+        setLoadingRating(false);
+      }
+    };
+    
+    fetchAverageRating();
+  }, [interviewer?.id, loadEvaluationsByInterviewer, getAverageRating, loadEvaluationTags]);
 
   // Group evaluations by category for display
-  const groupEvaluationTags = (evaluation: Evaluation) => {
+  const groupEvaluationTags = useCallback((evaluation: Evaluation) => {
     if (!evaluation.tags) return {};
     
     const grouped: Record<string, any[]> = {};
@@ -53,7 +71,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
     });
     
     return grouped;
-  };
+  }, []);
 
   const handleAddEvaluation = () => {
     setSelectedEvaluation(undefined);
@@ -66,18 +84,25 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   };
 
   const handleEvaluationSuccess = () => {
-    if (interviewer?.id) {
-      console.log("Reloading evaluations after success");
-      loadEvaluationsByInterviewer(interviewer.id);
-      
-      // Refresh average rating
-      const fetchAverageRating = async () => {
+    if (!interviewer?.id) return;
+    
+    // Reload evaluations after adding/editing
+    loadEvaluationsByInterviewer(interviewer.id);
+    
+    // Refresh average rating
+    const fetchAverageRating = async () => {
+      setLoadingRating(true);
+      try {
         const rating = await getAverageRating(interviewer.id);
         setAverageRating(rating);
-      };
-      
-      fetchAverageRating();
-    }
+      } catch (error) {
+        console.error("Error getting average rating:", error);
+      } finally {
+        setLoadingRating(false);
+      }
+    };
+    
+    fetchAverageRating();
   };
 
   if (!interviewer) {
@@ -101,7 +126,12 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
           </CardTitle>
           
           <div className="flex items-center gap-4">
-            {averageRating !== null && (
+            {loadingRating ? (
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Average Rating:</span>
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : averageRating !== null ? (
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">Average Rating:</span>
                 <div className="flex items-center">
@@ -109,6 +139,8 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
                   <span className="ml-2 font-semibold">{averageRating}</span>
                 </div>
               </div>
+            ) : (
+              <span className="text-muted-foreground">No ratings</span>
             )}
             
             <Button 
@@ -255,4 +287,4 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
       )}
     </div>
   );
-}
+};

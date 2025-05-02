@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const useEvaluationActions = () => {
   const { setLoading, toast } = useEvaluationBase();
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const addEvaluation = async (evaluation: {
     interviewer_id: string;
@@ -18,6 +19,7 @@ export const useEvaluationActions = () => {
     try {
       setSaving(true);
       setLoading(true);
+      setError(null);
       
       console.log("Adding evaluation:", evaluation);
       
@@ -35,11 +37,13 @@ export const useEvaluationActions = () => {
         
       if (error) {
         console.error("Error inserting evaluation:", error);
+        setError("Failed to create evaluation");
         throw error;
       }
       
       if (!data || data.length === 0) {
         console.error("Failed to create evaluation, no data returned");
+        setError("Failed to create evaluation");
         throw new Error("Failed to create evaluation");
       }
       
@@ -61,7 +65,14 @@ export const useEvaluationActions = () => {
           
         if (tagsError) {
           console.error("Error inserting tag junctions:", tagsError);
-          throw tagsError;
+          // We don't throw here to allow evaluation to be saved even if tags fail
+          setError("Evaluation saved but failed to link tags");
+          toast({
+            title: "Warning",
+            description: "Evaluation saved but tags could not be added",
+            variant: "default",
+          });
+          return newEvaluation;
         }
       }
       
@@ -71,14 +82,14 @@ export const useEvaluationActions = () => {
       });
       
       return newEvaluation;
-    } catch (error) {
-      console.error("Error adding evaluation:", error);
+    } catch (err) {
+      console.error("Error adding evaluation:", err);
       toast({
         title: "Error",
         description: "Could not add evaluation",
         variant: "destructive",
       });
-      throw error;
+      throw err;
     } finally {
       setSaving(false);
       setLoading(false);
@@ -95,6 +106,7 @@ export const useEvaluationActions = () => {
     try {
       setSaving(true);
       setLoading(true);
+      setError(null);
       
       // Update the evaluation
       const { data, error } = await supabase
@@ -108,30 +120,48 @@ export const useEvaluationActions = () => {
         .eq('id', id)
         .select();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating evaluation:", error);
+        setError("Failed to update evaluation");
+        throw error;
+      }
       
       // If tag_ids are provided, update the tags
       if (evaluation.tag_ids !== undefined) {
-        // First delete existing tags
-        const { error: deleteError } = await supabase
-          .from('evaluation_tags_junction')
-          .delete()
-          .eq('evaluation_id', id);
-          
-        if (deleteError) throw deleteError;
-        
-        // Then add new tags if any
-        if (evaluation.tag_ids.length > 0) {
-          const tagJunctions = evaluation.tag_ids.map(tag_id => ({
-            evaluation_id: id,
-            tag_id
-          }));
-          
-          const { error: insertError } = await supabase
+        try {
+          // First delete existing tags
+          const { error: deleteError } = await supabase
             .from('evaluation_tags_junction')
-            .insert(tagJunctions);
+            .delete()
+            .eq('evaluation_id', id);
             
-          if (insertError) throw insertError;
+          if (deleteError) {
+            console.error("Error deleting tags:", deleteError);
+            setError("Evaluation updated but failed to update tags");
+            return data && data.length > 0 ? data[0] : null;
+          }
+          
+          // Then add new tags if any
+          if (evaluation.tag_ids.length > 0) {
+            const tagJunctions = evaluation.tag_ids.map(tag_id => ({
+              evaluation_id: id,
+              tag_id
+            }));
+            
+            const { error: insertError } = await supabase
+              .from('evaluation_tags_junction')
+              .insert(tagJunctions);
+              
+            if (insertError) {
+              console.error("Error inserting new tags:", insertError);
+              setError("Evaluation updated but failed to add new tags");
+              return data && data.length > 0 ? data[0] : null;
+            }
+          }
+        } catch (err) {
+          console.error("Error updating tags:", err);
+          setError("Evaluation updated but failed to update tags");
+          return data && data.length > 0 ? data[0] : null;
         }
       }
       
@@ -141,14 +171,14 @@ export const useEvaluationActions = () => {
       });
       
       return data && data.length > 0 ? data[0] : null;
-    } catch (error) {
-      console.error("Error updating evaluation:", error);
+    } catch (err) {
+      console.error("Error updating evaluation:", err);
       toast({
         title: "Error",
         description: "Could not update evaluation",
         variant: "destructive",
       });
-      throw error;
+      throw err;
     } finally {
       setSaving(false);
       setLoading(false);
@@ -158,6 +188,7 @@ export const useEvaluationActions = () => {
   return {
     addEvaluation,
     updateEvaluation,
-    saving
+    saving,
+    error
   };
 };

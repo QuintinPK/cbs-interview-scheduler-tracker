@@ -1,9 +1,15 @@
 
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export const useEvaluationStats = () => {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
   const getAverageRating = async (interviewerId: string): Promise<number | null> => {
     try {
+      setLoading(true);
       console.log("Getting average rating for interviewer:", interviewerId);
       
       const { data, error } = await supabase
@@ -13,7 +19,7 @@ export const useEvaluationStats = () => {
         
       if (error) {
         console.error("Error fetching ratings:", error);
-        throw error;
+        return null;
       }
       
       if (!data || data.length === 0) {
@@ -29,11 +35,14 @@ export const useEvaluationStats = () => {
     } catch (error) {
       console.error("Error getting average rating:", error);
       return null;
+    } finally {
+      setLoading(false);
     }
   };
 
   const getAllAverageRatings = async (): Promise<Record<string, number>> => {
     try {
+      setLoading(true);
       console.log("Getting all average ratings");
       
       const { data, error } = await supabase
@@ -42,7 +51,7 @@ export const useEvaluationStats = () => {
         
       if (error) {
         console.error("Error fetching ratings:", error);
-        throw error;
+        return {};
       }
       
       if (!data || data.length === 0) {
@@ -72,11 +81,14 @@ export const useEvaluationStats = () => {
     } catch (error) {
       console.error("Error getting all average ratings:", error);
       return {};
+    } finally {
+      setLoading(false);
     }
   };
 
   return {
     getAverageRating,
-    getAllAverageRatings
+    getAllAverageRatings,
+    loading
   };
 };

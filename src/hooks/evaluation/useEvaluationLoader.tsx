@@ -7,10 +7,14 @@ import { Evaluation } from "@/types";
 export const useEvaluationLoader = () => {
   const { setLoading, toast } = useEvaluationBase();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const loadEvaluationsByInterviewer = async (interviewerId: string) => {
     try {
+      setLoadingEvaluations(true);
       setLoading(true);
+      setError(null);
       console.log("Loading evaluations for interviewer:", interviewerId);
       
       // Get evaluations
@@ -22,29 +26,41 @@ export const useEvaluationLoader = () => {
         
       if (evaluationsError) {
         console.error("Error fetching evaluations:", evaluationsError);
-        throw evaluationsError;
+        setEvaluations([]);
+        setError("Failed to load evaluations");
+        return;
+      }
+      
+      if (!evaluationsData || evaluationsData.length === 0) {
+        console.log("No evaluations found");
+        setEvaluations([]);
+        return;
       }
       
       console.log("Found evaluations:", evaluationsData);
       
       // Get tags for each evaluation
-      const evaluationsWithTags = await Promise.all(
-        (evaluationsData || []).map(async (evaluation) => {
-          console.log("Getting tags for evaluation:", evaluation.id);
-          
-          const { data: tagsData, error: tagsError } = await supabase
-            .from('evaluation_tags_junction')
-            .select('tag_id')
-            .eq('evaluation_id', evaluation.id);
+      try {
+        const evaluationsWithTags = await Promise.all(
+          evaluationsData.map(async (evaluation) => {
+            console.log("Getting tags for evaluation:", evaluation.id);
             
-          if (tagsError) {
-            console.error("Error fetching tag junctions:", tagsError);
-            throw tagsError;
-          }
-          
-          console.log("Found tag junctions:", tagsData);
-          
-          if (tagsData && tagsData.length > 0) {
+            const { data: tagsData, error: tagsError } = await supabase
+              .from('evaluation_tags_junction')
+              .select('tag_id')
+              .eq('evaluation_id', evaluation.id);
+              
+            if (tagsError) {
+              console.error("Error fetching tag junctions:", tagsError);
+              return { ...evaluation, tags: [] };
+            }
+            
+            if (!tagsData || tagsData.length === 0) {
+              return { ...evaluation, tags: [] };
+            }
+            
+            console.log("Found tag junctions:", tagsData);
+            
             const tagIds = tagsData.map(t => t.tag_id);
             console.log("Tag IDs:", tagIds);
             
@@ -55,7 +71,7 @@ export const useEvaluationLoader = () => {
               
             if (tagDetailsError) {
               console.error("Error fetching tag details:", tagDetailsError);
-              throw tagDetailsError;
+              return { ...evaluation, tags: [] };
             }
             
             console.log("Found tag details:", tagDetails);
@@ -64,31 +80,35 @@ export const useEvaluationLoader = () => {
               ...evaluation,
               tags: tagDetails || []
             };
-          }
-          
-          return {
-            ...evaluation,
-            tags: []
-          };
-        })
-      );
-      
-      console.log("Evaluations with tags:", evaluationsWithTags);
-      setEvaluations(evaluationsWithTags);
-    } catch (error) {
-      console.error("Error loading evaluations:", error);
+          })
+        );
+        
+        console.log("Evaluations with tags:", evaluationsWithTags);
+        setEvaluations(evaluationsWithTags);
+      } catch (err) {
+        console.error("Error processing evaluations:", err);
+        setEvaluations(evaluationsData.map(eval => ({ ...eval, tags: [] })));
+        setError("Error loading evaluation tags");
+      }
+    } catch (err) {
+      console.error("Error loading evaluations:", err);
+      setEvaluations([]);
+      setError("Could not load evaluations");
       toast({
         title: "Error",
         description: "Could not load evaluations",
         variant: "destructive",
       });
     } finally {
+      setLoadingEvaluations(false);
       setLoading(false);
     }
   };
 
   return {
     evaluations,
+    loadingEvaluations,
+    error,
     loadEvaluationsByInterviewer
   };
 };
