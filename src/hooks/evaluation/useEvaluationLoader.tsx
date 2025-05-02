@@ -87,7 +87,7 @@ export const useEvaluationLoader = () => {
         setEvaluations(evaluationsWithTags);
       } catch (err) {
         console.error("Error processing evaluations:", err);
-        setEvaluations(evaluationsData.map(eval => ({ ...eval, tags: [] })));
+        setEvaluations(evaluationsData.map(evaluation => ({ ...evaluation, tags: [] })));
         setError("Error loading evaluation tags");
       }
     } catch (err) {
