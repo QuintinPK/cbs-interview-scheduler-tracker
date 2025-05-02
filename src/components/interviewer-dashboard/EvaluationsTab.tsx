@@ -1,6 +1,5 @@
-
 import React, { useEffect, useState } from "react";
-import { Interviewer, Evaluation, EvaluationTag } from "@/types";
+import { Interviewer, Evaluation } from "@/types";
 import { useEvaluations } from "@/hooks/useEvaluations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +7,7 @@ import { StarRating } from "@/components/ui/star-rating";
 import { Loader2, FileBadge, Star, Plus, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { AddEditEvaluationDialog } from "./AddEditEvaluationDialog";
+import { AddEditEvaluationDialog } from "./evaluation/AddEditEvaluationDialog";
 
 interface EvaluationsTabProps {
   interviewer: Interviewer | null;
@@ -43,7 +42,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   const groupEvaluationTags = (evaluation: Evaluation) => {
     if (!evaluation.tags) return {};
     
-    const grouped: Record<string, EvaluationTag[]> = {};
+    const grouped: Record<string, any[]> = {};
     evaluation.tags.forEach(tag => {
       if (!grouped[tag.category]) {
         grouped[tag.category] = [];
@@ -88,6 +87,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Evaluations Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl font-semibold">
@@ -189,6 +189,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
         </CardContent>
       </Card>
       
+      {/* Evaluation History Card */}
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-semibold">Evaluation History</CardTitle>
@@ -202,7 +203,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
             <div className="relative">
               <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
               
-              {evaluations.map((evaluation, index) => (
+              {evaluations.map((evaluation) => (
                 <div key={evaluation.id} className="relative pl-10 pb-8">
                   <div className="absolute left-[15px] -translate-x-1/2 bg-background border-4 border-white rounded-full">
                     <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
@@ -232,6 +233,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
         </CardContent>
       </Card>
       
+      {/* Dialogs */}
       <AddEditEvaluationDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
