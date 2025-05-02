@@ -25,13 +25,17 @@ const InterviewerDashboard = () => {
     getProjectName
   } = useInterviewerDashboard();
 
-  // Update page title only when interviewer changes, not on every render
+  // Update page title only when interviewer changes, not on every render or date change
   useEffect(() => {
+    let title = "CBS Interviewer Portal";
+    
     if (!loading && interviewer) {
-      document.title = `${interviewer.first_name} ${interviewer.last_name}'s Dashboard`;
+      title = `${interviewer.first_name} ${interviewer.last_name}'s Dashboard`;
     } else if (loading) {
-      document.title = "Loading...";
+      title = "Loading...";
     }
+    
+    document.title = title;
     
     // Cleanup function to reset title when component unmounts
     return () => {

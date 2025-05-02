@@ -5,8 +5,10 @@ import { useEvaluations } from "@/hooks/useEvaluations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StarRating } from "@/components/ui/star-rating";
-import { Loader2, FileBadge, Star } from "lucide-react";
+import { Loader2, FileBadge, Star, Plus, Edit } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { AddEditEvaluationDialog } from "./AddEditEvaluationDialog";
 
 interface EvaluationsTabProps {
   interviewer: Interviewer | null;
@@ -19,6 +21,9 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 }) => {
   const { evaluations, loading, loadEvaluationsByInterviewer, getAverageRating } = useEvaluations();
   const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | undefined>(undefined);
 
   useEffect(() => {
     if (interviewer?.id) {
@@ -49,6 +54,30 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
     return grouped;
   };
 
+  const handleAddEvaluation = () => {
+    setSelectedEvaluation(undefined);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleEditEvaluation = (evaluation: Evaluation) => {
+    setSelectedEvaluation(evaluation);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEvaluationSuccess = () => {
+    if (interviewer?.id) {
+      loadEvaluationsByInterviewer(interviewer.id);
+      
+      // Refresh average rating
+      const fetchAverageRating = async () => {
+        const rating = await getAverageRating(interviewer.id);
+        setAverageRating(rating);
+      };
+      
+      fetchAverageRating();
+    }
+  };
+
   if (!interviewer) {
     return (
       <div className="bg-white border rounded-lg p-8 text-center text-muted-foreground">
@@ -68,15 +97,25 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
             </div>
           </CardTitle>
           
-          {averageRating !== null && (
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Average Rating:</span>
-              <div className="flex items-center">
-                <StarRating rating={averageRating} readOnly size={18} />
-                <span className="ml-2 font-semibold">{averageRating}</span>
+          <div className="flex items-center gap-4">
+            {averageRating !== null && (
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">Average Rating:</span>
+                <div className="flex items-center">
+                  <StarRating rating={averageRating} readOnly size={18} />
+                  <span className="ml-2 font-semibold">{averageRating}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            
+            <Button 
+              size="sm" 
+              onClick={handleAddEvaluation}
+              className="ml-2"
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Evaluation
+            </Button>
+          </div>
         </CardHeader>
         
         <CardContent>
@@ -104,11 +143,21 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
                       </span>
                     </div>
                     
-                    {evaluation.project_id && (
-                      <Badge variant="outline">
-                        {getProjectName(evaluation.project_id)}
-                      </Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {evaluation.project_id && (
+                        <Badge variant="outline">
+                          {getProjectName(evaluation.project_id)}
+                        </Badge>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8" 
+                        onClick={() => handleEditEvaluation(evaluation)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
                   {evaluation.remarks && (
@@ -182,7 +231,23 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
           )}
         </CardContent>
       </Card>
+      
+      <AddEditEvaluationDialog
+        open={isAddDialogOpen}
+        onOpenChange={setIsAddDialogOpen}
+        interviewerId={interviewer.id}
+        onSuccess={handleEvaluationSuccess}
+      />
+      
+      {selectedEvaluation && (
+        <AddEditEvaluationDialog
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+          interviewerId={interviewer.id}
+          evaluation={selectedEvaluation}
+          onSuccess={handleEvaluationSuccess}
+        />
+      )}
     </div>
   );
 };
-
