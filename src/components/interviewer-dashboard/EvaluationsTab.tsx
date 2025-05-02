@@ -7,13 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { StarRating } from "@/components/ui/star-rating";
 import { Loader2, FileBadge, Star } from "lucide-react";
 import { format } from "date-fns";
-import { Button } from "@/components/ui/button";
 
 interface EvaluationsTabProps {
   interviewer: Interviewer | null;
+  getProjectName?: (projectId: string | null | undefined) => string;
 }
 
-export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({ interviewer }) => {
+export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({ 
+  interviewer,
+  getProjectName = (projectId) => projectId ? `Project: ${projectId}` : "No project" 
+}) => {
   const { evaluations, loading, loadEvaluationsByInterviewer, getAverageRating } = useEvaluations();
   const [averageRating, setAverageRating] = useState<number | null>(null);
 
@@ -103,7 +106,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({ interviewer }) =
                     
                     {evaluation.project_id && (
                       <Badge variant="outline">
-                        Project: {evaluation.project_name || evaluation.project_id}
+                        {getProjectName(evaluation.project_id)}
                       </Badge>
                     )}
                   </div>
@@ -182,3 +185,4 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({ interviewer }) =
     </div>
   );
 };
+

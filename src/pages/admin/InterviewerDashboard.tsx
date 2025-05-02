@@ -140,6 +140,7 @@ const InterviewerDashboard = () => {
           <TabsContent value="evaluations" className="m-0 p-0">
             <EvaluationsTab 
               interviewer={interviewer}
+              getProjectName={getProjectName}
             />
           </TabsContent>
 
