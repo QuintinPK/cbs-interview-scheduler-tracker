@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Table, 
   TableBody, 
@@ -52,24 +51,26 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const [averageRatings, setAverageRatings] = useState<Record<string, number>>({});
   const [ratingsLoading, setRatingsLoading] = useState(true);
 
-  // Load ratings once when component mounts
-  useEffect(() => {
-    const loadRatings = async () => {
-      setRatingsLoading(true);
-      try {
-        const ratings = await getAllAverageRatings();
-        setAverageRatings(ratings);
-      } catch (error) {
-        console.error("Error loading ratings:", error);
-      } finally {
-        setRatingsLoading(false);
-      }
-    };
-
-    loadRatings();
+  // Load ratings once when component mounts and not on every re-render
+  const loadRatings = useCallback(async () => {
+    setRatingsLoading(true);
+    try {
+      const ratings = await getAllAverageRatings();
+      setAverageRatings(ratings);
+    } catch (error) {
+      console.error("Error loading ratings:", error);
+    } finally {
+      setRatingsLoading(false);
+    }
   }, [getAllAverageRatings]);
 
-  // Memoize ratings to prevent unnecessary re-renders
+  useEffect(() => {
+    loadRatings();
+    // Don't include averageRatings in the dependency array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadRatings]);
+
+  // Stable memoized ratings to prevent re-renders
   const memoizedRatings = useMemo(() => averageRatings, [averageRatings]);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
@@ -145,6 +146,31 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     setShowEvaluationDialog(true);
   };
 
+  // Create a stable rating component to prevent unnecessary re-renders
+  const RatingDisplay = useCallback(({ interviewerId }: { interviewerId: string }) => {
+    const rating = memoizedRatings[interviewerId];
+    
+    if (ratingsLoading) {
+      return (
+        <div className="flex items-center">
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          <span className="text-xs text-muted-foreground">Loading</span>
+        </div>
+      );
+    }
+    
+    if (rating) {
+      return (
+        <div className="flex items-center gap-1">
+          <StarRating rating={rating} readOnly size={16} />
+          <span className="text-sm ml-1">{rating}</span>
+        </div>
+      );
+    }
+    
+    return <span className="text-muted-foreground text-sm">Not rated</span>;
+  }, [memoizedRatings, ratingsLoading]);
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -194,19 +220,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                       )}
                     </TableCell>
                     <TableCell>
-                      {ratingsLoading ? (
-                        <div className="flex items-center">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          <span className="text-xs text-muted-foreground">Loading</span>
-                        </div>
-                      ) : memoizedRatings[interviewer.id] ? (
-                        <div className="flex items-center gap-1">
-                          <StarRating rating={memoizedRatings[interviewer.id]} readOnly size={16} />
-                          <span className="text-sm ml-1">{memoizedRatings[interviewer.id]}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">Not rated</span>
-                      )}
+                      <RatingDisplay interviewerId={interviewer.id} />
                     </TableCell>
                     <TableCell>
                       {interviewerProjects[interviewer.id] && interviewerProjects[interviewer.id].length > 0 ? (

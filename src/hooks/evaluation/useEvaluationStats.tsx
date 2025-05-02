@@ -1,13 +1,35 @@
 
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export const useEvaluationStats = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const ratingsCache = useRef<Record<string, number>>({});
+  const allRatingsCache = useRef<Record<string, number> | null>(null);
+  const cacheTimestamp = useRef<number>(0);
+  const CACHE_DURATION = 60000; // 1 minute cache
 
-  const getAverageRating = async (interviewerId: string): Promise<number | null> => {
+  // Clear cache when component unmounts or after cache duration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now - cacheTimestamp.current > CACHE_DURATION) {
+        allRatingsCache.current = null;
+        ratingsCache.current = {};
+      }
+    }, CACHE_DURATION);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const getAverageRating = useCallback(async (interviewerId: string): Promise<number | null> => {
+    // Use cached value if available
+    if (ratingsCache.current[interviewerId]) {
+      return ratingsCache.current[interviewerId];
+    }
+
     try {
       setLoading(true);
       console.log("Getting average rating for interviewer:", interviewerId);
@@ -30,6 +52,9 @@ export const useEvaluationStats = () => {
       const total = data.reduce((sum, item) => sum + item.rating, 0);
       const average = Number((total / data.length).toFixed(1));
       
+      // Cache the result
+      ratingsCache.current[interviewerId] = average;
+      
       console.log("Average rating:", average);
       return average;
     } catch (error) {
@@ -38,9 +63,14 @@ export const useEvaluationStats = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const getAllAverageRatings = async (): Promise<Record<string, number>> => {
+  const getAllAverageRatings = useCallback(async (): Promise<Record<string, number>> => {
+    // Return cached ratings if available and not expired
+    if (allRatingsCache.current !== null) {
+      return allRatingsCache.current;
+    }
+    
     try {
       setLoading(true);
       console.log("Getting all average ratings");
@@ -76,6 +106,11 @@ export const useEvaluationStats = () => {
         averageRatings[interviewerId] = Number((total / ratings.length).toFixed(1));
       });
       
+      // Update both caches
+      allRatingsCache.current = averageRatings;
+      ratingsCache.current = { ...ratingsCache.current, ...averageRatings };
+      cacheTimestamp.current = Date.now();
+      
       console.log("All average ratings:", averageRatings);
       return averageRatings;
     } catch (error) {
@@ -84,7 +119,7 @@ export const useEvaluationStats = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return {
     getAverageRating,
