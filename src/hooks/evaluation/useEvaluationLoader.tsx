@@ -11,7 +11,7 @@ export const useEvaluationLoader = () => {
   const [error, setError] = useState<string | null>(null);
   const evaluationsCache = useRef<Record<string, Evaluation[]>>({});
   const lastFetch = useRef<Record<string, number>>({});
-  const CACHE_TTL = 5 * 60 * 1000; // Increased to 5 minutes cache for better performance
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache for better performance
   
   const loadEvaluationsByInterviewer = useCallback(async (interviewerId: string, forceRefresh = false) => {
     // Return cached data if available and not expired
