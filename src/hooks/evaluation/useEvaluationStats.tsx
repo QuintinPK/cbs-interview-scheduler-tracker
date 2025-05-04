@@ -45,9 +45,10 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting average rating for interviewer:", interviewerId);
       
-      // Use an optimized query with average function
+      // Properly type the RPC function call result to fix TypeScript error
       const { data, error } = await supabase
-        .rpc('get_interviewer_average_rating', { p_interviewer_id: interviewerId }) as unknown as { data: number | null, error: any };
+        .rpc('get_interviewer_average_rating', { p_interviewer_id: interviewerId }) as 
+        { data: number | null, error: any };
         
       if (error) {
         console.error("Error fetching ratings:", error);
@@ -76,31 +77,31 @@ export const useEvaluationStats = () => {
   }, []);
 
   const getAllAverageRatings = useCallback(async (forceRefresh = false): Promise<Record<string, number>> => {
-  if (!forceRefresh && allRatingsCache.current !== null) {
-    return allRatingsCache.current;
-  }
-
-  try {
-    setLoading(true);
-    console.log("Getting all average ratings");
-
-    const { data, error } = await supabase
-      .from('interviewer_evaluations')
-      .select('interviewer_id, rating') as unknown as {
-        data: { interviewer_id: string; rating: number }[];
-        error: any;
-      };
-
-    if (error) {
-      console.error("Error fetching ratings:", error);
-      return {};
+    if (!forceRefresh && allRatingsCache.current !== null) {
+      return allRatingsCache.current;
     }
 
-    if (!data || data.length === 0) {
-      console.log("No ratings found");
-      return {};
-    }
-      
+    try {
+      setLoading(true);
+      console.log("Getting all average ratings");
+
+      const { data, error } = await supabase
+        .from('interviewer_evaluations')
+        .select('interviewer_id, rating') as unknown as {
+          data: { interviewer_id: string; rating: number }[];
+          error: any;
+        };
+
+      if (error) {
+        console.error("Error fetching ratings:", error);
+        return {};
+      }
+
+      if (!data || data.length === 0) {
+        console.log("No ratings found");
+        return {};
+      }
+        
       // Group evaluations by interviewer and calculate averages
       const ratingsByInterviewer: Record<string, number[]> = {};
       

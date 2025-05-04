@@ -4,6 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useEvaluationBase } from "./useEvaluationBase";
 import { Evaluation } from "@/types";
 
+// Define the return type of the RPC function for clarity
+interface EvaluationRowData {
+  evaluation_id: string;
+  interviewer_id: string;
+  project_id: string | null;
+  session_id: string | null;
+  rating: number;
+  remarks: string | null;
+  created_at: string;
+  created_by: string | null;
+  tag_id: string | null;
+  tag_name: string | null;
+  tag_category: string | null;
+  tag_created_at: string | null;
+}
+
 export const useEvaluationLoader = () => {
   const { setLoading, toast } = useEvaluationBase();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
@@ -32,11 +48,11 @@ export const useEvaluationLoader = () => {
       setError(null);
       console.log("Loading evaluations for interviewer:", interviewerId);
       
-      // Get evaluations with tags in a single query using RPC (more efficient)
+      // Explicitly type the response from the RPC call to resolve TypeScript error
       const { data: evaluationsData, error: evaluationsError } = await supabase
         .rpc('get_interviewer_evaluations_with_tags', { 
           p_interviewer_id: interviewerId 
-        }) as unknown as { data: any[] | null, error: any };
+        }) as { data: EvaluationRowData[] | null, error: any };
         
       if (evaluationsError) {
         console.error("Error fetching evaluations:", evaluationsError);
@@ -82,7 +98,7 @@ export const useEvaluationLoader = () => {
   }, [setError, toast]);
   
   // Helper function to process and group evaluation data
-  const processEvaluationsData = (rawData: any[]) => {
+  const processEvaluationsData = (rawData: EvaluationRowData[]) => {
     // Create a map to store unique evaluations with their tags
     const evaluationsMap = new Map();
     
