@@ -26,10 +26,17 @@ Deno.serve(async (req) => {
       case 'getGoogleMapsApiKey':
         console.log("Fetching Google Maps API key");
         result = await getGoogleMapsApiKey();
-        console.log("Returning Google Maps API key");
+        console.log("Returning Google Maps API key result");
         break;
         
-      // Add other cases as needed
+      case 'updateGoogleMapsApiKey':
+        console.log("Updating Google Maps API key");
+        if (!data || !data.apiKey) {
+          throw new Error("API key is required");
+        }
+        result = await updateGoogleMapsApiKey(data.apiKey);
+        console.log("Google Maps API key updated");
+        break;
         
       default:
         return new Response(
@@ -38,7 +45,7 @@ Deno.serve(async (req) => {
         );
     }
 
-    console.log("Operation completed successfully", result);
+    console.log("Operation completed successfully");
     return new Response(
       JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -54,16 +61,51 @@ Deno.serve(async (req) => {
 
 // Helper functions
 async function getGoogleMapsApiKey() {
-  const { data, error } = await supabaseClient
-    .from('config')
-    .select('value')
-    .eq('key', 'google_maps_api_key')
-    .single();
+  try {
+    const { data, error } = await supabaseClient
+      .from('config')
+      .select('value')
+      .eq('key', 'google_maps_api_key')
+      .single();
 
-  if (error) {
-    console.error("Error fetching Google Maps API key:", error);
-    throw new Error("Failed to fetch Google Maps API key");
+    if (error) {
+      console.error("Error fetching Google Maps API key:", error);
+      throw new Error("Failed to fetch Google Maps API key");
+    }
+
+    return { 
+      success: true, 
+      data: { 
+        apiKey: data?.value || '' 
+      } 
+    };
+  } catch (error) {
+    console.error("Error in getGoogleMapsApiKey:", error);
+    throw error;
   }
+}
 
-  return { success: true, apiKey: data.value };
+async function updateGoogleMapsApiKey(apiKey: string) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('config')
+      .update({ value: apiKey, updated_at: new Date() })
+      .eq('key', 'google_maps_api_key')
+      .select();
+
+    if (error) {
+      console.error("Error updating Google Maps API key:", error);
+      throw new Error("Failed to update Google Maps API key");
+    }
+
+    return { 
+      success: true,
+      data: {
+        apiKey
+      }
+    };
+  } catch (error) {
+    console.error("Error in updateGoogleMapsApiKey:", error);
+    throw error;
+  }
 }

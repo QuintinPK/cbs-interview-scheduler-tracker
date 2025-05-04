@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
+import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
 
 interface MapProps {
   latitude: number;
@@ -18,12 +19,18 @@ const Map: React.FC<MapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [googleMap, setGoogleMap] = useState<google.maps.Map | null>(null);
+  const { apiKey } = useGoogleMapsApiKey();
 
   useEffect(() => {
     const loadMap = async () => {
       try {
+        if (!apiKey) {
+          console.warn('Google Maps API key is not set');
+          return;
+        }
+
         const loader = new Loader({
-          apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
+          apiKey,
           version: 'weekly',
         });
 
@@ -35,7 +42,7 @@ const Map: React.FC<MapProps> = ({
     };
 
     loadMap();
-  }, []);
+  }, [apiKey]);
 
   useEffect(() => {
     if (mapLoaded && mapRef.current && latitude && longitude) {

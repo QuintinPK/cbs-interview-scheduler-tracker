@@ -36,7 +36,7 @@ export const useEvaluationLoader = () => {
       const { data: evaluationsData, error: evaluationsError } = await supabase
         .rpc('get_interviewer_evaluations_with_tags', { 
           p_interviewer_id: interviewerId 
-        }) as { data: any[] | null, error: any };
+        }) as unknown as { data: any[] | null, error: any };
         
       if (evaluationsError) {
         console.error("Error fetching evaluations:", evaluationsError);
