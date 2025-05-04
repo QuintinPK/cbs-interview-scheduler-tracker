@@ -6,9 +6,10 @@ import { useToast } from "@/hooks/use-toast";
 export const useEvaluationStats = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const ratingsCache = useRef<Record<string, number>>({});
+  const ratingsCache = useRef<Record<string, number>>({} as Record<string, number>);
   const allRatingsCache = useRef<Record<string, number> | null>(null);
-  const cacheTimestamp = useRef<Record<string, number>>({});
+  const cacheTimestamp = useRef<Record<string, number>>({} as Record<string, number>);
+  const allCacheTimestamp = useRef<number>(0);
   const allCacheTimestamp = useRef<number>(0);
   const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache for better performance
 
