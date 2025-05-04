@@ -77,28 +77,30 @@ export const useEvaluationStats = () => {
   }, []);
 
   const getAllAverageRatings = useCallback(async (forceRefresh = false): Promise<Record<string, number>> => {
-    // Return cached ratings if available and not forcing refresh
-    if (!forceRefresh && allRatingsCache.current !== null) {
-      return allRatingsCache.current;
+  if (!forceRefresh && allRatingsCache.current !== null) {
+    return allRatingsCache.current;
+  }
+
+  try {
+    setLoading(true);
+    console.log("Getting all average ratings");
+
+    const { data, error } = await supabase
+      .from('interviewer_evaluations')
+      .select('interviewer_id, rating') as unknown as {
+        data: { interviewer_id: string; rating: number }[];
+        error: any;
+      };
+
+    if (error) {
+      console.error("Error fetching ratings:", error);
+      return {};
     }
-    
-    try {
-      setLoading(true);
-      console.log("Getting all average ratings");
-      
-      const { data, error } = await supabase
-        .from('interviewer_evaluations')
-        .select('interviewer_id, rating');
-        
-      if (error) {
-        console.error("Error fetching ratings:", error);
-        return {};
-      }
-      
-      if (!data || data.length === 0) {
-        console.log("No ratings found");
-        return {};
-      }
+
+    if (!data || data.length === 0) {
+      console.log("No ratings found");
+      return {};
+    }
       
       // Group evaluations by interviewer and calculate averages
       const ratingsByInterviewer: Record<string, number[]> = {};
