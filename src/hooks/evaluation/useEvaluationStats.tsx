@@ -47,7 +47,7 @@ export const useEvaluationStats = () => {
       
       // Use an optimized query with average function
       const { data, error } = await supabase
-        .rpc('get_interviewer_average_rating', { p_interviewer_id: interviewerId });
+        .rpc('get_interviewer_average_rating', { p_interviewer_id: interviewerId }) as { data: number | null, error: any };
         
       if (error) {
         console.error("Error fetching ratings:", error);
