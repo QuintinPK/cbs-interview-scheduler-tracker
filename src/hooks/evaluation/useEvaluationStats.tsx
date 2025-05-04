@@ -10,7 +10,6 @@ export const useEvaluationStats = () => {
   const allRatingsCache = useRef<Record<string, number> | null>(null);
   const cacheTimestamp = useRef<Record<string, number>>({} as Record<string, number>);
   const allCacheTimestamp = useRef<number>(0);
-  const allCacheTimestamp = useRef<number>(0);
   const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache for better performance
 
   // Clear cache when component unmounts or after cache duration
