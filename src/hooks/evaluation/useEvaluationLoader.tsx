@@ -9,8 +9,8 @@ export const useEvaluationLoader = () => {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const evaluationsCache = useRef<Record<string, Evaluation[]>>({});
-  const lastFetch = useRef<Record<string, number>>({});
+  const evaluationsCache = useRef<Record<string, Evaluation[]>>({} as Record<string, Evaluation[]>);
+  const lastFetch = useRef<Record<string, number>>({} as Record<string, number>);
   const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache for better performance
   
   const loadEvaluationsByInterviewer = useCallback(async (interviewerId: string, forceRefresh = false) => {
