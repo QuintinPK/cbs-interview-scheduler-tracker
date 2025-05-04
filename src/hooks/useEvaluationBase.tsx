@@ -11,12 +11,13 @@ export const useEvaluationBase = () => {
   const [tags, setTags] = useState<EvaluationTag[]>([]);
   const tagsCache = useRef<EvaluationTag[]>([]);
   const lastFetch = useRef<number>(0);
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+  const CACHE_TTL = 15 * 60 * 1000; // Increased to 15 minutes cache for tags
   
   const loadEvaluationTags = useCallback(async (forceRefresh = false) => {
     // Return cached data if available and not expired
     const now = Date.now();
     if (!forceRefresh && tagsCache.current.length > 0 && (now - lastFetch.current) < CACHE_TTL) {
+      console.log("Using cached evaluation tags");
       setTags(tagsCache.current);
       return tagsCache.current;
     }
@@ -24,7 +25,7 @@ export const useEvaluationBase = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("Loading evaluation tags");
+      console.log("Loading evaluation tags from database");
       
       const { data, error } = await supabase
         .from('evaluation_tags')
@@ -38,7 +39,7 @@ export const useEvaluationBase = () => {
         return [];
       }
       
-      console.log("Loaded tags:", data);
+      console.log("Loaded tags:", data?.length || 0, "tags");
       // Update cache
       tagsCache.current = data || [];
       lastFetch.current = now;

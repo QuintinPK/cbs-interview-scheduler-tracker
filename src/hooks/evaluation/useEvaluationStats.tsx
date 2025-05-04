@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -10,7 +9,7 @@ export const useEvaluationStats = () => {
   const allRatingsCache = useRef<Record<string, number> | null>(null);
   const cacheTimestamp = useRef<Record<string, number>>({});
   const allCacheTimestamp = useRef<number>(0);
-  const CACHE_DURATION = 60000; // 1 minute cache
+  const CACHE_DURATION = 10 * 60 * 1000; // Increased to 10 minutes cache for better performance
 
   // Clear cache when component unmounts or after cache duration
   useEffect(() => {
@@ -37,6 +36,7 @@ export const useEvaluationStats = () => {
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false): Promise<number | null> => {
     // Use cached value if available and not forcing refresh
     if (!forceRefresh && ratingsCache.current[interviewerId]) {
+      console.log("Using cached average rating for interviewer:", interviewerId);
       return ratingsCache.current[interviewerId];
     }
 
@@ -44,23 +44,21 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting average rating for interviewer:", interviewerId);
       
+      // Use an optimized query with average function
       const { data, error } = await supabase
-        .from('interviewer_evaluations')
-        .select('rating')
-        .eq('interviewer_id', interviewerId);
+        .rpc('get_interviewer_average_rating', { p_interviewer_id: interviewerId });
         
       if (error) {
         console.error("Error fetching ratings:", error);
         return null;
       }
       
-      if (!data || data.length === 0) {
+      if (!data) {
         console.log("No ratings found");
         return null;
       }
       
-      const total = data.reduce((sum, item) => sum + item.rating, 0);
-      const average = Number((total / data.length).toFixed(1));
+      const average = data; // The function returns the calculated average directly
       
       // Cache the result
       ratingsCache.current[interviewerId] = average;
