@@ -1,7 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Loader } from '@googlemaps/js-api-loader';
-import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
 
 interface MapProps {
   latitude: number;
@@ -19,18 +18,12 @@ const Map: React.FC<MapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [googleMap, setGoogleMap] = useState<google.maps.Map | null>(null);
-  const { apiKey, error } = useGoogleMapsApiKey();
 
   useEffect(() => {
     const loadMap = async () => {
       try {
-        if (!apiKey) {
-          console.warn('Google Maps API key is not set');
-          return;
-        }
-
         const loader = new Loader({
-          apiKey,
+          apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
           version: 'weekly',
         });
 
@@ -42,7 +35,7 @@ const Map: React.FC<MapProps> = ({
     };
 
     loadMap();
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
     if (mapLoaded && mapRef.current && latitude && longitude) {
@@ -76,13 +69,7 @@ const Map: React.FC<MapProps> = ({
     <div ref={mapRef} className={className}>
       {!mapLoaded && (
         <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md">
-          {error ? (
-            <p className="text-red-500 text-center px-4">{error}</p>
-          ) : !apiKey ? (
-            <p className="text-gray-500">Google Maps API key not configured</p>
-          ) : (
-            <p className="text-gray-500">Loading map...</p>
-          )}
+          <p className="text-gray-500">Loading map...</p>
         </div>
       )}
     </div>

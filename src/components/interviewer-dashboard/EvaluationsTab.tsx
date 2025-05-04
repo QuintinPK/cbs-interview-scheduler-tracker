@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Interviewer, Evaluation } from "@/types";
 import { useEvaluations } from "@/hooks/useEvaluations";
@@ -32,8 +33,9 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   const [loadingRating, setLoadingRating] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // Optimize when to load evaluation tags - only when adding/editing
-  const loadTagsWhenNeeded = useCallback(() => {
+  // Load evaluations and tags in advance, when component mounts
+  useEffect(() => {
+    // Pre-load evaluation tags to make add/edit dialog faster
     loadEvaluationTags();
   }, [loadEvaluationTags]);
 
@@ -44,22 +46,18 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
     // Load evaluations
     const fetchData = async () => {
       try {
-        // Start both data fetching operations in parallel
-        const evaluationsPromise = loadEvaluationsByInterviewer(interviewer.id);
+        await loadEvaluationsByInterviewer(interviewer.id);
         
+        // Load average rating
         setLoadingRating(true);
-        const ratingPromise = getAverageRating(interviewer.id);
-        
-        // Wait for both to complete
-        const [_, rating] = await Promise.all([evaluationsPromise, ratingPromise]);
-        
+        const rating = await getAverageRating(interviewer.id);
         setAverageRating(rating);
         setLoadingRating(false);
+        
         setInitialLoadDone(true);
       } catch (error) {
         console.error("Error loading evaluation data:", error);
         setInitialLoadDone(true);
-        setLoadingRating(false);
       }
     };
     
@@ -82,13 +80,11 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   }, []);
 
   const handleAddEvaluation = () => {
-    loadTagsWhenNeeded();
     setSelectedEvaluation(undefined);
     setIsAddDialogOpen(true);
   };
 
   const handleEditEvaluation = (evaluation: Evaluation) => {
-    loadTagsWhenNeeded();
     setSelectedEvaluation(evaluation);
     setIsEditDialogOpen(true);
   };

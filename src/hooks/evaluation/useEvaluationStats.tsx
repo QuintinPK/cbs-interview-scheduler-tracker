@@ -6,11 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 export const useEvaluationStats = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const ratingsCache = useRef<Record<string, number>>({} as Record<string, number>);
+  const ratingsCache = useRef<Record<string, number>>({});
   const allRatingsCache = useRef<Record<string, number> | null>(null);
-  const cacheTimestamp = useRef<Record<string, number>>({} as Record<string, number>);
+  const cacheTimestamp = useRef<Record<string, number>>({});
   const allCacheTimestamp = useRef<number>(0);
-  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache for better performance
+  const CACHE_DURATION = 60000; // 1 minute cache
 
   // Clear cache when component unmounts or after cache duration
   useEffect(() => {
@@ -37,7 +37,6 @@ export const useEvaluationStats = () => {
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false): Promise<number | null> => {
     // Use cached value if available and not forcing refresh
     if (!forceRefresh && ratingsCache.current[interviewerId]) {
-      console.log("Using cached average rating for interviewer:", interviewerId);
       return ratingsCache.current[interviewerId];
     }
 
@@ -45,22 +44,23 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting average rating for interviewer:", interviewerId);
       
-      // Properly type the RPC function call result to fix TypeScript error
       const { data, error } = await supabase
-        .rpc('get_interviewer_average_rating', { p_interviewer_id: interviewerId }) as 
-        { data: number | null, error: any };
+        .from('interviewer_evaluations')
+        .select('rating')
+        .eq('interviewer_id', interviewerId);
         
       if (error) {
         console.error("Error fetching ratings:", error);
         return null;
       }
       
-      if (data === null) {
+      if (!data || data.length === 0) {
         console.log("No ratings found");
         return null;
       }
       
-      const average = data; // The function returns the calculated average directly
+      const total = data.reduce((sum, item) => sum + item.rating, 0);
+      const average = Number((total / data.length).toFixed(1));
       
       // Cache the result
       ratingsCache.current[interviewerId] = average;
@@ -77,31 +77,29 @@ export const useEvaluationStats = () => {
   }, []);
 
   const getAllAverageRatings = useCallback(async (forceRefresh = false): Promise<Record<string, number>> => {
+    // Return cached ratings if available and not forcing refresh
     if (!forceRefresh && allRatingsCache.current !== null) {
       return allRatingsCache.current;
     }
-
+    
     try {
       setLoading(true);
       console.log("Getting all average ratings");
-
+      
       const { data, error } = await supabase
         .from('interviewer_evaluations')
-        .select('interviewer_id, rating') as unknown as {
-          data: { interviewer_id: string; rating: number }[];
-          error: any;
-        };
-
+        .select('interviewer_id, rating');
+        
       if (error) {
         console.error("Error fetching ratings:", error);
         return {};
       }
-
+      
       if (!data || data.length === 0) {
         console.log("No ratings found");
         return {};
       }
-        
+      
       // Group evaluations by interviewer and calculate averages
       const ratingsByInterviewer: Record<string, number[]> = {};
       
