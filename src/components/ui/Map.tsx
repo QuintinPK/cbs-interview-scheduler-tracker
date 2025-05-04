@@ -19,7 +19,7 @@ const Map: React.FC<MapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [googleMap, setGoogleMap] = useState<google.maps.Map | null>(null);
-  const { apiKey } = useGoogleMapsApiKey();
+  const { apiKey, error } = useGoogleMapsApiKey();
 
   useEffect(() => {
     const loadMap = async () => {
@@ -76,7 +76,13 @@ const Map: React.FC<MapProps> = ({
     <div ref={mapRef} className={className}>
       {!mapLoaded && (
         <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md">
-          <p className="text-gray-500">Loading map...</p>
+          {error ? (
+            <p className="text-red-500 text-center px-4">{error}</p>
+          ) : !apiKey ? (
+            <p className="text-gray-500">Google Maps API key not configured</p>
+          ) : (
+            <p className="text-gray-500">Loading map...</p>
+          )}
         </div>
       )}
     </div>

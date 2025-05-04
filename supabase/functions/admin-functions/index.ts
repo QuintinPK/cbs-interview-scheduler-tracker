@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 async function getGoogleMapsApiKey() {
   try {
     const { data, error } = await supabaseClient
-      .from('config')
+      .from('app_settings')
       .select('value')
       .eq('key', 'google_maps_api_key')
       .single();
@@ -88,7 +88,7 @@ async function getGoogleMapsApiKey() {
 async function updateGoogleMapsApiKey(apiKey: string) {
   try {
     const { data, error } = await supabaseClient
-      .from('config')
+      .from('app_settings')
       .update({ value: apiKey, updated_at: new Date() })
       .eq('key', 'google_maps_api_key')
       .select();
