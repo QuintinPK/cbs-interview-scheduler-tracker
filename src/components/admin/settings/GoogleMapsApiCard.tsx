@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,16 @@ import { Loader2, Map } from "lucide-react";
 import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
 
 const GoogleMapsApiCard = () => {
-  const { apiKey, loading, updateApiKey } = useGoogleMapsApiKey();
-  const [newApiKey, setNewApiKey] = useState(apiKey);
+  const { apiKey, loading, error, updateApiKey } = useGoogleMapsApiKey();
+  const [newApiKey, setNewApiKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Update the newApiKey state when apiKey is loaded
+  useEffect(() => {
+    if (apiKey) {
+      setNewApiKey(apiKey);
+    }
+  }, [apiKey]);
 
   const handleSave = async () => {
     setIsSaving(true);

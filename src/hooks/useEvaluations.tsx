@@ -8,18 +8,18 @@ import { useMemo, useCallback } from "react";
 export const useEvaluations = () => {
   const { loading: baseLoading, error: baseError, tags, loadEvaluationTags } = useEvaluationBase();
   const { addEvaluation, updateEvaluation, saving, error: actionError } = useEvaluationActions();
-  const { evaluations, loadingEvaluations, error: loaderError, loadEvaluationsByInterviewer } = useEvaluationLoader();
-  const { getAverageRating, getAllAverageRatings, loading: statsLoading } = useEvaluationStats();
+  const { evaluations, evaluationTags, loading: loaderLoading, loadingEvaluations, error: loaderError, loadEvaluationsByInterviewer } = useEvaluationLoader(undefined);
+  const { stats, getAverageRating, getAllAverageRatings, loading: statsLoading, error: statsError } = useEvaluationStats(undefined);
 
   // Memoize the combined loading state to prevent unnecessary re-renders
   const loading = useMemo(() => {
-    return baseLoading || loadingEvaluations || statsLoading;
-  }, [baseLoading, loadingEvaluations, statsLoading]);
+    return baseLoading || loaderLoading || statsLoading;
+  }, [baseLoading, loaderLoading, statsLoading]);
 
   // Memoize the combined error state
   const error = useMemo(() => {
-    return baseError || actionError || loaderError;
-  }, [baseError, actionError, loaderError]);
+    return baseError || actionError || loaderError || statsError;
+  }, [baseError, actionError, loaderError, statsError]);
 
   // Enhance loadEvaluationsByInterviewer to accept force refresh parameter
   const loadEvaluations = useCallback((interviewerId: string, forceRefresh = false) => {

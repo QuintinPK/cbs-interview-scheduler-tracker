@@ -31,12 +31,30 @@ export function useGoogleMapsApiKey() {
         }
 
         if (data && data.value) {
-          // The value is stored as a JSON object with an apiKey property
-          const apiKeyValue = typeof data.value === 'string' 
-            ? JSON.parse(data.value).apiKey 
-            : data.value.apiKey;
-          
-          setApiKey(apiKeyValue || "");
+          try {
+            // Try to parse the value as JSON if it's a string
+            const valueObj = typeof data.value === 'string' 
+              ? JSON.parse(data.value) 
+              : data.value;
+              
+            // Check if it's an object with an apiKey property
+            if (valueObj && typeof valueObj === 'object') {
+              if ('apiKey' in valueObj) {
+                setApiKey(valueObj.apiKey || "");
+              } else if ('key' in valueObj) {
+                setApiKey(valueObj.key || "");
+              } else {
+                console.warn("API key object found but no apiKey or key property:", valueObj);
+                setApiKey("");
+              }
+            } else {
+              console.warn("Google Maps API key value is not an object:", valueObj);
+              setApiKey("");
+            }
+          } catch (parseError) {
+            console.error("Error parsing Google Maps API key value:", parseError);
+            setApiKey("");
+          }
         } else {
           // If no API key found, set an empty string
           setApiKey("");
