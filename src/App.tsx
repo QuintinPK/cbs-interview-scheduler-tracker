@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Session } from '@/pages/Session';
-import { Login } from '@/pages/Login';
-import { Dashboard } from '@/pages/admin/Dashboard';
-import { Interviewers } from '@/pages/admin/Interviewers';
-import { Projects } from '@/pages/admin/Projects';
-import { Scheduling } from '@/pages/admin/Scheduling';
-import { Sessions } from '@/pages/admin/Sessions';
-import { Costs } from '@/pages/admin/Costs';
-import { Settings } from '@/pages/admin/Settings';
-import { NotFound } from '@/pages/NotFound';
-import { useAuth } from '@/hooks/useAuth';
-import { InterviewerDashboard } from '@/pages/admin/InterviewerDashboard';
-import { Tags } from "@/pages/admin/Tags";
+import { useAuth } from '@/contexts/AuthContext'; // Changed from @/hooks/useAuth
+import NotFound from '@/pages/NotFound'; // Changed from destructured import
+import Dashboard from '@/pages/admin/Dashboard'; // Changed from destructured import
+import Interviewers from '@/pages/admin/Interviewers'; // Changed from destructured import
+import Projects from '@/pages/admin/Projects'; // Changed from destructured import
+import InteractiveScheduling from '@/pages/admin/InteractiveScheduling'; // Changed from Scheduling
+import Sessions from '@/pages/admin/Sessions'; // Changed from destructured import
+import Costs from '@/pages/admin/Costs'; // Changed from destructured import
+import Settings from '@/pages/admin/Settings'; // Changed from destructured import
+import InterviewerDashboard from '@/pages/admin/InterviewerDashboard'; // Changed from destructured import
+import Tags from '@/pages/admin/Tags'; // Changed from destructured import
 
 const App = () => {
   const { isLoggedIn } = useAuth();
@@ -26,12 +25,12 @@ const App = () => {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Navigate to="/login" />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<div>Login Page</div>} /> {/* Placeholder until Login page is created */}
         
         {/* Protected Routes */}
-        <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<ProtectedRoute children={<></>} />}>
           {/* Mobile Interviewer Routes */}
-          <Route path="/session" element={<Session />} />
+          <Route path="/session" element={<div>Session Page</div>} /> {/* Placeholder until Session page is created */}
           
           {/* Admin Routes */}
           <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
@@ -39,7 +38,7 @@ const App = () => {
           <Route path="/admin/interviewers" element={<Interviewers />} />
           <Route path="/admin/interviewer/:id" element={<InterviewerDashboard />} />
           <Route path="/admin/projects" element={<Projects />} />
-          <Route path="/admin/scheduling" element={<Scheduling />} />
+          <Route path="/admin/scheduling" element={<InteractiveScheduling />} />
           <Route path="/admin/sessions" element={<Sessions />} />
           <Route path="/admin/costs" element={<Costs />} />
           <Route path="/admin/tags" element={<Tags />} />

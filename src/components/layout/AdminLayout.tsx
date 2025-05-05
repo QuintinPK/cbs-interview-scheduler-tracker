@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Home as HomeIcon,
@@ -23,7 +24,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
-const AdminLayout = ({ children }: { children: React.ReactNode }) => {
+interface AdminLayoutProps {
+  children: React.ReactNode;
+  showFilters?: boolean;
+}
+
+const AdminLayout = ({ children, showFilters = true }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -55,35 +61,33 @@ const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="flex h-screen bg-gray-100 text-gray-700">
       {/* Sidebar */}
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={toggleSidebar}
-        navigationItems={navigationItems}
-      >
-        <div className="py-4 px-6">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center justify-between text-sm font-medium rounded-md focus:outline-none">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.avatar_url || ""} />
-                    <AvatarFallback>{user?.email?.[0]?.toUpperCase() || "U"}</AvatarFallback>
-                  </Avatar>
-                  <span>{user?.email || "User"}</span>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                <LogOutIcon className="mr-2 h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </Sidebar>
+      <div className={`sidebar-container ${isSidebarOpen ? 'open' : 'closed'}`}>
+        <Sidebar navigationItems={navigationItems}>
+          <div className="py-4 px-6">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="w-full flex items-center justify-between text-sm font-medium rounded-md focus:outline-none">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.avatar_url || ""} />
+                      <AvatarFallback>{user?.email?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+                    </Avatar>
+                    <span>{user?.email || "User"}</span>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                  <LogOutIcon className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </Sidebar>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
