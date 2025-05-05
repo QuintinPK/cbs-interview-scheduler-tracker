@@ -36,19 +36,36 @@ export const useEvaluations = () => {
   }, [baseError, actionError, loaderError, statsError]);
 
   // Enhance loadEvaluationsByInterviewer to accept force refresh parameter
-  const loadEvaluations = useCallback((interviewerId: string, forceRefresh = false) => {
-    return loadEvaluationsByInterviewer(interviewerId, forceRefresh);
+  const loadEvaluations = useCallback(async (interviewerId: string, forceRefresh = false) => {
+    console.log("useEvaluations - loadEvaluations called for:", interviewerId, "forceRefresh:", forceRefresh);
+    const result = await loadEvaluationsByInterviewer(interviewerId, forceRefresh);
+    console.log("useEvaluations - loadEvaluations result:", result ? result.length : 0, "evaluations");
+    return result;
   }, [loadEvaluationsByInterviewer]);
   
   // Enhance getAverageRating to accept force refresh parameter
-  const getAvgRating = useCallback((interviewerId: string, forceRefresh = false) => {
-    return getAverageRating(interviewerId, forceRefresh);
+  const getAvgRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
+    console.log("useEvaluations - getAvgRating called for:", interviewerId, "forceRefresh:", forceRefresh);
+    const result = await getAverageRating(interviewerId, forceRefresh);
+    console.log("useEvaluations - getAvgRating result:", result);
+    return result;
   }, [getAverageRating]);
   
   // Enhance getAllAverageRatings to accept force refresh parameter
-  const getAllAvgRatings = useCallback((forceRefresh = false) => {
-    return getAllAverageRatings(forceRefresh);
+  const getAllAvgRatings = useCallback(async (forceRefresh = false) => {
+    console.log("useEvaluations - getAllAvgRatings called, forceRefresh:", forceRefresh);
+    const result = await getAllAverageRatings(forceRefresh);
+    console.log("useEvaluations - getAllAvgRatings result:", Object.keys(result).length, "ratings");
+    return result;
   }, [getAllAverageRatings]);
+
+  // Debug the current state
+  console.log("useEvaluations - Current state:", {
+    evaluationsCount: evaluations.length,
+    tags: tags.length,
+    loading,
+    error
+  });
 
   return {
     evaluations,

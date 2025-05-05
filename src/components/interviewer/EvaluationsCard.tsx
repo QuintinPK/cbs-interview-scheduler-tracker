@@ -20,12 +20,31 @@ const EvaluationsCard = ({
   projectNameResolver 
 }: EvaluationsCardProps) => {
   const { evaluations, loading, loadEvaluationsByInterviewer } = useEvaluations();
+  const [localLoading, setLocalLoading] = useState(true);
   
   useEffect(() => {
-    loadEvaluationsByInterviewer(interviewer.id);
+    console.log("EvaluationsCard: Loading evaluations for interviewer:", interviewer.id);
+    
+    const loadData = async () => {
+      setLocalLoading(true);
+      try {
+        const data = await loadEvaluationsByInterviewer(interviewer.id);
+        console.log("EvaluationsCard: Loaded", data ? data.length : 0, "evaluations");
+      } catch (error) {
+        console.error("EvaluationsCard: Error loading evaluations", error);
+      } finally {
+        setLocalLoading(false);
+      }
+    };
+    
+    loadData();
   }, [interviewer.id, loadEvaluationsByInterviewer]);
   
-  if (loading) {
+  const isLoading = loading || localLoading;
+  
+  console.log("EvaluationsCard: Render with", evaluations.length, "evaluations, loading:", isLoading);
+  
+  if (isLoading) {
     return (
       <Card>
         <CardHeader>
@@ -86,7 +105,7 @@ const EvaluationsCard = ({
                   </div>
                 )}
                 
-                {evaluation.tags && evaluation.tags.length > 0 && (
+                {evaluation.tags && Array.isArray(evaluation.tags) && evaluation.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {evaluation.tags.map(tag => (
                       <Badge key={tag.id} variant="outline">

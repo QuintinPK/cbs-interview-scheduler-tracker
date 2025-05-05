@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Interviewer, Evaluation } from "@/types";
 import { useEvaluations } from "@/hooks/useEvaluations";
@@ -33,6 +32,9 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   const [loadingRating, setLoadingRating] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  console.log("EvaluationsTab rendered with interviewer:", interviewer?.id);
+  console.log("Current evaluations:", evaluations);
+
   // Load evaluations and tags in advance, when component mounts
   useEffect(() => {
     // Pre-load evaluation tags to make add/edit dialog faster
@@ -41,16 +43,23 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   // Load evaluations and average rating when interviewer ID changes
   useEffect(() => {
-    if (!interviewer?.id) return;
+    if (!interviewer?.id) {
+      console.log("No interviewer ID available, skipping evaluation loading");
+      return;
+    }
+    
+    console.log("Loading evaluations for interviewer:", interviewer.id);
     
     // Load evaluations
     const fetchData = async () => {
       try {
-        await loadEvaluationsByInterviewer(interviewer.id);
+        const loadedEvaluations = await loadEvaluationsByInterviewer(interviewer.id);
+        console.log("Loaded evaluations result:", loadedEvaluations);
         
         // Load average rating
         setLoadingRating(true);
         const rating = await getAverageRating(interviewer.id);
+        console.log("Loaded average rating:", rating);
         setAverageRating(rating);
         setLoadingRating(false);
         
@@ -66,10 +75,18 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   // Group evaluations by category for display - memoized to prevent unnecessary recalculations
   const groupEvaluationTags = useCallback((evaluation: Evaluation) => {
-    if (!evaluation.tags) return {};
+    if (!evaluation.tags || !Array.isArray(evaluation.tags)) {
+      console.log("No tags array found for evaluation:", evaluation.id);
+      return {};
+    }
     
     const grouped: Record<string, any[]> = {};
     evaluation.tags.forEach(tag => {
+      if (!tag.category) {
+        console.log("Tag missing category:", tag);
+        return;
+      }
+      
       if (!grouped[tag.category]) {
         grouped[tag.category] = [];
       }
@@ -92,6 +109,8 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
   const handleEvaluationSuccess = useCallback(() => {
     if (!interviewer?.id) return;
     
+    console.log("Evaluation saved, reloading data");
+    
     // Reload evaluations after adding/editing with force refresh
     loadEvaluationsByInterviewer(interviewer.id, true);
     
@@ -113,6 +132,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   // Memoize evaluations display to prevent unnecessary rerenders
   const evaluationItems = useMemo(() => {
+    console.log("Building evaluation items from:", evaluations.length, "evaluations");
     return evaluations.map((evaluation) => (
       <div key={evaluation.id} className="py-4 space-y-3">
         <div className="flex items-center justify-between">
@@ -146,7 +166,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
           </p>
         )}
         
-        {evaluation.tags && evaluation.tags.length > 0 && (
+        {evaluation.tags && Array.isArray(evaluation.tags) && evaluation.tags.length > 0 && (
           <div className="space-y-2">
             {Object.entries(groupEvaluationTags(evaluation)).map(([category, tags]) => (
               <div key={category} className="space-y-1">
@@ -164,7 +184,7 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
         )}
       </div>
     ));
-  }, [evaluations, groupEvaluationTags, getProjectName]);
+  }, [evaluations, groupEvaluationTags, getProjectName, handleEditEvaluation]);
 
   // Memoize evaluation history items to prevent unnecessary rerenders
   const evaluationHistoryItems = useMemo(() => {
