@@ -65,7 +65,7 @@ export interface Interview {
   id: string;
   session_id: string;
   project_id?: string;  // Add project_id to fix usePerformanceMetrics error
-  candidate_name: string;
+  candidate_name: string; // This property is required
   start_time: string;
   end_time?: string;
   notes?: string;
