@@ -4,12 +4,26 @@ import { useEvaluationActions } from "./evaluation/useEvaluationActions";
 import { useEvaluationLoader } from "./evaluation/useEvaluationLoader";
 import { useEvaluationStats } from "./evaluation/useEvaluationStats";
 import { useMemo, useCallback } from "react";
+import { Evaluation } from "@/types";
 
 export const useEvaluations = () => {
   const { loading: baseLoading, error: baseError, tags, loadEvaluationTags } = useEvaluationBase();
   const { addEvaluation, updateEvaluation, saving, error: actionError } = useEvaluationActions();
-  const { evaluations, evaluationTags, loading: loaderLoading, loadingEvaluations, error: loaderError, loadEvaluationsByInterviewer } = useEvaluationLoader(undefined);
-  const { stats, getAverageRating, getAllAverageRatings, loading: statsLoading, error: statsError } = useEvaluationStats(undefined);
+  const { 
+    evaluations, 
+    evaluationTags, 
+    loading: loaderLoading, 
+    loadingEvaluations, 
+    error: loaderError, 
+    loadEvaluationsByInterviewer 
+  } = useEvaluationLoader(undefined);
+  const { 
+    stats, 
+    getAverageRating, 
+    getAllAverageRatings, 
+    loading: statsLoading, 
+    error: statsError 
+  } = useEvaluationStats(undefined);
 
   // Memoize the combined loading state to prevent unnecessary re-renders
   const loading = useMemo(() => {
@@ -38,8 +52,10 @@ export const useEvaluations = () => {
 
   return {
     evaluations,
+    evaluationTags,
     tags,
     loading,
+    loadingEvaluations,
     saving,
     error,
     loadEvaluationTags,

@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Map } from "lucide-react";
 import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
+import { useToast } from "@/hooks/use-toast";
 
 const GoogleMapsApiCard = () => {
   const { apiKey, loading, error, updateApiKey } = useGoogleMapsApiKey();
+  const { toast } = useToast();
   const [newApiKey, setNewApiKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,8 +23,21 @@ const GoogleMapsApiCard = () => {
 
   const handleSave = async () => {
     setIsSaving(true);
-    await updateApiKey(newApiKey);
+    const success = await updateApiKey(newApiKey);
     setIsSaving(false);
+    
+    if (success) {
+      toast({
+        title: "Success",
+        description: "Google Maps API key updated successfully",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to update Google Maps API key",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

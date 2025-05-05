@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface EvaluationStats {
+export interface EvaluationStats {
   averageRating: number;
   totalEvaluations: number;
   topTags: { name: string; count: number }[];
@@ -144,7 +144,7 @@ export const useEvaluationStats = (interviewerId: string | undefined) => {
   // Get average rating for a specific interviewer
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
     const result = await calculateStats(interviewerId, forceRefresh);
-    return result.averageRating;
+    return result?.averageRating || 0;
   }, [calculateStats]);
   
   // Get all average ratings 

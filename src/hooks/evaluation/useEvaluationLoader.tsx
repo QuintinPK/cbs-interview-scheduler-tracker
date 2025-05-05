@@ -2,11 +2,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useEvaluationBase } from "@/hooks/useEvaluationBase";
+import { useEvaluationBase } from "./useEvaluationBase";
+import { Evaluation } from "@/types";
 
 export const useEvaluationLoader = (interviewerId: string | undefined) => {
-  const { toast, loading: baseLoading, setLoading, error, setError } = useEvaluationBase();
-  const [evaluations, setEvaluations] = useState<any[]>([]);
+  const { toast } = useToast();
+  const { loading: baseLoading, setLoading, error, setError } = useEvaluationBase();
+  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [evaluationTags, setEvaluationTags] = useState<Record<string, string[]>>({});
   const [loading, setInternalLoading] = useState(false);
   
