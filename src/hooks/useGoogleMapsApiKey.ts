@@ -15,16 +15,28 @@ export function useGoogleMapsApiKey() {
         setLoading(true);
         setError(null);
         
-        const { data, error } = await supabase.functions.invoke("admin-functions", {
-          body: { action: "getGoogleMapsApiKey" },
-        });
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('*')
+          .eq('key', 'google_maps_api_key')
+          .single();
 
         if (error) {
+          // If the error is "No rows found", that's okay, we'll just return an empty string
+          if (error.code === 'PGRST116') {
+            setApiKey("");
+            return;
+          }
           throw new Error(error.message);
         }
 
-        if (data && data.success && data.data && data.data.apiKey) {
-          setApiKey(data.data.apiKey);
+        if (data && data.value) {
+          // The value is stored as a JSON object with an apiKey property
+          const apiKeyValue = typeof data.value === 'string' 
+            ? JSON.parse(data.value).apiKey 
+            : data.value.apiKey;
+          
+          setApiKey(apiKeyValue || "");
         } else {
           // If no API key found, set an empty string
           setApiKey("");
@@ -51,27 +63,50 @@ export function useGoogleMapsApiKey() {
       setLoading(true);
       setError(null);
       
-      const { data, error } = await supabase.functions.invoke("admin-functions", {
-        body: { 
-          action: "updateGoogleMapsApiKey", 
-          data: { apiKey: newApiKey } 
-        },
-      });
-
-      if (error) {
-        throw new Error(error.message);
+      // First check if the key already exists
+      const { data: existingData, error: checkError } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('key', 'google_maps_api_key')
+        .maybeSingle();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw new Error(checkError.message);
       }
-
-      if (data && data.success) {
-        setApiKey(newApiKey);
-        toast({
-          title: "Success",
-          description: "Google Maps API key updated successfully",
-        });
-        return true;
+      
+      let result;
+      
+      if (existingData) {
+        // Update existing key
+        result = await supabase
+          .from('app_settings')
+          .update({
+            value: { apiKey: newApiKey },
+            updated_at: new Date().toISOString()
+          })
+          .eq('key', 'google_maps_api_key');
       } else {
-        throw new Error("Failed to update Google Maps API key");
+        // Insert new key
+        result = await supabase
+          .from('app_settings')
+          .insert({
+            key: 'google_maps_api_key',
+            value: { apiKey: newApiKey }
+          });
       }
+      
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      
+      setApiKey(newApiKey);
+      
+      toast({
+        title: "Success",
+        description: "Google Maps API key updated successfully",
+      });
+      
+      return true;
     } catch (err: any) {
       console.error("Error updating Google Maps API key:", err);
       setError(err.message || "Failed to update Google Maps API key");
