@@ -1,3 +1,4 @@
+
 export interface User {
   id: string;
   first_name: string;
@@ -14,6 +15,16 @@ export interface Project {
   created_at?: string;
   created_by?: string;
   excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+  
+  // Add missing properties for cost calculations
+  hourly_rate?: number;
+  response_rate?: number;
+  non_response_rate?: number;
+  show_response_rates?: boolean;
+
+  // Add missing properties for project date ranges
+  start_date: string;
+  end_date: string;
 }
 
 export interface Interviewer {
@@ -37,6 +48,17 @@ export interface Session {
   is_active: boolean;
   created_at?: string;
   created_by?: string;
+  
+  // Add location properties
+  start_latitude?: number;
+  start_longitude?: number;
+  end_latitude?: number;
+  end_longitude?: number;
+  start_address?: string;
+  end_address?: string;
+  
+  // Add property for unusual session review
+  is_unusual_reviewed?: boolean;
 }
 
 export interface Interview {
@@ -48,6 +70,20 @@ export interface Interview {
   notes?: string;
   created_at?: string;
   created_by?: string;
+  
+  // Add location properties
+  start_latitude?: number;
+  start_longitude?: number;
+  end_latitude?: number;
+  end_longitude?: number;
+  start_address?: string;
+  end_address?: string;
+  
+  // Add result property
+  result?: string;
+  
+  // Add active status
+  is_active?: boolean;
 }
 
 // Evaluation related types
@@ -71,4 +107,23 @@ export interface EvaluationTag {
   name: string;
   category: string;
   created_at: string;
+}
+
+// Add Location interface
+export interface Location {
+  latitude: number;
+  longitude: number;
+  address?: string;
+}
+
+// Add Schedule interface
+export interface Schedule {
+  id: string;
+  interviewer_id: string;
+  project_id?: string;
+  start_time: string;
+  end_time: string;
+  status: 'scheduled' | 'completed' | 'canceled';
+  notes?: string;
+  created_at?: string;
 }
