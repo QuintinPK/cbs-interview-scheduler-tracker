@@ -1,188 +1,93 @@
-
-import React from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import GlobalFilter from '@/components/GlobalFilter';
-import { 
-  BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X, DollarSign, Settings, Folder
+import React, { useState } from "react";
+import {
+  Home as HomeIcon,
+  Briefcase as BriefcaseIcon,
+  Users as UsersIcon,
+  Calendar as CalendarIcon,
+  List as ListIcon,
+  DollarSign as DollarSignIcon,
+  Tag as TagIcon,
+  Settings as SettingsIcon,
+  LogOut as LogOutIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { Sidebar } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface AdminLayoutProps {
-  children: React.ReactNode;
-  showFilters?: boolean;
-}
-
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true }) => {
-  const location = useLocation();
+const AdminLayout = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  
-  const handleLogout = () => {
-    logout();
-    navigate("/");
+  const { logout, user } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
-  
-  const navItems = [
-    { path: "/admin/dashboard", label: "Dashboard", icon: <BarChart className="h-5 w-5" /> },
-    { path: "/admin/sessions", label: "Session Logs", icon: <ClipboardList className="h-5 w-5" /> },
-    { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
-    { path: "/admin/projects", label: "Projects", icon: <Folder className="h-5 w-5" /> },
-    { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
-    { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  const navigationItems = [
+    { name: "Dashboard", href: "/admin/dashboard", icon: HomeIcon },
+    { name: "Projects", href: "/admin/projects", icon: BriefcaseIcon },
+    { name: "Interviewers", href: "/admin/interviewers", icon: UsersIcon },
+    { name: "Scheduling", href: "/admin/scheduling", icon: CalendarIcon },
+    { name: "Sessions", href: "/admin/sessions", icon: ListIcon },
+    { name: "Costs", href: "/admin/costs", icon: DollarSignIcon },
+    { name: "Tags", href: "/admin/tags", icon: TagIcon },
+    { name: "Settings", href: "/admin/settings", icon: SettingsIcon },
   ];
-  
-  const shouldShowFilters = () => {
-    if (!showFilters) return false;
-    
-    const routesWithFilters = [
-      '/admin/dashboard',
-      '/admin/sessions',
-      '/admin/interviewers',
-      '/admin/projects',
-      '/admin/scheduling',
-      '/admin/costs'
-    ];
-    
-    return routesWithFilters.some(route => location.pathname === route || location.pathname.startsWith(route + '/'));
-  };
-  
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="lg:hidden bg-cbs text-white p-4 flex justify-between items-center">
-        <Link to="/admin/dashboard" className="font-bold text-xl">
-          CBS Admin
-        </Link>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </header>
-      
-      {isMobileMenuOpen && (
-        <div className="lg:hidden bg-cbs text-white p-4">
-          <nav className="space-y-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-md",
-                  location.pathname === item.path
-                    ? "bg-white/20 font-semibold"
-                    : "hover:bg-white/10"
-                )}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            ))}
-            
-            <Link
-              to="/admin/settings"
-              className={cn(
-                "flex items-center gap-2 p-2 rounded-md",
-                location.pathname === "/admin/settings"
-                  ? "bg-white/20 font-semibold"
-                  : "hover:bg-white/10"
-              )}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
-            </Link>
-            
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 p-2 rounded-md w-full text-left hover:bg-white/10"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Logout</span>
-            </button>
-            
-            <Link
-              to="/"
-              className="flex items-center gap-2 p-2 rounded-md hover:bg-white/10"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              <Home className="h-5 w-5" />
-              <span>Main App</span>
-            </Link>
-          </nav>
+    <div className="flex h-screen bg-gray-100 text-gray-700">
+      {/* Sidebar */}
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={toggleSidebar}
+        navigationItems={navigationItems}
+      >
+        <div className="py-4 px-6">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full flex items-center justify-between text-sm font-medium rounded-md focus:outline-none">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatar_url || ""} />
+                    <AvatarFallback>{user?.email?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+                  </Avatar>
+                  <span>{user?.email || "User"}</span>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <LogOutIcon className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
-      
-      <div className="flex-1 flex">
-        <aside className="hidden lg:block w-64 bg-cbs text-white p-4 h-screen sticky top-0">
-          <div className="flex flex-col h-full">
-            <Link to="/admin/dashboard" className="font-bold text-xl mb-6">
-              CBS Admin
-            </Link>
-            
-            <nav className="space-y-1 flex-1">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-md",
-                    location.pathname === item.path
-                      ? "bg-white/20 font-semibold"
-                      : "hover:bg-white/10"
-                  )}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
-              ))}
-            </nav>
-            
-            <div className="pt-4 border-t border-white/20 space-y-1">
-              <Link
-                to="/admin/settings"
-                className={cn(
-                  "flex items-center gap-2 p-2 rounded-md",
-                  location.pathname === "/admin/settings"
-                    ? "bg-white/20 font-semibold"
-                    : "hover:bg-white/10"
-                )}
-              >
-                <Settings className="h-5 w-5" />
-                <span>Settings</span>
-              </Link>
-              
-              <Button
-                variant="ghost"
-                className="flex items-center gap-2 w-full justify-start text-white hover:bg-white/10 hover:text-white p-2 h-auto font-normal"
-                onClick={handleLogout}
-              >
-                <LogOut className="h-5 w-5" />
-                <span>Logout</span>
-              </Button>
-              
-              <Link
-                to="/"
-                className="flex items-center gap-2 p-2 rounded-md hover:bg-white/10"
-              >
-                <Home className="h-5 w-5" />
-                <span>Main App</span>
-              </Link>
-            </div>
-          </div>
-        </aside>
-        
-        <main className="flex-1 p-4 md:p-6 bg-background min-h-screen">
-          {shouldShowFilters() && (
-            <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border">
-              <h2 className="text-sm font-medium mb-3">Filters</h2>
-              <GlobalFilter />
-            </div>
-          )}
-          {children}
-        </main>
+      </Sidebar>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+        <main>{children}</main>
       </div>
     </div>
   );
