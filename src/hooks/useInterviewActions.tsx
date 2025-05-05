@@ -28,7 +28,16 @@ export const useInterviewActions = (sessionId: string | null) => {
         throw error;
       }
       
-      setActiveInterview(data || null);
+      if (data) {
+        // Add the required candidate_name property with a default value if it doesn't exist
+        const interview: Interview = {
+          ...data,
+          candidate_name: data.candidate_name || "Unknown" // Set default value
+        };
+        setActiveInterview(interview);
+      } else {
+        setActiveInterview(null);
+      }
     } catch (error) {
       console.error("Error fetching active interview:", error);
     } finally {
@@ -81,7 +90,8 @@ export const useInterviewActions = (sessionId: string | null) => {
             start_latitude: currentLocation?.latitude || null,
             start_longitude: currentLocation?.longitude || null,
             start_address: currentLocation?.address || null,
-            is_active: true
+            is_active: true,
+            candidate_name: "New interview" // Add default candidate name
           }
         ])
         .select()
@@ -89,7 +99,13 @@ export const useInterviewActions = (sessionId: string | null) => {
         
       if (error) throw error;
       
-      setActiveInterview(data);
+      // Create proper Interview object with all required properties
+      const interview: Interview = {
+        ...data,
+        candidate_name: data.candidate_name || "New interview"
+      };
+      
+      setActiveInterview(interview);
       
       toast({
         title: "Interview Started",

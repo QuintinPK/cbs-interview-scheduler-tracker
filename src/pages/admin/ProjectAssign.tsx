@@ -145,6 +145,10 @@ const ProjectAssign = () => {
     return processingIds.has(interviewerId);
   };
 
+  const isIslandExcluded = (project: Project, island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => {
+    return project.excluded_islands?.includes(island);
+  };
+
   return <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -254,7 +258,7 @@ const ProjectAssign = () => {
                 </Table>
               </div>
             </div>
-          </>}
+          </>
       </div>
     </AdminLayout>;
 };

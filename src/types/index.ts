@@ -34,7 +34,7 @@ export interface Interviewer {
   last_name: string;
   email?: string;
   phone?: string;
-  island?: string;
+  island?: 'Bonaire' | 'Saba' | 'Sint Eustatius';  // Update to use specific island types
   created_at?: string;
   created_by?: string;
 }
@@ -64,6 +64,7 @@ export interface Session {
 export interface Interview {
   id: string;
   session_id: string;
+  project_id?: string;  // Add project_id to fix usePerformanceMetrics error
   candidate_name: string;
   start_time: string;
   end_time?: string;
@@ -116,14 +117,14 @@ export interface Location {
   address?: string;
 }
 
-// Add Schedule interface
+// Add Schedule interface - fixing the "cancelled" vs "canceled" inconsistency
 export interface Schedule {
   id: string;
   interviewer_id: string;
   project_id?: string;
   start_time: string;
   end_time: string;
-  status: 'scheduled' | 'completed' | 'canceled';
+  status: 'scheduled' | 'completed' | 'canceled';  // Using American spelling "canceled" consistently
   notes?: string;
   created_at?: string;
 }

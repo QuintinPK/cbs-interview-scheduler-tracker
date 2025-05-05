@@ -26,8 +26,10 @@ export const useScheduleData = (interviewerId?: string) => {
           interviewer_id: schedule.interviewer_id,
           start_time: schedule.start_time,
           end_time: schedule.end_time,
-          status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
-          notes: schedule.notes || undefined
+          // Convert "cancelled" to "canceled" for consistency
+          status: schedule.status === "cancelled" ? "canceled" as const : schedule.status as 'scheduled' | 'completed' | 'canceled',
+          notes: schedule.notes || undefined,
+          project_id: schedule.project_id
         }));
         
         setSchedules(formattedSchedules);

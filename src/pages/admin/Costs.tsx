@@ -23,12 +23,14 @@ const Costs = () => {
           
         if (error) throw error;
         
+        // Make sure we include the candidate_name property
         const typedInterviews = data?.map(interview => ({
           ...interview,
           result: interview.result === 'response' || interview.result === 'non-response' 
             ? interview.result 
-            : interview.result
-        })) as Interview[] || [];
+            : interview.result,
+          candidate_name: interview.candidate_name || "Unknown" // Ensure candidate_name is present
+        })) as Interview[];
         
         setInterviews(typedInterviews);
       } catch (error) {

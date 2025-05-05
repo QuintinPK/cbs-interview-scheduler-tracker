@@ -231,7 +231,7 @@ export const ScheduleGrid = ({
                         className={`absolute inset-x-1 p-1 rounded-md text-xs ${
                           item.schedule.status === "completed" 
                             ? "bg-green-100 border border-green-300"
-                            : item.schedule.status === "cancelled"
+                            : item.schedule.status === "canceled"
                               ? "bg-gray-100 border border-gray-300 opacity-60"
                               : "bg-cbs-light/20 border border-cbs-light/40"
                         } ${showRealised && item.hasMatches ? 'left-1 right-1/2 mr-1' : 'inset-x-1'}`}
