@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,10 +29,10 @@ export const useInterviewActions = (sessionId: string | null) => {
       }
       
       if (data) {
-        // Add the required candidate_name property with a default value if it doesn't exist
+        // With the DB update, candidate_name should now be present in the data
         const interview: Interview = {
           ...data,
-          candidate_name: data.candidate_name || "Unknown" // Set default value
+          candidate_name: data.candidate_name || "Unknown"
         };
         setActiveInterview(interview);
       } else {
@@ -90,7 +91,7 @@ export const useInterviewActions = (sessionId: string | null) => {
             start_longitude: currentLocation?.longitude || null,
             start_address: currentLocation?.address || null,
             is_active: true,
-            candidate_name: "New interview" // Add default candidate name
+            candidate_name: "New interview" // Now explicitly add candidate_name
           }
         ])
         .select()
@@ -98,10 +99,10 @@ export const useInterviewActions = (sessionId: string | null) => {
         
       if (error) throw error;
       
-      // Create proper Interview object with all required properties
+      // With the DB update, candidate_name should now be present in the data
       const interview: Interview = {
         ...data,
-        candidate_name: data.candidate_name || "New interview"
+        candidate_name: data.candidate_name
       };
       
       setActiveInterview(interview);

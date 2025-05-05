@@ -23,13 +23,13 @@ const Costs = () => {
           
         if (error) throw error;
         
-        // Make sure we include the candidate_name property
+        // With the DB update, candidate_name should now be present in the data
         const typedInterviews = data?.map(interview => ({
           ...interview,
           result: interview.result === 'response' || interview.result === 'non-response' 
             ? interview.result 
             : interview.result,
-          candidate_name: interview.candidate_name || "Unknown" // Ensure candidate_name is present
+          candidate_name: interview.candidate_name // This should now exist in the data due to DB update
         })) as Interview[];
         
         setInterviews(typedInterviews);
