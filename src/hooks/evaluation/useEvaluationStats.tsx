@@ -2,25 +2,19 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-// Define proper types for the returned data from Supabase functions
-type AverageRatingResult = number | null;
-type InterviewerRatingItem = {
+// Define interfaces for our data structures
+interface InterviewerRating {
   interviewer_id: string;
   average_rating: number;
-};
-
-// Define parameter types for RPC functions
-type GetAverageRatingParams = {
-  interviewer_id_param: string;
-};
+}
 
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
   
-  // Create typesafe refs with proper initialization
-  const ratingsCache = useRef<{ [key: string]: number | null }>({});
-  const allRatingsCache = useRef<{ [key: string]: number }>({});
-  const lastFetch = useRef<{ [key: string]: number }>({});
+  // Create properly typed refs for caching
+  const ratingsCache = useRef<Record<string, number | null>>({});
+  const allRatingsCache = useRef<Record<string, number>>({});
+  const lastFetch = useRef<Record<string, number>>({});
   
   const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
 
@@ -30,8 +24,8 @@ export const useEvaluationStats = () => {
 
     if (
       !forceRefresh &&
-      cacheKey in ratingsCache.current &&
-      cacheKey in lastFetch.current &&
+      ratingsCache.current[cacheKey] !== undefined &&
+      lastFetch.current[cacheKey] &&
       now - lastFetch.current[cacheKey] < CACHE_TTL
     ) {
       return ratingsCache.current[cacheKey];
@@ -39,19 +33,23 @@ export const useEvaluationStats = () => {
 
     try {
       setLoading(true);
+      console.log(`Getting average rating for interviewer: ${interviewerId}`);
 
-      // Fix: Use type assertions instead of generic type parameters
-      const { data, error } = await supabase.rpc(
+      // Call RPC without type parameters
+      const response = await supabase.rpc(
         "get_interviewer_average_rating",
         { interviewer_id_param: interviewerId }
       );
 
-      if (error) {
-        console.error("Error getting average rating:", error);
+      if (response.error) {
+        console.error("Error getting average rating:", response.error);
         return null;
       }
 
-      const avgRating = data as AverageRatingResult;
+      // Cast the data to the expected type after receiving it
+      const avgRating = response.data as number | null;
+      
+      // Update cache
       ratingsCache.current[cacheKey] = avgRating;
       lastFetch.current[cacheKey] = now;
 
@@ -71,7 +69,7 @@ export const useEvaluationStats = () => {
     if (
       !forceRefresh &&
       Object.keys(allRatingsCache.current).length > 0 &&
-      cacheKey in lastFetch.current &&
+      lastFetch.current[cacheKey] &&
       now - lastFetch.current[cacheKey] < CACHE_TTL
     ) {
       return allRatingsCache.current;
@@ -81,21 +79,22 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
-      // Fix: Use type assertions instead of generic type parameters
-      const { data, error } = await supabase.rpc(
+      // Call RPC without type parameters
+      const response = await supabase.rpc(
         "get_all_interviewer_ratings"
       );
 
-      if (error) {
-        console.error("Error getting all ratings:", error);
+      if (response.error) {
+        console.error("Error getting all ratings:", response.error);
         return {};
       }
 
-      const ratingsMap: { [key: string]: number } = {};
+      const ratingsMap: Record<string, number> = {};
 
-      if (data && Array.isArray(data)) {
-        (data as InterviewerRatingItem[]).forEach((item) => {
-          if (item.interviewer_id && item.average_rating !== null) {
+      // Process and type check the response data
+      if (response.data && Array.isArray(response.data)) {
+        (response.data as InterviewerRating[]).forEach((item) => {
+          if (item.interviewer_id && typeof item.average_rating === 'number') {
             ratingsMap[item.interviewer_id] = item.average_rating;
           }
         });
@@ -103,6 +102,7 @@ export const useEvaluationStats = () => {
 
       console.log("All average ratings:", ratingsMap);
 
+      // Update cache
       allRatingsCache.current = ratingsMap;
       lastFetch.current[cacheKey] = now;
 
