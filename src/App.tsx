@@ -1,55 +1,91 @@
 
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext'; // Changed from @/hooks/useAuth
-import NotFound from '@/pages/NotFound'; // Changed from destructured import
-import Dashboard from '@/pages/admin/Dashboard'; // Changed from destructured import
-import Interviewers from '@/pages/admin/Interviewers'; // Changed from destructured import
-import Projects from '@/pages/admin/Projects'; // Changed from destructured import
-import InteractiveScheduling from '@/pages/admin/InteractiveScheduling'; // Changed from Scheduling
-import Sessions from '@/pages/admin/Sessions'; // Changed from destructured import
-import Costs from '@/pages/admin/Costs'; // Changed from destructured import
-import Settings from '@/pages/admin/Settings'; // Changed from destructured import
-import InterviewerDashboard from '@/pages/admin/InterviewerDashboard'; // Changed from destructured import
-import Tags from '@/pages/admin/Tags'; // Changed from destructured import
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { FilterProvider } from "./contexts/FilterContext";
 
-const App = () => {
-  const { isLoggedIn } = useAuth();
+// Pages
+import Index from "./pages/Index";
+import Login from "./pages/admin/Login";
+import Dashboard from "./pages/admin/Dashboard";
+import Sessions from "./pages/admin/Sessions";
+import Interviewers from "./pages/admin/Interviewers";
+import InterviewerDashboard from "./pages/admin/InterviewerDashboard";
+import InteractiveScheduling from "./pages/admin/InteractiveScheduling";
+import Costs from "./pages/admin/Costs";
+import Settings from "./pages/admin/Settings";
+import Projects from "./pages/admin/Projects"; 
+import ProjectAssign from "./pages/admin/ProjectAssign";
+import NotFound from "./pages/NotFound";
 
-  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    return isLoggedIn ? <>{children}</> : <Navigate to="/login" />;
-  };
+const queryClient = new QueryClient();
 
+// Protected route component needs to be inside the AuthProvider context
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  
+  if (!isAuthenticated) {
+    // Redirect to login page and remember where they were trying to go
+    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// AppRoutes component needs to be inside the AuthProvider
+const AppRoutes = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Navigate to="/login" />} />
-        <Route path="/login" element={<div>Login Page</div>} /> {/* Placeholder until Login page is created */}
-        
-        {/* Protected Routes */}
-        <Route path="/" element={<ProtectedRoute children={<></>} />}>
-          {/* Mobile Interviewer Routes */}
-          <Route path="/session" element={<div>Session Page</div>} /> {/* Placeholder until Session page is created */}
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<Navigate to="/admin/dashboard" />} />
-          <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/interviewers" element={<Interviewers />} />
-          <Route path="/admin/interviewer/:id" element={<InterviewerDashboard />} />
-          <Route path="/admin/projects" element={<Projects />} />
-          <Route path="/admin/scheduling" element={<InteractiveScheduling />} />
-          <Route path="/admin/sessions" element={<Sessions />} />
-          <Route path="/admin/costs" element={<Costs />} />
-          <Route path="/admin/tags" element={<Tags />} />
-          <Route path="/admin/settings" element={<Settings />} />
-        </Route>
-        
-        {/* Not Found */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/admin/login" element={<Login />} />
+      
+      {/* Protected Admin Routes */}
+      <Route 
+        path="/admin/*" 
+        element={
+          <ProtectedRoute>
+            <FilterProvider>
+              <Routes>
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="sessions" element={<Sessions />} />
+                <Route path="interviewers" element={<Interviewers />} />
+                <Route path="interviewer/:interviewerId" element={<InterviewerDashboard />} />
+                <Route path="projects" element={<Projects />} />
+                <Route path="projects/assign/:projectId" element={<ProjectAssign />} />
+                <Route path="costs" element={<Costs />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="scheduling" element={<InteractiveScheduling />} />
+                <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </FilterProvider>
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Not Found Route */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
   );
 };
+
+// App component
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <Toaster />
+          <Sonner />
+          <AppRoutes />
+        </AuthProvider>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;

@@ -1,43 +1,21 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Map } from "lucide-react";
 import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
-import { useToast } from "@/hooks/use-toast";
 
 const GoogleMapsApiCard = () => {
-  const { apiKey, loading, error, updateApiKey } = useGoogleMapsApiKey();
-  const { toast } = useToast();
-  const [newApiKey, setNewApiKey] = useState("");
+  const { apiKey, loading, updateApiKey } = useGoogleMapsApiKey();
+  const [newApiKey, setNewApiKey] = useState(apiKey);
   const [isSaving, setIsSaving] = useState(false);
-
-  // Update the newApiKey state when apiKey is loaded
-  useEffect(() => {
-    if (apiKey) {
-      setNewApiKey(apiKey);
-    }
-  }, [apiKey]);
 
   const handleSave = async () => {
     setIsSaving(true);
-    const success = await updateApiKey(newApiKey);
+    await updateApiKey(newApiKey);
     setIsSaving(false);
-    
-    if (success) {
-      toast({
-        title: "Success",
-        description: "Google Maps API key updated successfully",
-      });
-    } else {
-      toast({
-        title: "Error",
-        description: "Failed to update Google Maps API key",
-        variant: "destructive",
-      });
-    }
   };
 
   return (

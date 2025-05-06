@@ -172,15 +172,14 @@ const Interviewers = () => {
       setSubmitting(true);
       
       for (const interviewer of csvInterviewers) {
-        const newInterviewer = {
+        await addInterviewer({
           code: interviewer.code,
           first_name: interviewer.first_name,
           last_name: interviewer.last_name,
           phone: interviewer.phone || "",
           email: interviewer.email || "",
           island: interviewer.island,
-        };
-        await addInterviewer(newInterviewer);
+        });
       }
       
     } catch (error) {

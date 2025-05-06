@@ -174,7 +174,6 @@ export type Database = {
       }
       interviews: {
         Row: {
-          candidate_name: string
           created_at: string
           end_address: string | null
           end_latitude: number | null
@@ -191,7 +190,6 @@ export type Database = {
           start_time: string
         }
         Insert: {
-          candidate_name?: string
           created_at?: string
           end_address?: string | null
           end_latitude?: number | null
@@ -208,7 +206,6 @@ export type Database = {
           start_time?: string
         }
         Update: {
-          candidate_name?: string
           created_at?: string
           end_address?: string | null
           end_latitude?: number | null

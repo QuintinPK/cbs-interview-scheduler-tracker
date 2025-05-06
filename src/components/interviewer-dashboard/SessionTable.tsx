@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { useSessionSorting } from '@/hooks/useSessionSorting';
-import { Link } from 'react-router-dom';
 
 interface SessionTableProps {
   sessions: Session[];

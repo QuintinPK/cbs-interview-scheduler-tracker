@@ -1,99 +1,90 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useGoogleMapsApiKey = () => {
+export function useGoogleMapsApiKey() {
   const [apiKey, setApiKey] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchApiKey = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from("app_settings")
-          .select("value")
-          .eq("key", "google_maps_api_key")
-          .single();
+        setError(null);
+        
+        const { data, error } = await supabase.functions.invoke("admin-functions", {
+          body: { action: "getGoogleMapsApiKey" },
+        });
 
         if (error) {
-          console.error("Error fetching Google Maps API key:", error);
-          setError("Failed to load API key");
-          return;
+          throw new Error(error.message);
         }
 
-        // Check if data exists and has a value property
-        if (data && typeof data.value === 'object' && data.value !== null && 'apiKey' in data.value) {
-          setApiKey(data.value.apiKey as string);
+        if (data && data.success && data.data && data.data.apiKey) {
+          setApiKey(data.data.apiKey);
         } else {
-          console.warn("API key not found in settings");
+          // If no API key found, set an empty string
+          setApiKey("");
+          console.warn("No Google Maps API key found in database");
         }
-      } catch (err) {
-        console.error("Unexpected error:", err);
-        setError("An unexpected error occurred");
+      } catch (err: any) {
+        console.error("Error fetching Google Maps API key:", err);
+        setError(err.message || "Failed to fetch Google Maps API key");
+        toast({
+          title: "Error",
+          description: "Failed to fetch Google Maps API key",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchApiKey();
-  }, []);
+  }, [toast]);
 
-  const updateApiKey = useCallback(async (newApiKey: string) => {
+  const updateApiKey = async (newApiKey: string): Promise<boolean> => {
     try {
       setLoading(true);
       setError(null);
+      
+      const { data, error } = await supabase.functions.invoke("admin-functions", {
+        body: { 
+          action: "updateGoogleMapsApiKey", 
+          data: { apiKey: newApiKey } 
+        },
+      });
 
-      // Check if the setting already exists
-      const { data: existingData } = await supabase
-        .from("app_settings")
-        .select("id")
-        .eq("key", "google_maps_api_key")
-        .maybeSingle();
-
-      if (existingData) {
-        // Update existing setting
-        const { error: updateError } = await supabase
-          .from("app_settings")
-          .update({
-            value: { apiKey: newApiKey },
-            updated_at: new Date().toISOString(),
-          })
-          .eq("key", "google_maps_api_key");
-
-        if (updateError) {
-          throw updateError;
-        }
-      } else {
-        // Insert new setting
-        const { error: insertError } = await supabase
-          .from("app_settings")
-          .insert({
-            key: "google_maps_api_key",
-            value: { apiKey: newApiKey },
-          });
-
-        if (insertError) {
-          throw insertError;
-        }
+      if (error) {
+        throw new Error(error.message);
       }
 
-      setApiKey(newApiKey);
-      return true;
+      if (data && data.success) {
+        setApiKey(newApiKey);
+        toast({
+          title: "Success",
+          description: "Google Maps API key updated successfully",
+        });
+        return true;
+      } else {
+        throw new Error("Failed to update Google Maps API key");
+      }
     } catch (err: any) {
-      console.error("Error updating API key:", err);
-      setError(err.message || "Failed to update API key");
+      console.error("Error updating Google Maps API key:", err);
+      setError(err.message || "Failed to update Google Maps API key");
+      toast({
+        title: "Error",
+        description: "Failed to update Google Maps API key",
+        variant: "destructive",
+      });
       return false;
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  return {
-    apiKey,
-    loading,
-    error,
-    updateApiKey,
   };
-};
+
+  return { apiKey, loading, error, updateApiKey };
+}

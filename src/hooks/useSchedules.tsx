@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Schedule } from "@/types";
@@ -37,14 +38,13 @@ export const useSchedules = (
         
       if (error) throw error;
       
-      // Convert data to proper Schedule objects and ensure consistent "canceled" spelling
+      // Convert data to proper Schedule objects
       const formattedSchedules: Schedule[] = (data || []).map(schedule => ({
         id: schedule.id,
         interviewer_id: schedule.interviewer_id,
         start_time: schedule.start_time,
         end_time: schedule.end_time,
-        // Convert "cancelled" to "canceled" for consistency
-        status: schedule.status === "cancelled" ? "canceled" as const : schedule.status as 'scheduled' | 'completed' | 'canceled',
+        status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
         notes: schedule.notes || undefined,
         project_id: schedule.project_id
       }));
@@ -135,8 +135,7 @@ export const useSchedules = (
     interviewer_id: data.interviewer_id,
     start_time: data.start_time,
     end_time: data.end_time,
-    // Convert "cancelled" to "canceled" for consistency
-    status: data.status === "cancelled" ? "canceled" as const : data.status as 'scheduled' | 'completed' | 'canceled',
+    status: data.status as 'scheduled' | 'completed' | 'cancelled',
     notes: data.notes || undefined,
     project_id: data.project_id
   });
@@ -223,13 +222,13 @@ export const useSchedules = (
   const getScheduledHoursForWeek = (weekStart: Date) => {
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
     
-    // Filter schedules for the given week that are not canceled
+    // Filter schedules for the given week that are not cancelled
     const weekSchedules = schedules.filter(schedule => {
       const scheduleDate = parseISO(schedule.start_time);
       return (
         scheduleDate >= weekStart && 
         scheduleDate <= weekEnd && 
-        schedule.status !== 'canceled'
+        schedule.status !== 'cancelled'
       );
     });
     

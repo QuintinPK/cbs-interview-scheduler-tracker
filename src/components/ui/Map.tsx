@@ -7,48 +7,35 @@ interface MapProps {
   longitude: number;
   zoom?: number;
   className?: string;
-  apiKey?: string;
 }
 
 const Map: React.FC<MapProps> = ({
   latitude,
   longitude,
   zoom = 16,
-  className = 'w-full h-64 rounded-md',
-  apiKey
+  className = 'w-full h-64 rounded-md'
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [googleMap, setGoogleMap] = useState<google.maps.Map | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadMap = async () => {
       try {
-        // Use the provided API key or fallback to environment variable
-        const key = apiKey || process.env.GOOGLE_MAPS_API_KEY || '';
-        
-        if (!key) {
-          setError("Google Maps API key is missing");
-          return;
-        }
-        
         const loader = new Loader({
-          apiKey: key,
+          apiKey: process.env.GOOGLE_MAPS_API_KEY || '',
           version: 'weekly',
         });
 
         await loader.load();
         setMapLoaded(true);
-        setError(null);
       } catch (error) {
         console.error('Error loading Google Maps API:', error);
-        setError('Failed to load Google Maps');
       }
     };
 
     loadMap();
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
     if (mapLoaded && mapRef.current && latitude && longitude) {
@@ -82,11 +69,7 @@ const Map: React.FC<MapProps> = ({
     <div ref={mapRef} className={className}>
       {!mapLoaded && (
         <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-md">
-          {error ? (
-            <p className="text-red-500">{error}</p>
-          ) : (
-            <p className="text-gray-500">Loading map...</p>
-          )}
+          <p className="text-gray-500">Loading map...</p>
         </div>
       )}
     </div>
