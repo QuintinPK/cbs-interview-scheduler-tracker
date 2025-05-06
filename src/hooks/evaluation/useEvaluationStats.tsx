@@ -11,9 +11,10 @@ type InterviewerRatingItem = {
 
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
-  const ratingsCache = useRef<Record<string, number | null>>({});
-  const allRatingsCache = useRef<Record<string, number>>({});
-  const lastFetch = useRef<Record<string, number>>({});
+  // Fix the ref typing by using MutableRefObject and as assertion
+  const ratingsCache = useRef<Record<string, number | null>>({} as Record<string, number | null>);
+  const allRatingsCache = useRef<Record<string, number>>({} as Record<string, number>);
+  const lastFetch = useRef<Record<string, number>>({} as Record<string, number>);
   const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
   
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
