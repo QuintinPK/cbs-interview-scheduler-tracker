@@ -35,7 +35,7 @@ export const useEvaluationStats = () => {
       
       // Use a more efficient direct average calculation in the database
       const { data, error } = await supabase
-        .rpc('get_interviewer_average_rating', { interviewer_id_param: interviewerId });
+        .rpc<AverageRatingResult>('get_interviewer_average_rating', { interviewer_id_param: interviewerId });
       
       if (error) {
         console.error("Error getting average rating:", error);
@@ -76,7 +76,7 @@ export const useEvaluationStats = () => {
       
       // Use an optimized query to get all ratings in a single call
       const { data, error } = await supabase
-        .rpc('get_all_interviewer_ratings');
+        .rpc<InterviewerRatingItem[]>('get_all_interviewer_ratings');
       
       if (error) {
         console.error("Error getting all ratings:", error);
