@@ -2,33 +2,17 @@
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+  TableBody
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Pencil, 
-  StopCircle, 
-  Trash2, 
-  Loader2, 
-  ChevronDown, 
-  ChevronRight, 
-  MessageCircle, 
-  MapPin,
-  ArrowDown,
-  ArrowUp 
-} from "lucide-react";
-import { formatDateTime, calculateDuration } from "@/lib/utils";
-import { Session, Interview, Project } from "@/types";
-import InterviewsList from "./InterviewsList";
-import CoordinatePopup from "../ui/CoordinatePopup";
+import { Interview, Project, Session } from "@/types";
+import { Loader2 } from "lucide-react";
+import { calculateDuration } from "@/utils/sessionUtils";
 import { useSessionSorting } from "@/hooks/useSessionSorting";
-import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import CoordinatePopup from "../ui/CoordinatePopup";
+import { SessionRow } from "./SessionRow";
+import { SessionTableHeader } from "./SessionTableHeader";
+import InterviewsList from "./InterviewsList";
+import { SessionsTableStatus } from "./SessionsTableStatus";
 
 interface SessionListProps {
   sessions: Session[];
@@ -73,35 +57,6 @@ const SessionList: React.FC<SessionListProps> = ({
     sortDirection,
     toggleSort
   } = useSessionSorting(sessions, getInterviewerCode, getProjectName);
-
-  const SortableHeader: React.FC<{
-    field: 'interviewer_code' | 'project' | 'duration' | 'start_time' | 'end_time';
-    children: React.ReactNode;
-  }> = ({ field, children }) => (
-    <Button
-      variant="ghost"
-      className={cn(
-        "h-8 flex items-center gap-1 -ml-2 font-medium",
-        "hover:bg-accent hover:text-accent-foreground",
-        "transition-colors duration-200",
-        "group"
-      )}
-      onClick={() => toggleSort(field)}
-    >
-      <span className="group-hover:text-primary">{children}</span>
-      <div className="w-4">
-        {sortField === field ? (
-          sortDirection === 'asc' ? 
-            <ArrowUp className="h-3 w-3 text-primary" /> : 
-            <ArrowDown className="h-3 w-3 text-primary" />
-        ) : (
-          <div className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <ArrowUp className="h-3 w-3 text-muted-foreground" />
-          </div>
-        )}
-      </div>
-    </Button>
-  );
 
   useEffect(() => {
     const loadAllInterviewCounts = async () => {
@@ -194,200 +149,71 @@ const SessionList: React.FC<SessionListProps> = ({
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10"></TableHead>
-                <TableHead>
-                  <SortableHeader field="interviewer_code">
-                    Interviewer Code
-                  </SortableHeader>
-                </TableHead>
-                <TableHead>
-                  <SortableHeader field="project">
-                    Project
-                  </SortableHeader>
-                </TableHead>
-                <TableHead>
-                  <SortableHeader field="start_time">
-                    Start Date/Time
-                  </SortableHeader>
-                </TableHead>
-                <TableHead>
-                  <SortableHeader field="end_time">
-                    End Date/Time
-                  </SortableHeader>
-                </TableHead>
-                <TableHead>
-                  <SortableHeader field="duration">
-                    Duration
-                  </SortableHeader>
-                </TableHead>
-                <TableHead>Start Location</TableHead>
-                <TableHead>End Location</TableHead>
-                <TableHead>Interviews</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
+            <SessionTableHeader 
+              sortField={sortField}
+              sortDirection={sortDirection}
+              toggleSort={toggleSort}
+            />
             <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-10">
-                    <div className="flex justify-center items-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-cbs" />
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : sortedSessions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
-                    No sessions found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedSessions.map((session) => (
-                  <React.Fragment key={session.id}>
-                    <TableRow className={expandedSessions[session.id] ? "bg-gray-50" : ""}>
-                      <TableCell>
-                        {interviewCounts[session.id] > 0 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => toggleSessionExpanded(session.id)}
-                          >
-                            {expandedSessions[session.id] ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <Link 
-                          to={`/admin/interviewer/${session.interviewer_id}`}
-                          className="text-blue-600 hover:text-blue-800 hover:underline"
-                        >
-                          {getInterviewerCode(session.interviewer_id)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {getProjectName(session.project_id)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatDateTime(session.start_time)}</TableCell>
-                      <TableCell>
-                        {session.end_time ? formatDateTime(session.end_time) : (
-                          <Badge variant="warning">
-                            Active
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {session.end_time ? calculateDuration(session.start_time, session.end_time) : "Ongoing"}
-                      </TableCell>
-                      <TableCell>
-                        {session.start_latitude && session.start_longitude ? (
-                          <button 
-                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                            onClick={() => handleCoordinateClick(session.start_latitude, session.start_longitude)}
-                          >
-                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
-                            {session.start_latitude.toFixed(4)}, {session.start_longitude.toFixed(4)}
-                          </button>
-                        ) : (
-                          "N/A"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {session.end_latitude && session.end_longitude ? (
-                          <button 
-                            className="flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                            onClick={() => handleCoordinateClick(session.end_latitude, session.end_longitude)}
-                          >
-                            <MapPin className="h-3 w-3 mr-1 text-gray-500" />
-                            {session.end_latitude.toFixed(4)}, {session.end_longitude.toFixed(4)}
-                          </button>
-                        ) : (
-                          "N/A"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {loadingCounts[session.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : interviewCounts[session.id] > 0 ? (
-                          <Badge 
-                            variant="purple" 
-                            className="flex items-center space-x-1 cursor-pointer"
-                            onClick={() => toggleSessionExpanded(session.id)}
-                          >
-                            <MessageCircle className="h-3 w-3 mr-1" />
-                            <span>{interviewCounts[session.id]}</span>
-                          </Badge>
-                        ) : (
-                          <span className="text-gray-400 text-sm">No interviews</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onEdit(session)}
-                            title="Edit"
-                            disabled={loading}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          
-                          {session.is_active && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => onStop(session)}
-                              title="Stop Session"
-                              disabled={loading}
-                            >
-                              <StopCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onDelete(session)}
-                            title="Delete"
-                            disabled={loading}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                    {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="p-0 border-t-0">
-                          <div className="bg-gray-50 pl-12 pr-4 py-4">
-                            {loadingInterviews[session.id] ? (
-                              <div className="flex justify-center items-center py-4">
-                                <Loader2 className="h-6 w-6 animate-spin text-cbs" />
-                                <span className="ml-2 text-gray-500">Loading interviews...</span>
-                              </div>
-                            ) : sessionInterviews[session.id]?.length ? (
+              <SessionsTableStatus 
+                loading={loading}
+                isEmpty={sortedSessions.length === 0}
+                colSpan={10}
+              />
+              
+              {!loading && sortedSessions.length > 0 && sortedSessions.map((session) => (
+                <React.Fragment key={session.id}>
+                  <SessionRow 
+                    session={session}
+                    isExpanded={!!expandedSessions[session.id]}
+                    interviewCount={interviewCounts[session.id] || 0}
+                    loadingCount={!!loadingCounts[session.id]}
+                    getInterviewerCode={getInterviewerCode}
+                    getProjectName={getProjectName}
+                    calculateDuration={calculateDuration}
+                    toggleSessionExpanded={toggleSessionExpanded}
+                    handleCoordinateClick={handleCoordinateClick}
+                    onEdit={onEdit}
+                    onStop={onStop}
+                    onDelete={onDelete}
+                    loading={loading}
+                  />
+                  
+                  {expandedSessions[session.id] && interviewCounts[session.id] > 0 && (
+                    <>
+                      {loadingInterviews[session.id] ? (
+                        <tr>
+                          <td colSpan={9} className="p-0 border-t-0 bg-gray-50">
+                            <div className="flex justify-center items-center py-4">
+                              <Loader2 className="h-6 w-6 animate-spin text-cbs" />
+                              <span className="ml-2 text-gray-500">Loading interviews...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : sessionInterviews[session.id]?.length ? (
+                        <tr>
+                          <td colSpan={9} className="p-0 border-t-0 bg-gray-50">
+                            <div className="pl-12 pr-4 py-4">
                               <InterviewsList 
                                 interviews={sessionInterviews[session.id]} 
                                 refreshInterviews={() => refreshInterviews(session.id)}
                               />
-                            ) : (
-                              <p className="text-gray-500 text-center py-4">No interviews for this session</p>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
-              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr>
+                          <td colSpan={9} className="p-0 border-t-0 bg-gray-50">
+                            <div className="pl-12 pr-4 py-4">
+                              <p className="text-gray-500 text-center">No interviews for this session</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )}
+                </React.Fragment>
+              ))}
             </TableBody>
           </Table>
         </div>

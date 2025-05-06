@@ -3,7 +3,7 @@ import React from 'react';
 import { Interview } from '@/types';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { calculateDuration } from '@/lib/utils';
+import { calculateDuration } from '@/utils/sessionUtils';
 
 interface InterviewItemProps {
   interview: Interview;
