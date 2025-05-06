@@ -9,6 +9,11 @@ type InterviewerRatingItem = {
   average_rating: number;
 };
 
+// Define parameter types for RPC functions
+type GetAverageRatingParams = {
+  interviewer_id_param: string;
+};
+
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
   
@@ -35,7 +40,8 @@ export const useEvaluationStats = () => {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase.rpc(
+      // Properly type both the params and the return type of the RPC call
+      const { data, error } = await supabase.rpc<AverageRatingResult, GetAverageRatingParams>(
         "get_interviewer_average_rating",
         { interviewer_id_param: interviewerId }
       );
@@ -75,7 +81,10 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
-      const { data, error } = await supabase.rpc("get_all_interviewer_ratings");
+      // Properly type the return type of the RPC call
+      const { data, error } = await supabase.rpc<InterviewerRatingItem[]>(
+        "get_all_interviewer_ratings"
+      );
 
       if (error) {
         console.error("Error getting all ratings:", error);
