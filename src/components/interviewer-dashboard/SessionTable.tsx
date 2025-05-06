@@ -3,7 +3,7 @@ import React from 'react';
 import { Session, Interview } from '@/types';
 import { Button } from '@/components/ui/button';
 import { formatDateTime, cn } from '@/lib/utils';
-import { ChevronDown, ChevronRight, MapPin, MessageCircle, ArrowDown, ArrowUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, MessageCircle } from 'lucide-react';
 import { 
   Table, 
   TableBody, 
@@ -14,7 +14,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { useSessionSorting } from '@/hooks/useSessionSorting';
-import { Link } from 'react-router-dom';
+import { SortableHeader } from './SortableHeader';
+import { InterviewsList } from './InterviewsList';
+import { calculateDuration } from '@/utils/sessionUtils';
 
 interface SessionTableProps {
   sessions: Session[];
@@ -57,35 +59,6 @@ export const SessionTable: React.FC<SessionTableProps> = ({
     return acc;
   }, {} as Record<string, Interview[]>);
 
-  const SortableHeader: React.FC<{
-    field: 'interviewer_code' | 'project' | 'duration' | 'start_time' | 'end_time';
-    children: React.ReactNode;
-  }> = ({ field, children }) => (
-    <Button
-      variant="ghost"
-      className={cn(
-        "h-8 flex items-center gap-1 -ml-2 font-medium",
-        "hover:bg-accent hover:text-accent-foreground",
-        "transition-colors duration-200",
-        "group"
-      )}
-      onClick={() => toggleSort(field)}
-    >
-      <span className="group-hover:text-primary">{children}</span>
-      <div className="w-4">
-        {sortField === field ? (
-          sortDirection === 'asc' ? 
-            <ArrowUp className="h-3 w-3 text-primary" /> : 
-            <ArrowDown className="h-3 w-3 text-primary" />
-        ) : (
-          <div className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <ArrowUp className="h-3 w-3 text-muted-foreground" />
-          </div>
-        )}
-      </div>
-    </Button>
-  );
-
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="overflow-x-auto">
@@ -95,17 +68,45 @@ export const SessionTable: React.FC<SessionTableProps> = ({
               <TableHead className="w-10"></TableHead>
               {showProject && (
                 <TableHead>
-                  <SortableHeader field="project">Project</SortableHeader>
+                  <SortableHeader 
+                    field="project" 
+                    sortField={sortField} 
+                    sortDirection={sortDirection} 
+                    toggleSort={toggleSort}
+                  >
+                    Project
+                  </SortableHeader>
                 </TableHead>
               )}
               <TableHead>
-                <SortableHeader field="start_time">Start Date/Time</SortableHeader>
+                <SortableHeader 
+                  field="start_time" 
+                  sortField={sortField} 
+                  sortDirection={sortDirection} 
+                  toggleSort={toggleSort}
+                >
+                  Start Date/Time
+                </SortableHeader>
               </TableHead>
               <TableHead>
-                <SortableHeader field="end_time">End Date/Time</SortableHeader>
+                <SortableHeader 
+                  field="end_time" 
+                  sortField={sortField} 
+                  sortDirection={sortDirection} 
+                  toggleSort={toggleSort}
+                >
+                  End Date/Time
+                </SortableHeader>
               </TableHead>
               <TableHead>
-                <SortableHeader field="duration">Duration</SortableHeader>
+                <SortableHeader 
+                  field="duration" 
+                  sortField={sortField} 
+                  sortDirection={sortDirection} 
+                  toggleSort={toggleSort}
+                >
+                  Duration
+                </SortableHeader>
               </TableHead>
               <TableHead>Start Location</TableHead>
               <TableHead>End Location</TableHead>
@@ -209,75 +210,3 @@ export const SessionTable: React.FC<SessionTableProps> = ({
     </div>
   );
 };
-
-// Local component for displaying interviews list
-const InterviewsList: React.FC<{
-  interviews: Interview[];
-  showProject: boolean;
-}> = ({ interviews, showProject }) => {
-  return (
-    <TableRow>
-      <TableCell colSpan={showProject ? 8 : 7} className="p-0 border-t-0">
-        <div className="bg-gray-50 pl-12 pr-4 py-4">
-          <div className="space-y-2">
-            {interviews.map((interview) => (
-              <InterviewItem key={interview.id} interview={interview} />
-            ))}
-          </div>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-};
-
-// Helper component for rendering a single interview
-const InterviewItem: React.FC<{
-  interview: Interview;
-}> = ({ interview }) => {
-  return (
-    <div className="bg-white p-3 rounded border">
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="flex items-center space-x-2 mb-1">
-            <span className="text-sm font-medium">
-              {format(parseISO(interview.start_time), "MMM d, yyyy • h:mm a")}
-            </span>
-            {interview.result && (
-              <Badge variant={interview.result === 'response' ? 'success' : 'destructive'}>
-                {interview.result === 'response' ? 'Response' : 'Non-response'}
-              </Badge>
-            )}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Duration: {interview.end_time 
-              ? calculateDuration(interview.start_time, interview.end_time) 
-              : "Ongoing"}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Helper function to calculate duration between two times
-const calculateDuration = (startTime: string, endTime: string | null): string => {
-  if (!endTime) return "Ongoing";
-
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  const durationMs = end.getTime() - start.getTime();
-
-  const hours = Math.floor(durationMs / (1000 * 60 * 60));
-  const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
-
-  let result = '';
-  if (hours > 0) result += `${hours}h `;
-  if (minutes > 0 || hours > 0) result += `${minutes}m `;
-  result += `${seconds}s`;
-
-  return result.trim();
-};
-
-// Helper function to format a date string
-import { format, parseISO } from 'date-fns';
