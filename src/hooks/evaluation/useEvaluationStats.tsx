@@ -35,19 +35,19 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log(`Getting average rating for interviewer: ${interviewerId}`);
 
-      // Call RPC without type parameters
-      const response = await supabase.rpc(
+      // Using any as a temporary type for the function name to work around the TypeScript error
+      const { data, error } = await (supabase.rpc as any)(
         "get_interviewer_average_rating",
         { interviewer_id_param: interviewerId }
       );
 
-      if (response.error) {
-        console.error("Error getting average rating:", response.error);
+      if (error) {
+        console.error("Error getting average rating:", error);
         return null;
       }
 
       // Cast the data to the expected type after receiving it
-      const avgRating = response.data as number | null;
+      const avgRating = data as number | null;
       
       // Update cache
       ratingsCache.current[cacheKey] = avgRating;
@@ -79,21 +79,21 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
-      // Call RPC without type parameters
-      const response = await supabase.rpc(
+      // Using any as a temporary type for the function name to work around the TypeScript error
+      const { data, error } = await (supabase.rpc as any)(
         "get_all_interviewer_ratings"
       );
 
-      if (response.error) {
-        console.error("Error getting all ratings:", response.error);
+      if (error) {
+        console.error("Error getting all ratings:", error);
         return {};
       }
 
       const ratingsMap: Record<string, number> = {};
 
       // Process and type check the response data
-      if (response.data && Array.isArray(response.data)) {
-        (response.data as InterviewerRating[]).forEach((item) => {
+      if (data && Array.isArray(data)) {
+        (data as InterviewerRating[]).forEach((item) => {
           if (item.interviewer_id && typeof item.average_rating === 'number') {
             ratingsMap[item.interviewer_id] = item.average_rating;
           }
