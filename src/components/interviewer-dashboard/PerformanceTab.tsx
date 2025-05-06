@@ -1,7 +1,6 @@
 
 import React from "react";
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
-import EvaluationsCard from "@/components/interviewer/EvaluationsCard";
 import { Session, Interviewer } from "@/types";
 
 interface PerformanceTabProps {
@@ -18,21 +17,10 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   getProjectName 
 }) => {
   return (
-    <>
-      <PerformanceMetrics
-        sessions={sessions}
-        interviews={interviews}
-        interviewer={interviewer}
-      />
-
-      {interviewer && (
-        <div className="mt-6">
-          <EvaluationsCard
-            interviewer={interviewer}
-            projectNameResolver={getProjectName}
-          />
-        </div>
-      )}
-    </>
+    <PerformanceMetrics
+      sessions={sessions}
+      interviews={interviews}
+      interviewer={interviewer}
+    />
   );
 };
