@@ -40,8 +40,8 @@ export const useEvaluationStats = () => {
     try {
       setLoading(true);
 
-      // Properly type both the params and the return type of the RPC call
-      const { data, error } = await supabase.rpc<AverageRatingResult, GetAverageRatingParams>(
+      // Fix: Use type assertions instead of generic type parameters
+      const { data, error } = await supabase.rpc(
         "get_interviewer_average_rating",
         { interviewer_id_param: interviewerId }
       );
@@ -81,8 +81,8 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
-      // Properly type the return type of the RPC call
-      const { data, error } = await supabase.rpc<InterviewerRatingItem[]>(
+      // Fix: Use type assertions instead of generic type parameters
+      const { data, error } = await supabase.rpc(
         "get_all_interviewer_ratings"
       );
 
