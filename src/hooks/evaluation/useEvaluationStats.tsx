@@ -2,8 +2,8 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+// Define proper types for the returned data from Supabase functions
 type AverageRatingResult = number | null;
-type AllRatingsResult = Record<string, number>;
 type InterviewerRatingItem = {
   interviewer_id: string;
   average_rating: number;
@@ -12,10 +12,11 @@ type InterviewerRatingItem = {
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
   
-  // Use type assertion with the initial value to ensure TypeScript understands the index signature
-  const ratingsCache = useRef<Record<string, number | null>>({} as Record<string, number | null>);
-  const allRatingsCache = useRef<Record<string, number>>({} as Record<string, number>);
-  const lastFetch = useRef<Record<string, number>>({} as Record<string, number>);
+  // Create typesafe refs with proper initialization
+  const ratingsCache = useRef<{ [key: string]: number | null }>({});
+  const allRatingsCache = useRef<{ [key: string]: number }>({});
+  const lastFetch = useRef<{ [key: string]: number }>({});
+  
   const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
 
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
@@ -24,8 +25,8 @@ export const useEvaluationStats = () => {
 
     if (
       !forceRefresh &&
-      ratingsCache.current[cacheKey] !== undefined &&
-      lastFetch.current[cacheKey] &&
+      cacheKey in ratingsCache.current &&
+      cacheKey in lastFetch.current &&
       now - lastFetch.current[cacheKey] < CACHE_TTL
     ) {
       return ratingsCache.current[cacheKey];
@@ -34,10 +35,10 @@ export const useEvaluationStats = () => {
     try {
       setLoading(true);
 
-      // Remove explicit generic parameter and let TypeScript infer it
-      const { data, error } = await supabase.rpc("get_interviewer_average_rating", {
-        interviewer_id_param: interviewerId,
-      });
+      const { data, error } = await supabase.rpc(
+        "get_interviewer_average_rating",
+        { interviewer_id_param: interviewerId }
+      );
 
       if (error) {
         console.error("Error getting average rating:", error);
@@ -64,7 +65,7 @@ export const useEvaluationStats = () => {
     if (
       !forceRefresh &&
       Object.keys(allRatingsCache.current).length > 0 &&
-      lastFetch.current[cacheKey] &&
+      cacheKey in lastFetch.current &&
       now - lastFetch.current[cacheKey] < CACHE_TTL
     ) {
       return allRatingsCache.current;
@@ -74,7 +75,6 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
-      // Remove explicit generic parameter and let TypeScript infer it
       const { data, error } = await supabase.rpc("get_all_interviewer_ratings");
 
       if (error) {
@@ -82,7 +82,7 @@ export const useEvaluationStats = () => {
         return {};
       }
 
-      const ratingsMap: Record<string, number> = {};
+      const ratingsMap: { [key: string]: number } = {};
 
       if (data && Array.isArray(data)) {
         (data as InterviewerRatingItem[]).forEach((item) => {
