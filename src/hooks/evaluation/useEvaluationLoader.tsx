@@ -29,7 +29,7 @@ export const useEvaluationLoader = () => {
     try {
       setLoadingEvaluations(true);
       setError(null);
-      console.log("Loading evaluations for interviewer:", interviewerId);
+      console.log(`Loading evaluations for interviewer: ${interviewerId} (force refresh: ${forceRefresh})`);
       
       // Get evaluations with a single query, ordering by created_at descending
       const { data: evaluationsData, error: evaluationsError } = await supabase
@@ -57,7 +57,7 @@ export const useEvaluationLoader = () => {
       console.log(`Found ${evaluationsData.length} evaluations`);
       
       // Get all evaluation IDs for batch fetching tags
-      const evaluationIds = evaluationsData.map(eval => eval.id);
+      const evaluationIds = evaluationsData.map(evaluation => evaluation.id);
       
       // Fetch all tags for these evaluations in a single query with proper joins
       const { data: tagJunctionsWithTags, error: tagsError } = await supabase

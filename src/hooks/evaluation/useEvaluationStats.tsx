@@ -2,10 +2,13 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+type AverageRatingResult = number | null;
+type AllRatingsResult = Record<string, number>;
+
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
   const ratingsCache = useRef<Record<string, number | null>>({});
-  const allRatingsCache = useRef<Record<string, number | null>>({});
+  const allRatingsCache = useRef<Record<string, number>>({});
   const lastFetch = useRef<Record<string, number>>({});
   const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
   
@@ -36,7 +39,7 @@ export const useEvaluationStats = () => {
       }
       
       // Store in cache
-      const avgRating = data || null;
+      const avgRating = data as AverageRatingResult;
       ratingsCache.current[cacheKey] = avgRating;
       lastFetch.current[cacheKey] = now;
       
@@ -56,7 +59,7 @@ export const useEvaluationStats = () => {
     
     if (
       !forceRefresh && 
-      allRatingsCache.current && 
+      Object.keys(allRatingsCache.current).length > 0 && 
       lastFetch.current[cacheKey] && 
       (now - lastFetch.current[cacheKey]) < CACHE_TTL
     ) {
@@ -80,8 +83,8 @@ export const useEvaluationStats = () => {
       const ratingsMap: Record<string, number> = {};
       
       if (data && Array.isArray(data)) {
-        data.forEach(item => {
-          if (item.interviewer_id && item.average_rating) {
+        data.forEach((item: any) => {
+          if (item.interviewer_id && item.average_rating !== null) {
             ratingsMap[item.interviewer_id] = item.average_rating;
           }
         });
