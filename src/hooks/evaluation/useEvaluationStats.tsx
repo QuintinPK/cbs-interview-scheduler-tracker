@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -10,10 +11,11 @@ type InterviewerRatingItem = {
 
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
-  // Explicitly type the refs with MutableRefObject
-  const ratingsCache = useRef<Record<string, number | null>>({});
-  const allRatingsCache = useRef<Record<string, number>>({});
-  const lastFetch = useRef<Record<string, number>>({});
+  
+  // Use type assertion with the initial value to ensure TypeScript understands the index signature
+  const ratingsCache = useRef<Record<string, number | null>>({} as Record<string, number | null>);
+  const allRatingsCache = useRef<Record<string, number>>({} as Record<string, number>);
+  const lastFetch = useRef<Record<string, number>>({} as Record<string, number>);
   const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
 
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
@@ -32,6 +34,7 @@ export const useEvaluationStats = () => {
     try {
       setLoading(true);
 
+      // Remove explicit generic parameter and let TypeScript infer it
       const { data, error } = await supabase.rpc("get_interviewer_average_rating", {
         interviewer_id_param: interviewerId,
       });
@@ -71,6 +74,7 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
+      // Remove explicit generic parameter and let TypeScript infer it
       const { data, error } = await supabase.rpc("get_all_interviewer_ratings");
 
       if (error) {

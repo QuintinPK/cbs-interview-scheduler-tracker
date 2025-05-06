@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -27,6 +28,7 @@ import InterviewsList from "./InterviewsList";
 import CoordinatePopup from "../ui/CoordinatePopup";
 import { useSessionSorting } from "@/hooks/useSessionSorting";
 import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface SessionListProps {
   sessions: Session[];
@@ -260,7 +262,14 @@ const SessionList: React.FC<SessionListProps> = ({
                           </Button>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">{getInterviewerCode(session.interviewer_id)}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link 
+                          to={`/admin/interviewer/${session.interviewer_id}`}
+                          className="text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          {getInterviewerCode(session.interviewer_id)}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline">
                           {getProjectName(session.project_id)}
