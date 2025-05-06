@@ -4,6 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 type AverageRatingResult = number | null;
 type AllRatingsResult = Record<string, number>;
+type InterviewerRatingItem = {
+  interviewer_id: string;
+  average_rating: number;
+};
 
 export const useEvaluationStats = () => {
   const [loading, setLoading] = useState(false);
@@ -83,7 +87,7 @@ export const useEvaluationStats = () => {
       const ratingsMap: Record<string, number> = {};
       
       if (data && Array.isArray(data)) {
-        data.forEach((item: any) => {
+        (data as InterviewerRatingItem[]).forEach((item) => {
           if (item.interviewer_id && item.average_rating !== null) {
             ratingsMap[item.interviewer_id] = item.average_rating;
           }
