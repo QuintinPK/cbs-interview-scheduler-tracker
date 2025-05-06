@@ -2,7 +2,7 @@
 import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEvaluationBase } from "./useEvaluationBase";
-import { Evaluation } from "@/types";
+import { Evaluation, EvaluationTag } from "@/types";
 
 export const useEvaluationLoader = () => {
   const { setLoading, toast } = useEvaluationBase();
@@ -11,10 +11,10 @@ export const useEvaluationLoader = () => {
   const [error, setError] = useState<string | null>(null);
   const evaluationsCache = useRef<Record<string, Evaluation[]>>({});
   const lastFetch = useRef<Record<string, number>>({});
-  const CACHE_TTL = 1 * 60 * 1000; // 1 minute cache
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
   
   const loadEvaluationsByInterviewer = useCallback(async (interviewerId: string, forceRefresh = false) => {
-    // Return cached data if available and not expired
+    // Return cached data if available, not expired, and not force refreshing
     const now = Date.now();
     if (
       !forceRefresh && 
@@ -31,7 +31,7 @@ export const useEvaluationLoader = () => {
       setError(null);
       console.log("Loading evaluations for interviewer:", interviewerId);
       
-      // Get evaluations
+      // Get evaluations with a single query, ordering by created_at descending
       const { data: evaluationsData, error: evaluationsError } = await supabase
         .from('interviewer_evaluations')
         .select('*')
@@ -54,65 +54,65 @@ export const useEvaluationLoader = () => {
         return;
       }
       
-      console.log("Found evaluations:", evaluationsData);
+      console.log(`Found ${evaluationsData.length} evaluations`);
       
-      // Get tags for each evaluation
-      try {
-        const evaluationsWithTags = await Promise.all(
-          evaluationsData.map(async (evaluation) => {
-            console.log("Getting tags for evaluation:", evaluation.id);
-            
-            const { data: tagsData, error: tagsError } = await supabase
-              .from('evaluation_tags_junction')
-              .select('tag_id')
-              .eq('evaluation_id', evaluation.id);
-              
-            if (tagsError) {
-              console.error("Error fetching tag junctions:", tagsError);
-              return { ...evaluation, tags: [] };
-            }
-            
-            if (!tagsData || tagsData.length === 0) {
-              return { ...evaluation, tags: [] };
-            }
-            
-            console.log("Found tag junctions:", tagsData);
-            
-            const tagIds = tagsData.map(t => t.tag_id);
-            console.log("Tag IDs:", tagIds);
-            
-            const { data: tagDetails, error: tagDetailsError } = await supabase
-              .from('evaluation_tags')
-              .select('*')
-              .in('id', tagIds);
-              
-            if (tagDetailsError) {
-              console.error("Error fetching tag details:", tagDetailsError);
-              return { ...evaluation, tags: [] };
-            }
-            
-            console.log("Found tag details:", tagDetails);
-            
-            return {
-              ...evaluation,
-              tags: tagDetails || []
-            };
-          })
-        );
+      // Get all evaluation IDs for batch fetching tags
+      const evaluationIds = evaluationsData.map(eval => eval.id);
+      
+      // Fetch all tags for these evaluations in a single query with proper joins
+      const { data: tagJunctionsWithTags, error: tagsError } = await supabase
+        .from('evaluation_tags_junction')
+        .select(`
+          evaluation_id,
+          tag_id,
+          evaluation_tags(*)
+        `)
+        .in('evaluation_id', evaluationIds);
         
-        console.log("Evaluations with tags:", evaluationsWithTags);
+      if (tagsError) {
+        console.error("Error fetching evaluation tags:", tagsError);
+        // Continue with evaluations but without tags
+        const evaluationsWithoutTags = evaluationsData.map(evaluation => ({
+          ...evaluation,
+          tags: []
+        }));
         
-        // Update cache
-        evaluationsCache.current[interviewerId] = evaluationsWithTags;
+        setEvaluations(evaluationsWithoutTags);
+        evaluationsCache.current[interviewerId] = evaluationsWithoutTags;
         lastFetch.current[interviewerId] = now;
-        
-        setEvaluations(evaluationsWithTags);
-      } catch (err) {
-        console.error("Error processing evaluations:", err);
-        // Fix: Using "evaluation" instead of "eval" to avoid reserved word
-        setEvaluations(evaluationsData.map(evaluation => ({ ...evaluation, tags: [] })));
-        setError("Error loading evaluation tags");
+        return;
       }
+      
+      // Process and organize tags by evaluation ID
+      const tagsByEvaluation: Record<string, EvaluationTag[]> = {};
+      
+      tagJunctionsWithTags?.forEach(junction => {
+        const evaluationId = junction.evaluation_id;
+        const tag = junction.evaluation_tags;
+        
+        if (!tagsByEvaluation[evaluationId]) {
+          tagsByEvaluation[evaluationId] = [];
+        }
+        
+        if (tag) {
+          tagsByEvaluation[evaluationId].push(tag as EvaluationTag);
+        }
+      });
+      
+      // Combine evaluations with their tags
+      const evaluationsWithTags = evaluationsData.map(evaluation => ({
+        ...evaluation,
+        tags: tagsByEvaluation[evaluation.id] || []
+      }));
+      
+      // Update cache
+      evaluationsCache.current[interviewerId] = evaluationsWithTags;
+      lastFetch.current[interviewerId] = now;
+      
+      // Update state
+      setEvaluations(evaluationsWithTags);
+      console.log(`Processed ${evaluationsWithTags.length} evaluations with their tags`);
+      
     } catch (err) {
       console.error("Error loading evaluations:", err);
       setEvaluations([]);

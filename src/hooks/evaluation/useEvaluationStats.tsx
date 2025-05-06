@@ -1,84 +1,65 @@
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 export const useEvaluationStats = () => {
-  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const ratingsCache = useRef<Record<string, number>>({});
-  const allRatingsCache = useRef<Record<string, number> | null>(null);
-  const cacheTimestamp = useRef<Record<string, number>>({});
-  const allCacheTimestamp = useRef<number>(0);
-  const CACHE_DURATION = 60000; // 1 minute cache
-
-  // Clear cache when component unmounts or after cache duration
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      
-      // Clear individual ratings cache if expired
-      Object.keys(cacheTimestamp.current).forEach(key => {
-        if (now - cacheTimestamp.current[key] > CACHE_DURATION) {
-          delete ratingsCache.current[key];
-          delete cacheTimestamp.current[key];
-        }
-      });
-      
-      // Clear all ratings cache if expired
-      if (now - allCacheTimestamp.current > CACHE_DURATION) {
-        allRatingsCache.current = null;
-      }
-    }, CACHE_DURATION);
+  const ratingsCache = useRef<Record<string, number | null>>({});
+  const allRatingsCache = useRef<Record<string, number | null>>({});
+  const lastFetch = useRef<Record<string, number>>({});
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
+  
+  const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
+    // Return cached data if available and not expired
+    const now = Date.now();
+    const cacheKey = `rating_${interviewerId}`;
     
-    return () => clearInterval(interval);
-  }, []);
-
-  const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false): Promise<number | null> => {
-    // Use cached value if available and not forcing refresh
-    if (!forceRefresh && ratingsCache.current[interviewerId]) {
-      return ratingsCache.current[interviewerId];
+    if (
+      !forceRefresh && 
+      ratingsCache.current[cacheKey] !== undefined && 
+      lastFetch.current[cacheKey] && 
+      (now - lastFetch.current[cacheKey]) < CACHE_TTL
+    ) {
+      return ratingsCache.current[cacheKey];
     }
-
+    
     try {
       setLoading(true);
-      console.log("Getting average rating for interviewer:", interviewerId);
       
+      // Use a more efficient direct average calculation in the database
       const { data, error } = await supabase
-        .from('interviewer_evaluations')
-        .select('rating')
-        .eq('interviewer_id', interviewerId);
-        
+        .rpc('get_interviewer_average_rating', { interviewer_id_param: interviewerId });
+      
       if (error) {
-        console.error("Error fetching ratings:", error);
+        console.error("Error getting average rating:", error);
         return null;
       }
       
-      if (!data || data.length === 0) {
-        console.log("No ratings found");
-        return null;
-      }
+      // Store in cache
+      const avgRating = data || null;
+      ratingsCache.current[cacheKey] = avgRating;
+      lastFetch.current[cacheKey] = now;
       
-      const total = data.reduce((sum, item) => sum + item.rating, 0);
-      const average = Number((total / data.length).toFixed(1));
-      
-      // Cache the result
-      ratingsCache.current[interviewerId] = average;
-      cacheTimestamp.current[interviewerId] = Date.now();
-      
-      console.log("Average rating:", average);
-      return average;
+      return avgRating;
     } catch (error) {
-      console.error("Error getting average rating:", error);
+      console.error("Error in getAverageRating:", error);
       return null;
     } finally {
       setLoading(false);
     }
   }, []);
-
-  const getAllAverageRatings = useCallback(async (forceRefresh = false): Promise<Record<string, number>> => {
-    // Return cached ratings if available and not forcing refresh
-    if (!forceRefresh && allRatingsCache.current !== null) {
+  
+  const getAllAverageRatings = useCallback(async (forceRefresh = false) => {
+    // Return cached data if available and not expired
+    const now = Date.now();
+    const cacheKey = 'all_ratings';
+    
+    if (
+      !forceRefresh && 
+      allRatingsCache.current && 
+      lastFetch.current[cacheKey] && 
+      (now - lastFetch.current[cacheKey]) < CACHE_TTL
+    ) {
       return allRatingsCache.current;
     }
     
@@ -86,61 +67,44 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
       
+      // Use an optimized query to get all ratings in a single call
       const { data, error } = await supabase
-        .from('interviewer_evaluations')
-        .select('interviewer_id, rating');
-        
+        .rpc('get_all_interviewer_ratings');
+      
       if (error) {
-        console.error("Error fetching ratings:", error);
+        console.error("Error getting all ratings:", error);
         return {};
       }
       
-      if (!data || data.length === 0) {
-        console.log("No ratings found");
-        return {};
+      // Process data into a map of interviewer_id -> rating
+      const ratingsMap: Record<string, number> = {};
+      
+      if (data && Array.isArray(data)) {
+        data.forEach(item => {
+          if (item.interviewer_id && item.average_rating) {
+            ratingsMap[item.interviewer_id] = item.average_rating;
+          }
+        });
       }
       
-      // Group evaluations by interviewer and calculate averages
-      const ratingsByInterviewer: Record<string, number[]> = {};
+      console.log("All average ratings:", ratingsMap);
       
-      data.forEach(evaluation => {
-        if (!ratingsByInterviewer[evaluation.interviewer_id]) {
-          ratingsByInterviewer[evaluation.interviewer_id] = [];
-        }
-        ratingsByInterviewer[evaluation.interviewer_id].push(evaluation.rating);
-      });
+      // Store in cache
+      allRatingsCache.current = ratingsMap;
+      lastFetch.current[cacheKey] = now;
       
-      const averageRatings: Record<string, number> = {};
-      
-      Object.entries(ratingsByInterviewer).forEach(([interviewerId, ratings]) => {
-        const total = ratings.reduce((sum, rating) => sum + rating, 0);
-        averageRatings[interviewerId] = Number((total / ratings.length).toFixed(1));
-      });
-      
-      // Update both caches
-      allRatingsCache.current = averageRatings;
-      
-      // Update individual caches
-      Object.entries(averageRatings).forEach(([interviewerId, rating]) => {
-        ratingsCache.current[interviewerId] = rating;
-        cacheTimestamp.current[interviewerId] = Date.now();
-      });
-      
-      allCacheTimestamp.current = Date.now();
-      
-      console.log("All average ratings:", averageRatings);
-      return averageRatings;
+      return ratingsMap;
     } catch (error) {
-      console.error("Error getting all average ratings:", error);
+      console.error("Error in getAllAverageRatings:", error);
       return {};
     } finally {
       setLoading(false);
     }
   }, []);
-
+  
   return {
+    loading,
     getAverageRating,
-    getAllAverageRatings,
-    loading
+    getAllAverageRatings
   };
 };

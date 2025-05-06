@@ -23,6 +23,7 @@ export const useEvaluations = () => {
 
   // Enhance loadEvaluationsByInterviewer to accept force refresh parameter
   const loadEvaluations = useCallback((interviewerId: string, forceRefresh = false) => {
+    console.log(`Loading evaluations for ${interviewerId}, force refresh: ${forceRefresh}`);
     return loadEvaluationsByInterviewer(interviewerId, forceRefresh);
   }, [loadEvaluationsByInterviewer]);
   
@@ -33,6 +34,7 @@ export const useEvaluations = () => {
   
   // Enhance getAllAverageRatings to accept force refresh parameter
   const getAllAvgRatings = useCallback((forceRefresh = false) => {
+    console.log(`Getting all average ratings, force refresh: ${forceRefresh}`);
     return getAllAverageRatings(forceRefresh);
   }, [getAllAverageRatings]);
 
