@@ -34,7 +34,7 @@ export const useEvaluationStats = () => {
     try {
       setLoading(true);
       
-      // Use a more efficient direct average calculation in the database
+      // Fix the RPC call by removing explicit generic parameters
       const { data, error } = await supabase
         .rpc('get_interviewer_average_rating', { interviewer_id_param: interviewerId });
       
@@ -75,7 +75,7 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
       
-      // Use an optimized query to get all ratings in a single call
+      // Fix the RPC call by removing explicit generic parameters
       const { data, error } = await supabase
         .rpc('get_all_interviewer_ratings');
       
