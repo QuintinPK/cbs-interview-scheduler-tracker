@@ -5,7 +5,6 @@ import { useInterviewers } from "@/hooks/useInterviewers";
 import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
 import { supabase } from "@/integrations/supabase/client";
-import { DateRange } from "react-day-picker";
 import { Interviewer } from "@/types";
 
 export const useInterviewerDashboard = () => {
@@ -13,19 +12,20 @@ export const useInterviewerDashboard = () => {
   const { interviewerId } = useParams<{ interviewerId: string }>();
 
   const { interviewers, loading: interviewersLoading } = useInterviewers();
-  const { sessions: allSessions } = useSessions();
   const { projects } = useProjects();
 
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(1)), // First day of current month
-    to: new Date()
-  });
-
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
-  const [sessions, setSessions] = useState<any[]>([]);
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Use the useSessions hook directly to get real-time session data
+  const { sessions: allSessions, loading: sessionsLoading } = useSessions();
+  
+  // Filter sessions for the current interviewer
+  const sessions = interviewerId ? allSessions.filter(session => 
+    session.interviewer_id === interviewerId
+  ) : [];
 
   // Debug the interviewerId parameter
   console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
@@ -99,58 +99,33 @@ export const useInterviewerDashboard = () => {
     fetchInterviewer();
   }, [interviewerId, interviewers, interviewersLoading, navigate]);
 
-  // Load sessions and interviews data based on date range - separate effect to handle date range changes
+  // Load interviews data when sessions change
   useEffect(() => {
-    const fetchData = async () => {
-      if (!interviewerId || !dateRange.from || !dateRange.to) return;
-      
-      // Don't set loading to true here, as it would reset the interviewer name in the title
-      // Only set loading for specific data pieces
-      const sessionsLoading = true;
+    const fetchInterviews = async () => {
+      if (!sessions.length) {
+        setInterviews([]);
+        return;
+      }
       
       try {
-        // Format dates for filtering
-        const fromDate = dateRange.from;
-        const toDate = new Date(dateRange.to.getTime());
-        toDate.setHours(23, 59, 59, 999);
+        const sessionIds = sessions.map(s => String(s.id));
         
-        // Filter sessions by interviewer and date range
-        const filteredSessions = allSessions.filter(session => 
-          session.interviewer_id === interviewerId &&
-          new Date(session.start_time) >= fromDate &&
-          new Date(session.start_time) <= toDate
-        );
-        setSessions(filteredSessions);
-        
-        // Fetch interviews based on session IDs
-        try {
-          // Check if we have any sessions before trying to fetch interviews
-          if (filteredSessions.length === 0) {
-            setInterviews([]);
-            return;
-          }
+        // Fix the type error by explicitly casting the sessionIds array to string[]
+        const { data: interviewsData, error } = await supabase
+          .from('interviews')
+          .select('*')
+          .in('session_id', sessionIds as string[]);
           
-          const sessionIds = filteredSessions.map(s => String(s.id));
-          
-          // Fix the type error by explicitly casting the sessionIds array to string[]
-          const { data: interviewsData, error } = await supabase
-            .from('interviews')
-            .select('*')
-            .in('session_id', sessionIds as string[]);
-            
-          if (error) throw error;
-          setInterviews(interviewsData || []);
-        } catch (error) {
-          console.error("Error fetching interviews:", error);
-          setInterviews([]);
-        }
+        if (error) throw error;
+        setInterviews(interviewsData || []);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching interviews:", error);
+        setInterviews([]);
       }
     };
     
-    fetchData();
-  }, [interviewerId, dateRange, allSessions]);
+    fetchInterviews();
+  }, [sessions]);
 
   // Get project name resolver function
   const getProjectName = (projectId: string | null | undefined) => {
@@ -161,11 +136,9 @@ export const useInterviewerDashboard = () => {
 
   return {
     interviewer,
-    loading,
+    loading: loading || sessionsLoading,
     sessions,
     interviews,
-    dateRange,
-    setDateRange,
     activeTab,
     setActiveTab,
     getProjectName,
