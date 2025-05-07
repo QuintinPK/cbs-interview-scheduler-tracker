@@ -1,3 +1,4 @@
+
 import React, { useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
@@ -5,8 +6,8 @@ import { InterviewerQuickStats } from "@/components/interviewer-dashboard/Interv
 import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
-import { EvaluationsTab } from "@/components/interviewer-dashboard/EvaluationsTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
+import { RatingsTab } from "@/components/interviewer-dashboard/RatingsTab";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
@@ -97,10 +98,10 @@ const InterviewerDashboard = () => {
               Performance
             </TabsTrigger>
             <TabsTrigger 
-              value="evaluations" 
+              value="ratings" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
-              Evaluations
+              Ratings
             </TabsTrigger>
             <TabsTrigger 
               value="contact" 
@@ -141,13 +142,10 @@ const InterviewerDashboard = () => {
             />
           </TabsContent>
           
-          <TabsContent value="evaluations" className="m-0 p-0">
-            <EvaluationsTab 
-              interviewer={interviewer}
-              getProjectName={getProjectName}
-            />
+          <TabsContent value="ratings" className="m-0 p-0">
+            <RatingsTab interviewer={interviewer} />
           </TabsContent>
-
+          
           <TabsContent value="contact" className="m-0 p-0">
             <ContactInformation 
               interviewer={interviewer}
