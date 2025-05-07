@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { format, parseISO, eachDayOfInterval, startOfWeek, endOfWeek, differenceInHours } from "date-fns";
+import { format, parseISO, eachDayOfInterval, startOfWeek, endOfWeek, differenceInHours, differenceInMinutes } from "date-fns";
 import { Pencil, Trash2, AlertCircle } from "lucide-react";
 import { Schedule, Session } from "@/types";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -22,6 +22,20 @@ const hasTimeMismatch = (scheduleStart: Date, scheduleEnd: Date, sessionStart: D
   
   // Consider a mismatch if less than 50% of scheduled time was worked
   return realisedHours < (scheduledHours * 0.5);
+};
+
+// Format hours and minutes helper function
+const formatHoursAndMinutes = (totalMinutes: number) => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  
+  if (hours === 0) {
+    return `${minutes}m`;
+  } else if (minutes === 0) {
+    return `${hours}h`;
+  } else {
+    return `${hours}h ${minutes}m`;
+  }
 };
 
 export const ScheduleGrid = ({
@@ -53,7 +67,7 @@ export const ScheduleGrid = ({
       // Get schedules for this day
       const daySchedules = schedules.filter(schedule => {
         const scheduleDate = format(parseISO(schedule.start_time), "yyyy-MM-dd");
-        return scheduleDate === dayStr;
+        return scheduleDate === dayStr && schedule.status !== "canceled";
       });
       
       // Get sessions for this day
@@ -163,17 +177,24 @@ export const ScheduleGrid = ({
 
   // Calculate total scheduled and worked hours
   const { scheduledHours, workedHours } = useMemo(() => {
-    const scheduled = schedules.reduce((total, schedule) => {
-      const start = parseISO(schedule.start_time);
-      const end = parseISO(schedule.end_time);
-      return total + differenceInHours(end, start);
-    }, 0);
+    // Only include non-canceled schedules
+    const scheduled = schedules
+      .filter(schedule => schedule.status !== "canceled")
+      .reduce((total, schedule) => {
+        const start = parseISO(schedule.start_time);
+        const end = parseISO(schedule.end_time);
+        return total + differenceInHours(end, start);
+      }, 0);
     
+    // Calculate worked hours with minutes precision
     const worked = sessions.reduce((total, session) => {
       if (!session.end_time) return total;
       const start = parseISO(session.start_time);
       const end = parseISO(session.end_time);
-      return total + differenceInHours(end, start);
+      
+      // Calculate total minutes first for better precision
+      const minutes = differenceInMinutes(end, start);
+      return total + (minutes / 60);
     }, 0);
     
     return { scheduledHours: scheduled, workedHours: worked };

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { isAfter, isBefore, parseISO } from 'date-fns';
+import { isAfter, isBefore, parseISO, differenceInMinutes } from 'date-fns';
 
 interface ScheduleStatsProps {
   scheduledHours: number;
@@ -11,10 +11,25 @@ interface ScheduleStatsProps {
 export const ScheduleStats = ({ scheduledHours, workedHours }: ScheduleStatsProps) => {
   // Calculate current time efficiency by adjusting scheduled hours
   const now = new Date();
-  let adjustedScheduledHours = scheduledHours;
-
-  // If we're in the middle of the week, only count scheduled hours up to now
-  const efficiency = adjustedScheduledHours > 0 ? Math.round((workedHours / adjustedScheduledHours) * 100) : 0;
+  
+  // Format worked hours to show hours and minutes
+  const formatHoursAndMinutes = (totalHours: number) => {
+    const hours = Math.floor(totalHours);
+    const minutes = Math.round((totalHours - hours) * 60);
+    
+    if (hours === 0) {
+      return `${minutes}m`;
+    } else if (minutes === 0) {
+      return `${hours}h`;
+    } else {
+      return `${hours}h ${minutes}m`;
+    }
+  };
+  
+  const workTimeFormatted = formatHoursAndMinutes(workedHours);
+  
+  // Calculate efficiency percentage
+  const efficiency = scheduledHours > 0 ? Math.round((workedHours / scheduledHours) * 100) : 0;
   
   return (
     <div className="flex gap-4 mb-4">
@@ -27,7 +42,7 @@ export const ScheduleStats = ({ scheduledHours, workedHours }: ScheduleStatsProp
       
       <Card className="flex-1">
         <CardContent className="p-4 text-center">
-          <div className="text-lg font-semibold text-green-600">{workedHours}h</div>
+          <div className="text-lg font-semibold text-green-600">{workTimeFormatted}</div>
           <div className="text-sm text-muted-foreground">Worked</div>
         </CardContent>
       </Card>

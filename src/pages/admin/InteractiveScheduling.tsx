@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours, isBefore, isAfter } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours, isBefore, isAfter, isWithinInterval } from "date-fns";
 import { Link, useSearchParams } from "react-router-dom";
 
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -66,31 +66,30 @@ const InteractiveScheduling = () => {
   const isLoading = interviewersLoading || schedulesLoading || sessionsLoading;
 
   const now = new Date();
-  const scheduledHours = schedules.reduce((total, schedule) => {
-    const start = parseISO(schedule.start_time);
-    const end = parseISO(schedule.end_time);
-    
-    if (isBefore(now, start)) {
-      return total;
-    }
-    
-    if (isAfter(now, end)) {
+  
+  // Corrected scheduled hours calculation to only count schedules in the selected week
+  // and with status not equal to "canceled"
+  const scheduledHours = schedules
+    .filter(schedule => schedule.status !== "canceled")
+    .reduce((total, schedule) => {
+      const start = parseISO(schedule.start_time);
+      const end = parseISO(schedule.end_time);
       return total + differenceInHours(end, start);
-    }
-    
-    return total + differenceInHours(now, start);
-  }, 0);
+    }, 0);
 
+  // Corrected worked hours calculation to only include sessions within the selected week
+  // that have both start and end times
   const workedHours = sessions.reduce((total, session) => {
-    if (!session.start_time) return total;
+    if (!session.start_time || !session.end_time) return total;
     
     const start = parseISO(session.start_time);
-    const end = session.end_time ? parseISO(session.end_time) : now;
+    const end = parseISO(session.end_time);
     
-    if (isAfter(start, now)) return total;
+    // Calculate hours with decimal precision for minutes
+    const hours = differenceInHours(end, start);
+    const minutes = differenceInHours(end, start, { precision: 'minutes' }) - hours;
     
-    const sessionEnd = isAfter(end, now) ? now : end;
-    return total + differenceInHours(sessionEnd, start);
+    return total + hours + (minutes / 60);
   }, 0);
 
   const handleWeekChange = (newWeekStart: Date) => {
