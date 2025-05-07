@@ -47,7 +47,8 @@ export const useSessionDialogs = () => {
     setShowDeleteDialog(true);
   };
   
-  const confirmEdit = async () => {
+  // Changed return type from Promise<boolean> to Promise<void>
+  const confirmEdit = async (): Promise<void> => {
     if (!selectedSession || !editEndDate) return;
     
     try {
@@ -74,7 +75,7 @@ export const useSessionDialogs = () => {
         description: "Session has been updated successfully.",
       });
       setShowEditDialog(false);
-      return true;
+      // Removed the return true statement
     } catch (error) {
       console.error("Error updating session:", error);
       toast({
@@ -82,13 +83,14 @@ export const useSessionDialogs = () => {
         description: "Could not update session",
         variant: "destructive",
       });
-      return false;
+      // Removed the return false statement
     } finally {
       setSubmitting(false);
     }
   };
   
-  const confirmDelete = async () => {
+  // Changed return type from Promise<boolean> to Promise<void>
+  const confirmDelete = async (): Promise<void> => {
     if (!selectedSession) return;
     
     try {
@@ -106,7 +108,7 @@ export const useSessionDialogs = () => {
         description: "Session has been deleted successfully.",
       });
       setShowDeleteDialog(false);
-      return true;
+      // Removed the return true statement
     } catch (error) {
       console.error("Error deleting session:", error);
       toast({
@@ -114,7 +116,7 @@ export const useSessionDialogs = () => {
         description: "Could not delete session",
         variant: "destructive",
       });
-      return false;
+      // Removed the return false statement
     } finally {
       setSubmitting(false);
     }
