@@ -23,8 +23,9 @@ export const useEvaluationLoader = () => {
       lastFetch.current[interviewerId] && 
       (now - lastFetch.current[interviewerId]) < CACHE_TTL
     ) {
-      setEvaluations(evaluationsCache.current[interviewerId]);
-      return;
+      const cachedEvals = evaluationsCache.current[interviewerId];
+      setEvaluations(cachedEvals);
+      return cachedEvals;
     }
     
     try {
@@ -32,7 +33,29 @@ export const useEvaluationLoader = () => {
       setError(null);
       console.log(`Loading evaluations for interviewer: ${interviewerId} (force refresh: ${forceRefresh})`);
       
-      // Get evaluations with a single query, ordering by created_at descending
+      // First check if there are any evaluations at all (fast path)
+      const { count, error: countError } = await supabase
+        .from('interviewer_evaluations')
+        .select('*', { count: 'exact', head: true })
+        .eq('interviewer_id', interviewerId);
+        
+      if (countError) {
+        console.error("Error counting evaluations:", countError);
+        throw countError;
+      }
+      
+      // If no evaluations, return empty array immediately
+      if (count === 0) {
+        console.log("No evaluations found for this interviewer");
+        setEvaluations([]);
+        
+        // Update cache with empty array
+        evaluationsCache.current[interviewerId] = [];
+        lastFetch.current[interviewerId] = now;
+        return [];
+      }
+      
+      // If we have evaluations, get them with a single query
       const { data: evaluationsData, error: evaluationsError } = await supabase
         .from('interviewer_evaluations')
         .select('*')
@@ -43,16 +66,16 @@ export const useEvaluationLoader = () => {
         console.error("Error fetching evaluations:", evaluationsError);
         setEvaluations([]);
         setError("Failed to load evaluations");
-        return;
+        return [];
       }
       
       if (!evaluationsData || evaluationsData.length === 0) {
-        console.log("No evaluations found");
+        console.log("No evaluations found after full query");
         setEvaluations([]);
         // Update cache with empty array
         evaluationsCache.current[interviewerId] = [];
         lastFetch.current[interviewerId] = now;
-        return;
+        return [];
       }
       
       console.log(`Found ${evaluationsData.length} evaluations`);
@@ -81,7 +104,7 @@ export const useEvaluationLoader = () => {
         setEvaluations(evaluationsWithoutTags);
         evaluationsCache.current[interviewerId] = evaluationsWithoutTags;
         lastFetch.current[interviewerId] = now;
-        return;
+        return evaluationsWithoutTags;
       }
       
       // Process and organize tags by evaluation ID
@@ -113,6 +136,7 @@ export const useEvaluationLoader = () => {
       // Update state
       setEvaluations(evaluationsWithTags);
       console.log(`Processed ${evaluationsWithTags.length} evaluations with their tags`);
+      return evaluationsWithTags;
       
     } catch (err) {
       console.error("Error loading evaluations:", err);
@@ -123,6 +147,7 @@ export const useEvaluationLoader = () => {
         description: "Could not load evaluations",
         variant: "destructive",
       });
+      return [];
     } finally {
       setLoadingEvaluations(false);
     }

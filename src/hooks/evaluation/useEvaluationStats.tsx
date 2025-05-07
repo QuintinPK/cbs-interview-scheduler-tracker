@@ -15,8 +15,32 @@ export const useEvaluationStats = () => {
   const ratingsCache = useRef<Record<string, number | null>>({});
   const allRatingsCache = useRef<Record<string, number>>({});
   const lastFetch = useRef<Record<string, number>>({});
+  const hasEvaluationsCache = useRef<Record<string, boolean>>({});
   
   const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
+
+  // Helper function to check if interviewer has any evaluations (fast path)
+  const checkIfEvaluationsExist = useCallback(async (interviewerId: string): Promise<boolean> => {
+    // Return from cache if available
+    if (hasEvaluationsCache.current[interviewerId] !== undefined) {
+      return hasEvaluationsCache.current[interviewerId];
+    }
+    
+    try {
+      const { count, error } = await supabase
+        .from('interviewer_evaluations')
+        .select('*', { count: 'exact', head: true })
+        .eq('interviewer_id', interviewerId);
+      
+      const hasEvaluations = count !== null && count > 0;
+      hasEvaluationsCache.current[interviewerId] = hasEvaluations;
+      
+      return hasEvaluations;
+    } catch (error) {
+      console.error("Error checking if evaluations exist:", error);
+      return false;
+    }
+  }, []);
 
   const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
     const now = Date.now();
@@ -34,8 +58,17 @@ export const useEvaluationStats = () => {
     try {
       setLoading(true);
       console.log(`Getting average rating for interviewer: ${interviewerId}`);
+      
+      // Fast path: check if interviewer has any evaluations first
+      const hasEvaluations = await checkIfEvaluationsExist(interviewerId);
+      if (!hasEvaluations) {
+        console.log(`No evaluations found for interviewer: ${interviewerId}, skipping average calculation`);
+        ratingsCache.current[cacheKey] = null;
+        lastFetch.current[cacheKey] = now;
+        return null;
+      }
 
-      // Using any as a temporary type for the function name to work around the TypeScript error
+      // Only make the RPC call if there are evaluations to calculate
       const { data, error } = await (supabase.rpc as any)(
         "get_interviewer_average_rating",
         { interviewer_id_param: interviewerId }
@@ -60,7 +93,7 @@ export const useEvaluationStats = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkIfEvaluationsExist]);
 
   const getAllAverageRatings = useCallback(async (forceRefresh = false) => {
     const now = Date.now();

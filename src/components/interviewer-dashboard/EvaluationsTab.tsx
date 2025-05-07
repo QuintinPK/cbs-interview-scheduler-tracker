@@ -46,18 +46,25 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
     // Load evaluations
     const fetchData = async () => {
       try {
-        await loadEvaluationsByInterviewer(interviewer.id);
-        
-        // Load average rating
+        // First load evaluations
         setLoadingRating(true);
-        const rating = await getAverageRating(interviewer.id);
-        setAverageRating(rating);
-        setLoadingRating(false);
+        const loadedEvals = await loadEvaluationsByInterviewer(interviewer.id);
         
+        // Only try to get average rating if there are evaluations
+        if (loadedEvals && loadedEvals.length > 0) {
+          const rating = await getAverageRating(interviewer.id);
+          setAverageRating(rating);
+        } else {
+          // If no evaluations, don't bother calling the average rating function
+          setAverageRating(null);
+        }
+        
+        setLoadingRating(false);
         setInitialLoadDone(true);
       } catch (error) {
         console.error("Error loading evaluation data:", error);
         setInitialLoadDone(true);
+        setLoadingRating(false);
       }
     };
     

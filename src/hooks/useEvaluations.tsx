@@ -21,10 +21,11 @@ export const useEvaluations = () => {
     return baseError || actionError || loaderError;
   }, [baseError, actionError, loaderError]);
 
-  // Enhance loadEvaluationsByInterviewer to accept force refresh parameter
-  const loadEvaluations = useCallback((interviewerId: string, forceRefresh = false) => {
+  // Enhance loadEvaluationsByInterviewer to accept force refresh parameter and return evaluations
+  const loadEvaluations = useCallback(async (interviewerId: string, forceRefresh = false) => {
     console.log(`Loading evaluations for ${interviewerId}, force refresh: ${forceRefresh}`);
-    return loadEvaluationsByInterviewer(interviewerId, forceRefresh);
+    const result = await loadEvaluationsByInterviewer(interviewerId, forceRefresh);
+    return result;
   }, [loadEvaluationsByInterviewer]);
   
   // Enhance getAverageRating to accept force refresh parameter
