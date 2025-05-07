@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { InterviewerHeader } from "@/components/interviewer-dashboard/InterviewerHeader";
@@ -6,7 +5,9 @@ import { InterviewerQuickStats } from "@/components/interviewer-dashboard/Interv
 import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
+import { EvaluationsTab } from "@/components/interviewer-dashboard/EvaluationsTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
+import { DateRangePicker } from "@/components/ui/date-range-picker"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
 
@@ -16,6 +17,8 @@ const InterviewerDashboard = () => {
     loading,
     sessions,
     interviews,
+    dateRange,
+    setDateRange,
     activeTab,
     setActiveTab,
     getProjectName
@@ -94,12 +97,25 @@ const InterviewerDashboard = () => {
               Performance
             </TabsTrigger>
             <TabsTrigger 
+              value="evaluations" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Evaluations
+            </TabsTrigger>
+            <TabsTrigger 
               value="contact" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
               Contact Information
             </TabsTrigger>
           </TabsList>
+
+          <div className="mb-4 bg-white p-4 rounded-lg shadow-sm border">
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+            />
+          </div>
           
           <TabsContent value="overview" className="m-0 p-0">
             <OverviewTab sessions={sessions} activeSessions={activeSessions} />
@@ -109,6 +125,8 @@ const InterviewerDashboard = () => {
             <SessionsTab 
               sessions={sessions}
               interviews={interviews}
+              dateRange={dateRange}
+              setDateRange={setDateRange}
               showProject={true}
               projectNameResolver={getProjectName}
             />
@@ -123,6 +141,13 @@ const InterviewerDashboard = () => {
             />
           </TabsContent>
           
+          <TabsContent value="evaluations" className="m-0 p-0">
+            <EvaluationsTab 
+              interviewer={interviewer}
+              getProjectName={getProjectName}
+            />
+          </TabsContent>
+
           <TabsContent value="contact" className="m-0 p-0">
             <ContactInformation 
               interviewer={interviewer}

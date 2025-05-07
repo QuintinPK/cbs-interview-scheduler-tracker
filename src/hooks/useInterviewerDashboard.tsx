@@ -5,6 +5,7 @@ import { useInterviewers } from "@/hooks/useInterviewers";
 import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
 import { supabase } from "@/integrations/supabase/client";
+import { DateRange } from "react-day-picker";
 import { Interviewer } from "@/types";
 
 export const useInterviewerDashboard = () => {
@@ -12,11 +13,16 @@ export const useInterviewerDashboard = () => {
   const { interviewerId } = useParams<{ interviewerId: string }>();
 
   const { interviewers, loading: interviewersLoading } = useInterviewers();
-  // Use the same sessions hook that is used on the Sessions page
-  const { sessions: allSessions, loading: sessionsLoading } = useSessions(interviewerId);
+  const { sessions: allSessions } = useSessions();
   const { projects } = useProjects();
 
+  const [dateRange, setDateRange] = useState<DateRange>({
+    from: new Date(new Date().setDate(1)), // First day of current month
+    to: new Date()
+  });
+
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -24,111 +30,127 @@ export const useInterviewerDashboard = () => {
   // Debug the interviewerId parameter
   console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
 
-  // Function to fetch interviewer data
-  const fetchInterviewer = async () => {
-    console.log("Attempting to fetch interviewer with ID:", interviewerId);
-    
-    if (!interviewerId) {
-      console.error("No interviewerId provided in URL parameters");
-      navigate("/admin/interviewers", { replace: true });
-      return;
-    }
-    
-    setLoading(true);
-    
-    try {
-      // First try to find the interviewer in the already loaded interviewers
-      if (!interviewersLoading && interviewers.length > 0) {
-        console.log("Searching in loaded interviewers array:", interviewers.length, "interviewers");
-        const foundInterviewer = interviewers.find(i => i.id === interviewerId);
-        
-        if (foundInterviewer) {
-          console.log("Found interviewer in loaded interviewers:", foundInterviewer);
-          setInterviewer(foundInterviewer);
-          setLoading(false);
-          return;
-        } else {
-          console.log("Interviewer not found in loaded interviewers, trying direct fetch");
-        }
-      }
+  // Load interviewer data - only once when component mounts or interviewerId changes
+  useEffect(() => {
+    const fetchInterviewer = async () => {
+      console.log("Attempting to fetch interviewer with ID:", interviewerId);
       
-      // If not found or interviewers not loaded yet, fetch directly from Supabase
-      console.log("Fetching interviewer directly from Supabase");
-      const { data, error } = await supabase
-        .from('interviewers')
-        .select('*')
-        .eq('id', interviewerId)
-        .single();
-        
-      if (error) {
-        console.error("Error fetching interviewer from Supabase:", error);
+      if (!interviewerId) {
+        console.error("No interviewerId provided in URL parameters");
         navigate("/admin/interviewers", { replace: true });
         return;
       }
       
-      if (!data) {
-        console.error("Interviewer not found in database");
-        navigate("/admin/interviewers", { replace: true });
-        return;
-      }
-      
-      console.log("Successfully fetched interviewer from Supabase:", data);
-      
-      // Type casting the island property to ensure it matches the expected type
-      const typedInterviewer: Interviewer = {
-        ...data,
-        island: data.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined
-      };
-      
-      setInterviewer(typedInterviewer);
-    } catch (error) {
-      console.error("Error in fetchInterviewer:", error);
-      navigate("/admin/interviewers", { replace: true });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load interviewer data - initial load and when interviewerId changes
-  useEffect(() => {
-    fetchInterviewer();
-  }, [interviewerId, interviewers, interviewersLoading, navigate]);
-
-  // Load interviews data when sessions are available
-  useEffect(() => {
-    const fetchInterviews = async () => {
-      if (!interviewerId || allSessions.length === 0) {
-        setInterviews([]);
-        return;
-      }
+      setLoading(true);
       
       try {
-        // Fetch interviews based on session IDs
-        const sessionIds = allSessions
-          .filter(session => session.interviewer_id === interviewerId)
-          .map(s => String(s.id));
+        // First try to find the interviewer in the already loaded interviewers
+        if (!interviewersLoading && interviewers.length > 0) {
+          console.log("Searching in loaded interviewers array:", interviewers.length, "interviewers");
+          const foundInterviewer = interviewers.find(i => i.id === interviewerId);
+          
+          if (foundInterviewer) {
+            console.log("Found interviewer in loaded interviewers:", foundInterviewer);
+            setInterviewer(foundInterviewer);
+            setLoading(false);
+            return;
+          } else {
+            console.log("Interviewer not found in loaded interviewers, trying direct fetch");
+          }
+        }
         
-        if (sessionIds.length === 0) {
-          setInterviews([]);
+        // If not found or interviewers not loaded yet, fetch directly from Supabase
+        console.log("Fetching interviewer directly from Supabase");
+        const { data, error } = await supabase
+          .from('interviewers')
+          .select('*')
+          .eq('id', interviewerId)
+          .single();
+          
+        if (error) {
+          console.error("Error fetching interviewer from Supabase:", error);
+          navigate("/admin/interviewers", { replace: true });
           return;
         }
         
-        // Fix the type error by explicitly casting the sessionIds array to string[]
-        const { data: interviewsData, error } = await supabase
-          .from('interviews')
-          .select('*')
-          .in('session_id', sessionIds as string[]);
-          
-        if (error) throw error;
-        setInterviews(interviewsData || []);
+        if (!data) {
+          console.error("Interviewer not found in database");
+          navigate("/admin/interviewers", { replace: true });
+          return;
+        }
+        
+        console.log("Successfully fetched interviewer from Supabase:", data);
+        
+        // Type casting the island property to ensure it matches the expected type
+        const typedInterviewer: Interviewer = {
+          ...data,
+          island: data.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined
+        };
+        
+        setInterviewer(typedInterviewer);
       } catch (error) {
-        console.error("Error fetching interviews:", error);
-        setInterviews([]);
+        console.error("Error in fetchInterviewer:", error);
+        navigate("/admin/interviewers", { replace: true });
+      } finally {
+        setLoading(false);
       }
     };
     
-    fetchInterviews();
-  }, [interviewerId, allSessions]);
+    fetchInterviewer();
+  }, [interviewerId, interviewers, interviewersLoading, navigate]);
+
+  // Load sessions and interviews data based on date range - separate effect to handle date range changes
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!interviewerId || !dateRange.from || !dateRange.to) return;
+      
+      // Don't set loading to true here, as it would reset the interviewer name in the title
+      // Only set loading for specific data pieces
+      const sessionsLoading = true;
+      
+      try {
+        // Format dates for filtering
+        const fromDate = dateRange.from;
+        const toDate = new Date(dateRange.to.getTime());
+        toDate.setHours(23, 59, 59, 999);
+        
+        // Filter sessions by interviewer and date range
+        const filteredSessions = allSessions.filter(session => 
+          session.interviewer_id === interviewerId &&
+          new Date(session.start_time) >= fromDate &&
+          new Date(session.start_time) <= toDate
+        );
+        setSessions(filteredSessions);
+        
+        // Fetch interviews based on session IDs
+        try {
+          // Check if we have any sessions before trying to fetch interviews
+          if (filteredSessions.length === 0) {
+            setInterviews([]);
+            return;
+          }
+          
+          const sessionIds = filteredSessions.map(s => String(s.id));
+          
+          // Fix the type error by explicitly casting the sessionIds array to string[]
+          const { data: interviewsData, error } = await supabase
+            .from('interviews')
+            .select('*')
+            .in('session_id', sessionIds as string[]);
+            
+          if (error) throw error;
+          setInterviews(interviewsData || []);
+        } catch (error) {
+          console.error("Error fetching interviews:", error);
+          setInterviews([]);
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    
+    fetchData();
+  }, [interviewerId, dateRange, allSessions]);
 
   // Get project name resolver function
   const getProjectName = (projectId: string | null | undefined) => {
@@ -137,20 +159,16 @@ export const useInterviewerDashboard = () => {
     return project ? project.name : "Unknown project";
   };
 
-  // Function to refresh interviewer data
-  const refreshInterviewer = () => {
-    fetchInterviewer();
-  };
-
   return {
     interviewer,
-    loading: loading || sessionsLoading,
-    sessions: allSessions.filter(session => session.interviewer_id === interviewerId),
+    loading,
+    sessions,
     interviews,
+    dateRange,
+    setDateRange,
     activeTab,
     setActiveTab,
     getProjectName,
-    projects,
-    refreshInterviewer
+    projects
   };
 };

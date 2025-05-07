@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Table, 
@@ -10,13 +9,16 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Calendar, BarChart, Loader2, Users } from "lucide-react";
+import { Pencil, Trash2, Calendar, BarChart, Loader2, Users, Star } from "lucide-react";
 import { Interviewer, Project } from "@/types";
 import { useProjects } from "@/hooks/useProjects";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { StarRating } from "@/components/ui/star-rating";
+import { useEvaluations } from "@/hooks/useEvaluations";
+import EvaluationDialog from "./EvaluationDialog";
 import { useNavigate } from "react-router-dom";
 
 interface InterviewerListProps {
@@ -39,12 +41,37 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   interviewerProjects,
 }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
+  const { getAllAverageRatings } = useEvaluations();
   const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [averageRatings, setAverageRatings] = useState<Record<string, number>>({});
+  const [ratingsLoading, setRatingsLoading] = useState(true);
+
+  // Load ratings once when component mounts and not on every re-render
+  const loadRatings = useCallback(async () => {
+    setRatingsLoading(true);
+    try {
+      const ratings = await getAllAverageRatings();
+      setAverageRatings(ratings);
+    } catch (error) {
+      console.error("Error loading ratings:", error);
+    } finally {
+      setRatingsLoading(false);
+    }
+  }, [getAllAverageRatings]);
+
+  useEffect(() => {
+    loadRatings();
+    // Don't include averageRatings in the dependency array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadRatings]);
+
+  // Stable memoized ratings to prevent re-renders
+  const memoizedRatings = useMemo(() => averageRatings, [averageRatings]);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
@@ -114,6 +141,36 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     );
   };
 
+  const handleEvaluate = (interviewer: Interviewer) => {
+    setSelectedInterviewer(interviewer);
+    setShowEvaluationDialog(true);
+  };
+
+  // Create a stable rating component to prevent unnecessary re-renders
+  const RatingDisplay = useCallback(({ interviewerId }: { interviewerId: string }) => {
+    const rating = memoizedRatings[interviewerId];
+    
+    if (ratingsLoading) {
+      return (
+        <div className="flex items-center">
+          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          <span className="text-xs text-muted-foreground">Loading</span>
+        </div>
+      );
+    }
+    
+    if (rating) {
+      return (
+        <div className="flex items-center gap-1">
+          <StarRating rating={rating} readOnly size={16} />
+          <span className="text-sm ml-1">{rating}</span>
+        </div>
+      );
+    }
+    
+    return <span className="text-muted-foreground text-sm">Not rated</span>;
+  }, [memoizedRatings, ratingsLoading]);
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -124,6 +181,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Island</TableHead>
+                <TableHead>Rating</TableHead>
                 <TableHead>Assigned to</TableHead>
                 <TableHead>Projects</TableHead>
                 <TableHead>Contact</TableHead>
@@ -133,7 +191,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10">
+                  <TableCell colSpan={8} className="text-center py-10">
                     <div className="flex justify-center items-center">
                       <Loader2 className="h-8 w-8 animate-spin text-cbs" />
                     </div>
@@ -141,7 +199,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                 </TableRow>
               ) : interviewers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                     No interviewers found
                   </TableCell>
                 </TableRow>
@@ -160,6 +218,9 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                       ) : (
                         <span className="text-muted-foreground text-sm">Not assigned</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <RatingDisplay interviewerId={interviewer.id} />
                     </TableCell>
                     <TableCell>
                       {interviewerProjects[interviewer.id] && interviewerProjects[interviewer.id].length > 0 ? (
@@ -204,6 +265,15 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                           title="Edit Interviewer"
                         >
                           <Pencil className="h-4 w-4" />
+                        </Button>
+                        
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEvaluate(interviewer)}
+                          title="Evaluate Interviewer"
+                        >
+                          <Star className="h-4 w-4" />
                         </Button>
                         
                         <Button
@@ -278,6 +348,16 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <EvaluationDialog
+        interviewer={selectedInterviewer}
+        open={showEvaluationDialog}
+        onOpenChange={setShowEvaluationDialog}
+        projects={selectedInterviewer ? 
+          (interviewerProjects[selectedInterviewer.id] || []) : 
+          []
+        }
+      />
     </>
   );
 };
