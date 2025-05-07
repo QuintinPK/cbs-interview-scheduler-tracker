@@ -40,6 +40,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   onViewDashboard,
   interviewerProjects,
 }) => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
@@ -72,6 +73,11 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
 
   // Stable memoized ratings to prevent re-renders
   const memoizedRatings = useMemo(() => averageRatings, [averageRatings]);
+  
+  // Handler for clicking on the interviewer code
+  const handleCodeClick = (interviewer: Interviewer) => {
+    navigate(`/admin/interviewer/${interviewer.id}`);
+  };
 
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
@@ -206,12 +212,19 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
               ) : (
                 interviewers.map((interviewer) => (
                   <TableRow key={interviewer.id}>
-                    <TableCell className="font-medium">{interviewer.code}</TableCell>
+                    <TableCell className="font-medium">
+                      <button 
+                        onClick={() => handleCodeClick(interviewer)} 
+                        className="text-cbs hover:text-cbs-light hover:underline transition-colors"
+                      >
+                        {interviewer.code}
+                      </button>
+                    </TableCell>
                     <TableCell>{interviewer.first_name} {interviewer.last_name}</TableCell>
                     <TableCell>
                       {interviewer.island ? (
                         <Badge 
-                          {...getIslandBadgeStyle(interviewer.island)}
+                          variant={getIslandBadgeStyle(interviewer.island).variant}
                         >
                           {interviewer.island}
                         </Badge>

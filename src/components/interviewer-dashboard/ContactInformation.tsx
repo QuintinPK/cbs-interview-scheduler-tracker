@@ -1,14 +1,18 @@
 
-import React from "react";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
-import { Mail, Phone, MapPin } from "lucide-react";
+import React, { useState } from "react";
+import { Card, CardHeader, CardContent, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Mail, Phone, MapPin, Pencil } from "lucide-react";
 import { Interviewer } from "@/types";
+import { ContactInformationEdit } from "./ContactInformationEdit";
 
 interface ContactInformationProps {
   interviewer: Interviewer | null;
 }
 
 export const ContactInformation: React.FC<ContactInformationProps> = ({ interviewer }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  
   if (!interviewer) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -17,11 +21,24 @@ export const ContactInformation: React.FC<ContactInformationProps> = ({ intervie
     );
   }
 
+  if (isEditing) {
+    return <ContactInformationEdit interviewer={interviewer} onSave={() => setIsEditing(false)} />;
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card className="shadow-sm">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Contact Details</CardTitle>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setIsEditing(true)}
+            className="h-8 w-8 p-0"
+          >
+            <Pencil className="h-4 w-4" />
+            <span className="sr-only">Edit</span>
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-start gap-3">
