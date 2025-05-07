@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Table, 
@@ -17,8 +18,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { StarRating } from "@/components/ui/star-rating";
-import { useEvaluations } from "@/hooks/useEvaluations";
-import EvaluationDialog from "./EvaluationDialog";
 import { useNavigate } from "react-router-dom";
 
 interface InterviewerListProps {
@@ -41,36 +40,16 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   interviewerProjects,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [selectedInterviewer, setSelectedInterviewer] = useState<Interviewer | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
-  const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
-  const { getAllAverageRatings } = useEvaluations();
   const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [averageRatings, setAverageRatings] = useState<Record<string, number>>({});
   const [ratingsLoading, setRatingsLoading] = useState(true);
 
-  // Load ratings once when component mounts and not on every re-render
-  const loadRatings = useCallback(async () => {
-    setRatingsLoading(true);
-    try {
-      const ratings = await getAllAverageRatings();
-      setAverageRatings(ratings);
-    } catch (error) {
-      console.error("Error loading ratings:", error);
-    } finally {
-      setRatingsLoading(false);
-    }
-  }, [getAllAverageRatings]);
-
-  useEffect(() => {
-    loadRatings();
-    // Don't include averageRatings in the dependency array
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadRatings]);
-
-  // Stable memoized ratings to prevent re-renders
+  // Memoized ratings to prevent re-renders
   const memoizedRatings = useMemo(() => averageRatings, [averageRatings]);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
@@ -141,9 +120,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     );
   };
 
-  const handleEvaluate = (interviewer: Interviewer) => {
-    setSelectedInterviewer(interviewer);
-    setShowEvaluationDialog(true);
+  const handleRateInterviewer = (interviewer: Interviewer) => {
+    navigate(`/admin/interviewer/${interviewer.id}?tab=ratings`);
   };
 
   // Create a stable rating component to prevent unnecessary re-renders
@@ -270,8 +248,8 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEvaluate(interviewer)}
-                          title="Evaluate Interviewer"
+                          onClick={() => handleRateInterviewer(interviewer)}
+                          title="Rate Interviewer"
                         >
                           <Star className="h-4 w-4" />
                         </Button>
@@ -348,16 +326,6 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
           </ScrollArea>
         </DialogContent>
       </Dialog>
-
-      <EvaluationDialog
-        interviewer={selectedInterviewer}
-        open={showEvaluationDialog}
-        onOpenChange={setShowEvaluationDialog}
-        projects={selectedInterviewer ? 
-          (interviewerProjects[selectedInterviewer.id] || []) : 
-          []
-        }
-      />
     </>
   );
 };
