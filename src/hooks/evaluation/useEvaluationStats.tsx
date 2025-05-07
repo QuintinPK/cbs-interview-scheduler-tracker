@@ -68,8 +68,8 @@ export const useEvaluationStats = () => {
         return null;
       }
 
-      // Only make the RPC call if there are evaluations to calculate
-      const { data, error } = await (supabase.rpc as any)(
+      // Use the PostgreSQL function to calculate average rating
+      const { data, error } = await supabase.rpc(
         "get_interviewer_average_rating",
         { interviewer_id_param: interviewerId }
       );
@@ -112,10 +112,8 @@ export const useEvaluationStats = () => {
       setLoading(true);
       console.log("Getting all average ratings");
 
-      // Using any as a temporary type for the function name to work around the TypeScript error
-      const { data, error } = await (supabase.rpc as any)(
-        "get_all_interviewer_ratings"
-      );
+      // Use the PostgreSQL function to get all ratings at once
+      const { data, error } = await supabase.rpc("get_all_interviewer_ratings");
 
       if (error) {
         console.error("Error getting all ratings:", error);
@@ -132,8 +130,6 @@ export const useEvaluationStats = () => {
           }
         });
       }
-
-      console.log("All average ratings:", ratingsMap);
 
       // Update cache
       allRatingsCache.current = ratingsMap;

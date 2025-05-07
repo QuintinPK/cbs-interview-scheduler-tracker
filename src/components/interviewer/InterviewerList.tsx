@@ -17,7 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { StarRating } from "@/components/ui/star-rating";
-import { useEvaluations } from "@/hooks/useEvaluations";
+import { useEvaluationStats } from "@/hooks/evaluation/useEvaluationStats";
 import EvaluationDialog from "./EvaluationDialog";
 import { useNavigate } from "react-router-dom";
 
@@ -45,33 +45,29 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [showEvaluationDialog, setShowEvaluationDialog] = useState(false);
   const { projects, loading: projectsLoading, getInterviewerProjects, assignInterviewerToProject, removeInterviewerFromProject } = useProjects();
-  const { getAllAverageRatings } = useEvaluations();
+  const { getAllAverageRatings } = useEvaluationStats();
   const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [assignmentsLoading, setAssignmentsLoading] = useState(false);
   const [averageRatings, setAverageRatings] = useState<Record<string, number>>({});
   const [ratingsLoading, setRatingsLoading] = useState(true);
 
-  // Load ratings once when component mounts and not on every re-render
-  const loadRatings = useCallback(async () => {
-    setRatingsLoading(true);
-    try {
-      const ratings = await getAllAverageRatings();
-      setAverageRatings(ratings);
-    } catch (error) {
-      console.error("Error loading ratings:", error);
-    } finally {
-      setRatingsLoading(false);
-    }
-  }, [getAllAverageRatings]);
-
+  // Load ratings once when component mounts
   useEffect(() => {
-    loadRatings();
-    // Don't include averageRatings in the dependency array
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadRatings]);
+    const loadRatings = async () => {
+      setRatingsLoading(true);
+      try {
+        const ratings = await getAllAverageRatings();
+        console.log("Loaded ratings:", ratings);
+        setAverageRatings(ratings);
+      } catch (error) {
+        console.error("Error loading ratings:", error);
+      } finally {
+        setRatingsLoading(false);
+      }
+    };
 
-  // Stable memoized ratings to prevent re-renders
-  const memoizedRatings = useMemo(() => averageRatings, [averageRatings]);
+    loadRatings();
+  }, [getAllAverageRatings]);
 
   const getIslandBadgeStyle = (island: string | undefined) => {
     switch (island) {
@@ -148,7 +144,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
 
   // Create a stable rating component to prevent unnecessary re-renders
   const RatingDisplay = useCallback(({ interviewerId }: { interviewerId: string }) => {
-    const rating = memoizedRatings[interviewerId];
+    const rating = averageRatings[interviewerId];
     
     if (ratingsLoading) {
       return (
@@ -160,16 +156,11 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     }
     
     if (rating) {
-      return (
-        <div className="flex items-center gap-1">
-          <StarRating rating={rating} readOnly size={16} />
-          <span className="text-sm ml-1">{rating}</span>
-        </div>
-      );
+      return <StarRating rating={rating} readOnly size={16} />;
     }
     
     return <span className="text-muted-foreground text-sm">Not rated</span>;
-  }, [memoizedRatings, ratingsLoading]);
+  }, [averageRatings, ratingsLoading]);
 
   return (
     <>

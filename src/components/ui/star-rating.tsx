@@ -17,7 +17,7 @@ export const StarRating = ({
   max = 5,
   size = 20,
   onRate,
-  readOnly = false,
+  readOnly = true,
   className,
 }: StarRatingProps) => {
   const [hoverRating, setHoverRating] = React.useState(0);
@@ -35,9 +35,9 @@ export const StarRating = ({
             key={i}
             size={size}
             className={cn(
-              "cursor-pointer transition-all",
+              "transition-all",
               filled ? "fill-yellow-400 text-yellow-400" : "fill-none text-gray-300",
-              !readOnly && "hover:scale-110"
+              !readOnly && "hover:scale-110 cursor-pointer"
             )}
             onClick={() => !readOnly && onRate && onRate(starValue)}
             onMouseEnter={() => !readOnly && setHoverRating(starValue)}
@@ -45,6 +45,9 @@ export const StarRating = ({
           />
         );
       })}
+      {rating > 0 && (
+        <span className="text-sm ml-1 text-gray-600">{rating.toFixed(1)}</span>
+      )}
     </div>
   );
 };
