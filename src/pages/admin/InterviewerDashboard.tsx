@@ -7,7 +7,6 @@ import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
-import { RatingsTab } from "@/components/interviewer-dashboard/RatingsTab";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
@@ -98,12 +97,6 @@ const InterviewerDashboard = () => {
               Performance
             </TabsTrigger>
             <TabsTrigger 
-              value="ratings" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
-            >
-              Ratings
-            </TabsTrigger>
-            <TabsTrigger 
               value="contact" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
@@ -140,10 +133,6 @@ const InterviewerDashboard = () => {
               interviewer={interviewer}
               getProjectName={getProjectName}
             />
-          </TabsContent>
-          
-          <TabsContent value="ratings" className="m-0 p-0">
-            <RatingsTab interviewer={interviewer} />
           </TabsContent>
           
           <TabsContent value="contact" className="m-0 p-0">

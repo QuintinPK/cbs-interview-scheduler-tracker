@@ -139,41 +139,6 @@ export type Database = {
           },
         ]
       }
-      interviewer_ratings: {
-        Row: {
-          comment: string | null
-          created_at: string
-          created_by: string | null
-          id: string
-          interviewer_id: string
-          score: number
-        }
-        Insert: {
-          comment?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          interviewer_id: string
-          score: number
-        }
-        Update: {
-          comment?: string | null
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          interviewer_id?: string
-          score?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "interviewer_ratings_interviewer_id_fkey"
-            columns: ["interviewer_id"]
-            isOneToOne: false
-            referencedRelation: "interviewers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       interviewers: {
         Row: {
           code: string
