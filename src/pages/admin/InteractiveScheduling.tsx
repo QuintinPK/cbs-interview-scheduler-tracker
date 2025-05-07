@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours, isBefore, isAfter, isWithinInterval } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, differenceInHours, differenceInMinutes, isBefore, isAfter, isWithinInterval } from "date-fns";
 import { Link, useSearchParams } from "react-router-dom";
 
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -85,11 +85,11 @@ const InteractiveScheduling = () => {
     const start = parseISO(session.start_time);
     const end = parseISO(session.end_time);
     
-    // Calculate hours with decimal precision for minutes
+    // Calculate hours and minutes separately for better precision
     const hours = differenceInHours(end, start);
-    const minutes = differenceInHours(end, start, { precision: 'minutes' }) - hours;
+    const minutesRemainder = differenceInMinutes(end, start) % 60;
     
-    return total + hours + (minutes / 60);
+    return total + hours + (minutesRemainder / 60);
   }, 0);
 
   const handleWeekChange = (newWeekStart: Date) => {
