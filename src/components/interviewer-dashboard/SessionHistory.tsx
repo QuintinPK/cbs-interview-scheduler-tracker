@@ -1,16 +1,12 @@
 
 import React, { useState } from 'react';
-import { DateRange } from 'react-day-picker';
 import { Session, Interview } from '@/types';
 import CoordinatePopup from '../ui/CoordinatePopup';
 import { SessionTable } from './SessionTable';
-import { DateRangeSelector } from './DateRangeSelector';
 
 interface SessionHistoryProps {
   sessions: Session[];
   interviews: Interview[];
-  dateRange: DateRange | undefined;
-  setDateRange: (range: DateRange | undefined) => void;
   showProject: boolean;
   projectNameResolver: (id: string) => string;
 }
@@ -18,8 +14,6 @@ interface SessionHistoryProps {
 const SessionHistory: React.FC<SessionHistoryProps> = ({
   sessions,
   interviews,
-  dateRange,
-  setDateRange,
   showProject,
   projectNameResolver
 }) => {
@@ -46,9 +40,8 @@ const SessionHistory: React.FC<SessionHistoryProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex justify-between items-center mb-6">
         <h3 className="text-lg font-semibold">Session History</h3>
-        <DateRangeSelector dateRange={dateRange} setDateRange={setDateRange} />
       </div>
 
       <SessionTable 

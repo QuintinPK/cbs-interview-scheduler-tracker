@@ -5,7 +5,6 @@ import { useInterviewers } from "@/hooks/useInterviewers";
 import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
 import { supabase } from "@/integrations/supabase/client";
-import { DateRange } from "react-day-picker";
 import { Interviewer } from "@/types";
 
 export const useInterviewerDashboard = () => {
@@ -15,11 +14,6 @@ export const useInterviewerDashboard = () => {
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const { sessions: allSessions } = useSessions();
   const { projects } = useProjects();
-
-  const [dateRange, setDateRange] = useState<DateRange>({
-    from: new Date(new Date().setDate(1)), // First day of current month
-    to: new Date()
-  });
 
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -100,26 +94,15 @@ export const useInterviewerDashboard = () => {
     fetchInterviewer();
   }, [interviewerId, interviewers, interviewersLoading, navigate]);
 
-  // Load sessions and interviews data based on date range - separate effect to handle date range changes
+  // Load sessions and interviews data
   useEffect(() => {
     const fetchData = async () => {
-      if (!interviewerId || !dateRange.from || !dateRange.to) return;
-      
-      // Don't set loading to true here, as it would reset the interviewer name in the title
-      // Only set loading for specific data pieces
-      const sessionsLoading = true;
+      if (!interviewerId) return;
       
       try {
-        // Format dates for filtering
-        const fromDate = dateRange.from;
-        const toDate = new Date(dateRange.to.getTime());
-        toDate.setHours(23, 59, 59, 999);
-        
-        // Filter sessions by interviewer and date range
+        // Filter sessions by interviewer
         const filteredSessions = allSessions.filter(session => 
-          session.interviewer_id === interviewerId &&
-          new Date(session.start_time) >= fromDate &&
-          new Date(session.start_time) <= toDate
+          session.interviewer_id === interviewerId
         );
         setSessions(filteredSessions);
         
@@ -151,7 +134,7 @@ export const useInterviewerDashboard = () => {
     };
     
     fetchData();
-  }, [interviewerId, dateRange, allSessions]);
+  }, [interviewerId, allSessions]);
 
   // Get project name resolver function
   const getProjectName = (projectId: string | null | undefined) => {
@@ -170,8 +153,6 @@ export const useInterviewerDashboard = () => {
     loading,
     sessions,
     interviews,
-    dateRange,
-    setDateRange,
     activeTab,
     setActiveTab,
     getProjectName,

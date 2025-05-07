@@ -7,7 +7,6 @@ import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
-import { DateRangePicker } from "@/components/ui/date-range-picker"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
 
@@ -17,8 +16,6 @@ const InterviewerDashboard = () => {
     loading,
     sessions,
     interviews,
-    dateRange,
-    setDateRange,
     activeTab,
     setActiveTab,
     getProjectName
@@ -103,13 +100,6 @@ const InterviewerDashboard = () => {
               Contact Information
             </TabsTrigger>
           </TabsList>
-
-          <div className="mb-4 bg-white p-4 rounded-lg shadow-sm border">
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-            />
-          </div>
           
           <TabsContent value="overview" className="m-0 p-0">
             <OverviewTab sessions={sessions} activeSessions={activeSessions} />
@@ -119,8 +109,6 @@ const InterviewerDashboard = () => {
             <SessionsTab 
               sessions={sessions}
               interviews={interviews}
-              dateRange={dateRange}
-              setDateRange={setDateRange}
               showProject={true}
               projectNameResolver={getProjectName}
             />

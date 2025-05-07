@@ -1,34 +1,29 @@
 
 import React from "react";
-import SessionHistory from "@/components/interviewer-dashboard/SessionHistory";
-import { DateRange } from "react-day-picker";
-import { Session } from "@/types";
+import SessionHistory from "./SessionHistory";
+import { Session, Interview } from "@/types";
 
 interface SessionsTabProps {
   sessions: Session[];
-  interviews: any[];
-  dateRange: DateRange;
-  setDateRange: React.Dispatch<React.SetStateAction<DateRange>>;
+  interviews: Interview[];
   showProject: boolean;
-  projectNameResolver: (projectId: string | null | undefined) => string;
+  projectNameResolver: (id: string | null | undefined) => string;
 }
 
-export const SessionsTab: React.FC<SessionsTabProps> = ({ 
-  sessions, 
-  interviews, 
-  dateRange, 
-  setDateRange, 
+export const SessionsTab: React.FC<SessionsTabProps> = ({
+  sessions,
+  interviews,
   showProject,
-  projectNameResolver 
+  projectNameResolver,
 }) => {
   return (
-    <SessionHistory 
-      sessions={sessions}
-      interviews={interviews}
-      dateRange={dateRange}
-      setDateRange={setDateRange}
-      showProject={showProject}
-      projectNameResolver={projectNameResolver}
-    />
+    <div className="space-y-6">
+      <SessionHistory 
+        sessions={sessions} 
+        interviews={interviews}
+        showProject={showProject}
+        projectNameResolver={projectNameResolver}
+      />
+    </div>
   );
 };
