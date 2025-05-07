@@ -1,152 +1,214 @@
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-// Define interfaces for our data structures
-interface InterviewerRating {
-  interviewer_id: string;
-  average_rating: number;
+export interface EvaluationStats {
+  averageRating: number;
+  totalEvaluations: number;
+  topTags: { name: string; count: number }[];
+  ratingDistribution: Record<number, number>;
 }
 
-export const useEvaluationStats = () => {
-  const [loading, setLoading] = useState(false);
-  
-  // Create properly typed refs for caching
-  const ratingsCache = useRef<Record<string, number | null>>({});
-  const allRatingsCache = useRef<Record<string, number>>({});
+export const useEvaluationStats = (interviewerId: string | undefined) => {
+  const [stats, setStats] = useState<EvaluationStats>({
+    averageRating: 0,
+    totalEvaluations: 0,
+    topTags: [],
+    ratingDistribution: {}
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const ratingsCache = useRef<Record<string, number>>({});
   const lastFetch = useRef<Record<string, number>>({});
-  const hasEvaluationsCache = useRef<Record<string, boolean>>({});
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
   
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
-
-  // Helper function to check if interviewer has any evaluations (fast path)
-  const checkIfEvaluationsExist = useCallback(async (interviewerId: string): Promise<boolean> => {
-    // Return from cache if available
-    if (hasEvaluationsCache.current[interviewerId] !== undefined) {
-      return hasEvaluationsCache.current[interviewerId];
+  const calculateStats = useCallback(async (interviewerId: string, forceRefresh = false) => {
+    if (!interviewerId) return;
+    
+    // Return cached data if available and not expired
+    const now = Date.now();
+    if (!forceRefresh && ratingsCache.current[interviewerId] !== undefined && 
+        lastFetch.current[interviewerId] && 
+        (now - lastFetch.current[interviewerId]) < CACHE_TTL) {
+      return {
+        averageRating: ratingsCache.current[interviewerId]
+      };
     }
     
     try {
-      const { count, error } = await supabase
-        .from('interviewer_evaluations')
-        .select('*', { count: 'exact', head: true })
-        .eq('interviewer_id', interviewerId);
-      
-      const hasEvaluations = count !== null && count > 0;
-      hasEvaluationsCache.current[interviewerId] = hasEvaluations;
-      
-      return hasEvaluations;
-    } catch (error) {
-      console.error("Error checking if evaluations exist:", error);
-      return false;
-    }
-  }, []);
-
-  const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
-    const now = Date.now();
-    const cacheKey = `rating_${interviewerId}`;
-
-    if (
-      !forceRefresh &&
-      ratingsCache.current[cacheKey] !== undefined &&
-      lastFetch.current[cacheKey] &&
-      now - lastFetch.current[cacheKey] < CACHE_TTL
-    ) {
-      return ratingsCache.current[cacheKey];
-    }
-
-    try {
       setLoading(true);
-      console.log(`Getting average rating for interviewer: ${interviewerId}`);
+      setError(null);
       
-      // Fast path: check if interviewer has any evaluations first
-      const hasEvaluations = await checkIfEvaluationsExist(interviewerId);
-      if (!hasEvaluations) {
-        console.log(`No evaluations found for interviewer: ${interviewerId}, skipping average calculation`);
-        ratingsCache.current[cacheKey] = null;
-        lastFetch.current[cacheKey] = now;
-        return null;
+      // Fetch all evaluations for this interviewer
+      const { data: evaluations, error: evalError } = await supabase
+        .from('interviewer_evaluations')
+        .select('*')
+        .eq('interviewer_id', interviewerId);
+        
+      if (evalError) throw evalError;
+      
+      // If no evaluations, return default stats
+      if (!evaluations || evaluations.length === 0) {
+        setStats({
+          averageRating: 0,
+          totalEvaluations: 0,
+          topTags: [],
+          ratingDistribution: {}
+        });
+        
+        ratingsCache.current[interviewerId] = 0;
+        lastFetch.current[interviewerId] = now;
+        
+        return {
+          averageRating: 0
+        };
       }
-
-      // Use the PostgreSQL function to calculate average rating
-      const { data, error } = await supabase.rpc(
-        "get_interviewer_average_rating",
-        { interviewer_id_param: interviewerId }
-      );
-
-      if (error) {
-        console.error("Error getting average rating:", error);
-        return null;
-      }
-
-      // Cast the data to the expected type after receiving it
-      const avgRating = data as number | null;
+      
+      // Calculate average rating
+      const sum = evaluations.reduce((acc, eval_) => acc + eval_.rating, 0);
+      const average = sum / evaluations.length;
+      
+      // Calculate rating distribution
+      const distribution: Record<number, number> = {};
+      evaluations.forEach(eval_ => {
+        distribution[eval_.rating] = (distribution[eval_.rating] || 0) + 1;
+      });
+      
+      // Fetch all tags for these evaluations
+      const evaluationIds = evaluations.map(e => e.id);
+      
+      const { data: tagsJunction, error: tagsError } = await supabase
+        .from('evaluation_tags_junction')
+        .select(`
+          tag_id,
+          evaluation_tags:tag_id (
+            name
+          )
+        `)
+        .in('evaluation_id', evaluationIds);
+        
+      if (tagsError) throw tagsError;
+      
+      // Count tag occurrences
+      const tagCounts: Record<string, { name: string; count: number }> = {};
+      
+      tagsJunction?.forEach((junction: any) => {
+        if (junction.evaluation_tags && junction.evaluation_tags.name) {
+          const tagName = junction.evaluation_tags.name;
+          if (!tagCounts[tagName]) {
+            tagCounts[tagName] = { name: tagName, count: 0 };
+          }
+          tagCounts[tagName].count += 1;
+        }
+      });
+      
+      // Get top tags
+      const sortedTags = Object.values(tagCounts)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      
+      const newStats = {
+        averageRating: parseFloat(average.toFixed(1)),
+        totalEvaluations: evaluations.length,
+        topTags: sortedTags,
+        ratingDistribution: distribution
+      };
+      
+      setStats(newStats);
       
       // Update cache
-      ratingsCache.current[cacheKey] = avgRating;
-      lastFetch.current[cacheKey] = now;
-
-      return avgRating;
-    } catch (error) {
-      console.error("Error in getAverageRating:", error);
-      return null;
+      ratingsCache.current[interviewerId] = newStats.averageRating;
+      lastFetch.current[interviewerId] = now;
+      
+      return {
+        averageRating: newStats.averageRating
+      };
+      
+    } catch (err) {
+      console.error("Error calculating evaluation stats:", err);
+      setError("Failed to load evaluation statistics");
+      return {
+        averageRating: 0
+      };
     } finally {
       setLoading(false);
     }
-  }, [checkIfEvaluationsExist]);
+  }, []);
 
-  const getAllAverageRatings = useCallback(async (forceRefresh = false) => {
-    const now = Date.now();
-    const cacheKey = "all_ratings";
-
-    if (
-      !forceRefresh &&
-      Object.keys(allRatingsCache.current).length > 0 &&
-      lastFetch.current[cacheKey] &&
-      now - lastFetch.current[cacheKey] < CACHE_TTL
-    ) {
-      return allRatingsCache.current;
+  useEffect(() => {
+    if (interviewerId) {
+      calculateStats(interviewerId);
     }
-
+  }, [interviewerId, calculateStats]);
+  
+  // Get average rating for a specific interviewer
+  const getAverageRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
+    const result = await calculateStats(interviewerId, forceRefresh);
+    return result?.averageRating || 0;
+  }, [calculateStats]);
+  
+  // Get all average ratings 
+  const getAllAverageRatings = useCallback(async (forceRefresh = false) => {
     try {
+      // Return cached data if available and not expired
+      const now = Date.now();
+      if (!forceRefresh && Object.keys(ratingsCache.current).length > 0) {
+        // Check if any of the cached values is expired
+        const isExpired = Object.keys(lastFetch.current).some(
+          key => (now - lastFetch.current[key]) >= CACHE_TTL
+        );
+        
+        if (!isExpired) {
+          return ratingsCache.current;
+        }
+      }
+      
       setLoading(true);
-      console.log("Getting all average ratings");
-
-      // Use the PostgreSQL function to get all ratings at once
-      const { data, error } = await supabase.rpc("get_all_interviewer_ratings");
-
-      if (error) {
-        console.error("Error getting all ratings:", error);
-        return {};
-      }
-
-      const ratingsMap: Record<string, number> = {};
-
-      // Process and type check the response data
-      if (data && Array.isArray(data)) {
-        (data as InterviewerRating[]).forEach((item) => {
-          if (item.interviewer_id && typeof item.average_rating === 'number') {
-            ratingsMap[item.interviewer_id] = item.average_rating;
-          }
-        });
-      }
-
-      // Update cache
-      allRatingsCache.current = ratingsMap;
-      lastFetch.current[cacheKey] = now;
-
-      return ratingsMap;
-    } catch (error) {
-      console.error("Error in getAllAverageRatings:", error);
+      
+      // Fetch all evaluations grouped by interviewer
+      const { data: aggregateData, error: aggregateError } = await supabase
+        .from('interviewer_evaluations')
+        .select('interviewer_id, rating');
+        
+      if (aggregateError) throw aggregateError;
+      
+      // Calculate average rating for each interviewer
+      const interviewerRatings: Record<string, number[]> = {};
+      
+      aggregateData?.forEach((evaluation) => {
+        if (!interviewerRatings[evaluation.interviewer_id]) {
+          interviewerRatings[evaluation.interviewer_id] = [];
+        }
+        interviewerRatings[evaluation.interviewer_id].push(evaluation.rating);
+      });
+      
+      const averageRatings: Record<string, number> = {};
+      
+      Object.keys(interviewerRatings).forEach((interviewerId) => {
+        const ratings = interviewerRatings[interviewerId];
+        const sum = ratings.reduce((acc, rating) => acc + rating, 0);
+        const average = parseFloat((sum / ratings.length).toFixed(1));
+        averageRatings[interviewerId] = average;
+        
+        // Update cache
+        ratingsCache.current[interviewerId] = average;
+        lastFetch.current[interviewerId] = now;
+      });
+      
+      return averageRatings;
+    } catch (err) {
+      console.error("Error fetching all average ratings:", err);
       return {};
     } finally {
       setLoading(false);
     }
   }, []);
-
-  return {
-    loading,
+  
+  return { 
+    stats, 
+    loading, 
+    error,
     getAverageRating,
-    getAllAverageRatings,
+    getAllAverageRatings
   };
 };

@@ -2,10 +2,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { Interviewer, Evaluation } from "@/types";
 import { useEvaluations } from "@/hooks/useEvaluations";
-import { EvaluationCard } from "./evaluation/EvaluationCard";
-import { EvaluationItem } from "./evaluation/EvaluationItem";
-import { EvaluationHistory } from "./evaluation/EvaluationHistory";
 import { AddEditEvaluationDialog } from "./evaluation/AddEditEvaluationDialog";
+import { EvaluationCard } from "./evaluation/EvaluationCard";
+import { EvaluationHistory } from "./evaluation/EvaluationHistory";
 
 interface EvaluationsTabProps {
   interviewer: Interviewer | null;
@@ -23,12 +22,16 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
     getAverageRating, 
     loadEvaluationTags 
   } = useEvaluations();
+  
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedEvaluation, setSelectedEvaluation] = useState<Evaluation | undefined>(undefined);
   const [loadingRating, setLoadingRating] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  console.log("EvaluationsTab rendered with interviewer:", interviewer?.id);
+  console.log("Current evaluations:", evaluations);
 
   // Load evaluations and tags in advance, when component mounts
   useEffect(() => {
@@ -38,35 +41,58 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   // Load evaluations and average rating when interviewer ID changes
   useEffect(() => {
-    if (!interviewer?.id) return;
+    if (!interviewer?.id) {
+      console.log("No interviewer ID available, skipping evaluation loading");
+      return;
+    }
+    
+    console.log("Loading evaluations for interviewer:", interviewer.id);
     
     // Load evaluations
     const fetchData = async () => {
       try {
-        // First load evaluations
+        const loadedEvaluations = await loadEvaluationsByInterviewer(interviewer.id);
+        console.log("Loaded evaluations result:", loadedEvaluations);
+        
+        // Load average rating
         setLoadingRating(true);
-        const loadedEvals = await loadEvaluationsByInterviewer(interviewer.id);
-        
-        // Only try to get average rating if there are evaluations
-        if (loadedEvals && loadedEvals.length > 0) {
-          const rating = await getAverageRating(interviewer.id);
-          setAverageRating(rating);
-        } else {
-          // If no evaluations, don't bother calling the average rating function
-          setAverageRating(null);
-        }
-        
+        const rating = await getAverageRating(interviewer.id);
+        console.log("Loaded average rating:", rating);
+        setAverageRating(rating);
         setLoadingRating(false);
+        
         setInitialLoadDone(true);
       } catch (error) {
         console.error("Error loading evaluation data:", error);
         setInitialLoadDone(true);
-        setLoadingRating(false);
       }
     };
     
     fetchData();
   }, [interviewer?.id, loadEvaluationsByInterviewer, getAverageRating]);
+
+  // Group evaluations by category for display
+  const groupEvaluationTags = useCallback((evaluation: Evaluation) => {
+    if (!evaluation.tags || !Array.isArray(evaluation.tags)) {
+      console.log("No tags array found for evaluation:", evaluation.id);
+      return {};
+    }
+    
+    const grouped: Record<string, any[]> = {};
+    evaluation.tags.forEach(tag => {
+      if (!tag.category) {
+        console.log("Tag missing category:", tag);
+        return;
+      }
+      
+      if (!grouped[tag.category]) {
+        grouped[tag.category] = [];
+      }
+      grouped[tag.category].push(tag);
+    });
+    
+    return grouped;
+  }, []);
 
   const handleAddEvaluation = () => {
     setSelectedEvaluation(undefined);
@@ -80,6 +106,8 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
 
   const handleEvaluationSuccess = useCallback(() => {
     if (!interviewer?.id) return;
+    
+    console.log("Evaluation saved, reloading data");
     
     // Reload evaluations after adding/editing with force refresh
     loadEvaluationsByInterviewer(interviewer.id, true);
@@ -112,24 +140,18 @@ export const EvaluationsTab: React.FC<EvaluationsTabProps> = ({
     <div className="space-y-6">
       {/* Evaluations Card */}
       <EvaluationCard
+        evaluations={evaluations}
         loading={loading}
         initialLoadDone={initialLoadDone}
-        evaluations={evaluations}
         averageRating={averageRating}
         loadingRating={loadingRating}
         onAddEvaluation={handleAddEvaluation}
-      >
-        {evaluations.map((evaluation) => (
-          <EvaluationItem 
-            key={evaluation.id}
-            evaluation={evaluation}
-            onEdit={handleEditEvaluation}
-            getProjectName={getProjectName}
-          />
-        ))}
-      </EvaluationCard>
+        onEditEvaluation={handleEditEvaluation}
+        groupEvaluationTags={groupEvaluationTags}
+        getProjectName={getProjectName}
+      />
       
-      {/* Evaluation History */}
+      {/* Evaluation History Card */}
       <EvaluationHistory
         evaluations={evaluations}
         loading={loading}

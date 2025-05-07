@@ -1,161 +1,146 @@
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { useEvaluationBase } from "./useEvaluationBase";
-import { Evaluation, EvaluationTag } from "@/types";
+import { Evaluation } from "@/types";
 
-export const useEvaluationLoader = () => {
-  const { setLoading, toast } = useEvaluationBase();
+export const useEvaluationLoader = (interviewerId: string | undefined) => {
+  const { toast } = useToast();
+  const { loading: baseLoading, setLoading, error, setError } = useEvaluationBase();
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Fix the ref typing by using the same pattern
-  const evaluationsCache = useRef<Record<string, Evaluation[]>>({} as Record<string, Evaluation[]>);
-  const lastFetch = useRef<Record<string, number>>({} as Record<string, number>);
-  const CACHE_TTL = 5 * 60 * 1000; // 5 minute cache
+  const [evaluationTags, setEvaluationTags] = useState<Record<string, string[]>>({});
+  const [loading, setInternalLoading] = useState(false);
   
   const loadEvaluationsByInterviewer = useCallback(async (interviewerId: string, forceRefresh = false) => {
-    // Return cached data if available, not expired, and not force refreshing
-    const now = Date.now();
-    if (
-      !forceRefresh && 
-      evaluationsCache.current[interviewerId] && 
-      lastFetch.current[interviewerId] && 
-      (now - lastFetch.current[interviewerId]) < CACHE_TTL
-    ) {
-      const cachedEvals = evaluationsCache.current[interviewerId];
-      setEvaluations(cachedEvals);
-      return cachedEvals;
-    }
+    if (!interviewerId) return [];
     
     try {
-      setLoadingEvaluations(true);
+      setInternalLoading(true);
+      setLoading(true);
       setError(null);
-      console.log(`Loading evaluations for interviewer: ${interviewerId} (force refresh: ${forceRefresh})`);
       
-      // First check if there are any evaluations at all (fast path)
-      const { count, error: countError } = await supabase
-        .from('interviewer_evaluations')
-        .select('*', { count: 'exact', head: true })
-        .eq('interviewer_id', interviewerId);
-        
-      if (countError) {
-        console.error("Error counting evaluations:", countError);
-        throw countError;
-      }
+      console.log("Loading evaluations for interviewer:", interviewerId);
       
-      // If no evaluations, return empty array immediately
-      if (count === 0) {
-        console.log("No evaluations found for this interviewer");
-        setEvaluations([]);
-        
-        // Update cache with empty array
-        evaluationsCache.current[interviewerId] = [];
-        lastFetch.current[interviewerId] = now;
-        return [];
-      }
-      
-      // If we have evaluations, get them with a single query
+      // Fetch evaluations for this interviewer
       const { data: evaluationsData, error: evaluationsError } = await supabase
         .from('interviewer_evaluations')
-        .select('*')
+        .select(`
+          *,
+          projects:project_id (
+            name
+          )
+        `)
         .eq('interviewer_id', interviewerId)
         .order('created_at', { ascending: false });
         
       if (evaluationsError) {
         console.error("Error fetching evaluations:", evaluationsError);
-        setEvaluations([]);
-        setError("Failed to load evaluations");
-        return [];
+        throw evaluationsError;
       }
       
+      console.log("Loaded evaluations:", evaluationsData);
+      
+      // If no evaluations, return empty array
       if (!evaluationsData || evaluationsData.length === 0) {
-        console.log("No evaluations found after full query");
         setEvaluations([]);
-        // Update cache with empty array
-        evaluationsCache.current[interviewerId] = [];
-        lastFetch.current[interviewerId] = now;
+        setEvaluationTags({});
         return [];
       }
       
-      console.log(`Found ${evaluationsData.length} evaluations`);
+      // Process evaluations to match expected structure
+      const processedEvaluations = evaluationsData.map(evaluation => ({
+        ...evaluation,
+        tags: [] // Initialize empty tags array that will be populated later
+      }));
       
-      // Get all evaluation IDs for batch fetching tags
-      const evaluationIds = evaluationsData.map(evaluation => evaluation.id);
+      setEvaluations(processedEvaluations);
       
-      // Fetch all tags for these evaluations in a single query with proper joins
-      const { data: tagJunctionsWithTags, error: tagsError } = await supabase
+      // Now fetch all tags for these evaluations
+      const evaluationIds = evaluationsData.map(e => e.id);
+      
+      const { data: tagsJunctionData, error: tagsError } = await supabase
         .from('evaluation_tags_junction')
         .select(`
           evaluation_id,
           tag_id,
-          evaluation_tags(*)
+          evaluation_tags:tag_id (
+            id,
+            name,
+            category
+          )
         `)
         .in('evaluation_id', evaluationIds);
         
       if (tagsError) {
         console.error("Error fetching evaluation tags:", tagsError);
-        // Continue with evaluations but without tags
-        const evaluationsWithoutTags = evaluationsData.map(evaluation => ({
-          ...evaluation,
-          tags: []
-        }));
-        
-        setEvaluations(evaluationsWithoutTags);
-        evaluationsCache.current[interviewerId] = evaluationsWithoutTags;
-        lastFetch.current[interviewerId] = now;
-        return evaluationsWithoutTags;
+        throw tagsError;
       }
       
-      // Process and organize tags by evaluation ID
-      const tagsByEvaluation: Record<string, EvaluationTag[]> = {};
+      console.log("Loaded tags junction data:", tagsJunctionData);
       
-      tagJunctionsWithTags?.forEach(junction => {
-        const evaluationId = junction.evaluation_id;
-        const tag = junction.evaluation_tags;
-        
-        if (!tagsByEvaluation[evaluationId]) {
-          tagsByEvaluation[evaluationId] = [];
+      // Group tags by evaluation ID
+      const tagsMap: Record<string, string[]> = {};
+      
+      // Also create a structure for the full tag objects to add to the evaluations
+      const evaluationTagsMap: Record<string, any[]> = {};
+      
+      tagsJunctionData?.forEach((junction: any) => {
+        if (!tagsMap[junction.evaluation_id]) {
+          tagsMap[junction.evaluation_id] = [];
+          evaluationTagsMap[junction.evaluation_id] = [];
         }
         
-        if (tag) {
-          tagsByEvaluation[evaluationId].push(tag as EvaluationTag);
+        if (junction.evaluation_tags && junction.evaluation_tags.name) {
+          tagsMap[junction.evaluation_id].push(junction.evaluation_tags.name);
+          evaluationTagsMap[junction.evaluation_id].push({
+            id: junction.tag_id,
+            name: junction.evaluation_tags.name,
+            category: junction.evaluation_tags.category
+          });
         }
       });
       
-      // Combine evaluations with their tags
-      const evaluationsWithTags = evaluationsData.map(evaluation => ({
+      setEvaluationTags(tagsMap);
+      
+      // Add tags to each evaluation
+      const evaluationsWithTags = processedEvaluations.map(evaluation => ({
         ...evaluation,
-        tags: tagsByEvaluation[evaluation.id] || []
+        tags: evaluationTagsMap[evaluation.id] || []
       }));
       
-      // Update cache
-      evaluationsCache.current[interviewerId] = evaluationsWithTags;
-      lastFetch.current[interviewerId] = now;
-      
-      // Update state
       setEvaluations(evaluationsWithTags);
-      console.log(`Processed ${evaluationsWithTags.length} evaluations with their tags`);
+      
+      console.log("Final evaluations with tags:", evaluationsWithTags);
+      
       return evaluationsWithTags;
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading evaluations:", err);
-      setEvaluations([]);
-      setError("Could not load evaluations");
+      setError("Failed to load evaluations");
       toast({
         title: "Error",
-        description: "Could not load evaluations",
+        description: "Failed to load evaluations",
         variant: "destructive",
       });
       return [];
     } finally {
-      setLoadingEvaluations(false);
+      setInternalLoading(false);
+      setLoading(false);
     }
-  }, [setError, toast]);
-
+  }, [setLoading, setError, toast]);
+  
+  useEffect(() => {
+    if (interviewerId) {
+      loadEvaluationsByInterviewer(interviewerId);
+    }
+  }, [interviewerId, loadEvaluationsByInterviewer]);
+  
   return {
     evaluations,
-    loadingEvaluations,
+    evaluationTags,
+    loading: baseLoading || loading,
+    loadingEvaluations: loading,
     error,
     loadEvaluationsByInterviewer
   };

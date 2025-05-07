@@ -17,10 +17,12 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   getProjectName 
 }) => {
   return (
-    <PerformanceMetrics
-      sessions={sessions}
-      interviews={interviews}
-      interviewer={interviewer}
-    />
+    <>
+      <PerformanceMetrics
+        sessions={sessions}
+        interviews={interviews}
+        interviewer={interviewer}
+      />
+    </>
   );
 };

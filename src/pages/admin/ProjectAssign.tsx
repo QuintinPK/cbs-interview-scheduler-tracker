@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -13,28 +14,15 @@ import { useToast } from "@/hooks/use-toast";
 import IslandSelector from "@/components/ui/IslandSelector";
 
 const ProjectAssign = () => {
-  const {
-    projectId
-  } = useParams<{
-    projectId: string;
-  }>();
+  const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIsland, setSelectedIsland] = useState<'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined>(undefined);
-  const {
-    projects,
-    assignInterviewerToProject,
-    removeInterviewerFromProject,
-    getProjectInterviewers
-  } = useProjects();
-  const {
-    interviewers
-  } = useInterviewers();
+  const { projects, assignInterviewerToProject, removeInterviewerFromProject, getProjectInterviewers } = useProjects();
+  const { interviewers } = useInterviewers();
   const [projectInterviewers, setProjectInterviewers] = useState<Interviewer[]>([]);
   const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
@@ -133,7 +121,10 @@ const ProjectAssign = () => {
     const matchesSearch = fullName.includes(query) || code.includes(query);
     const matchesIsland = !selectedIsland || interviewer.island === selectedIsland;
 
-    const isEligible = project && interviewer.island ? !project.excluded_islands.includes(interviewer.island) : true;
+    const isEligible = project && interviewer.island 
+      ? !project.excluded_islands?.includes(interviewer.island) 
+      : true;
+      
     return matchesSearch && matchesIsland && isEligible;
   });
 
@@ -145,7 +136,8 @@ const ProjectAssign = () => {
     return processingIds.has(interviewerId);
   };
 
-  return <AdminLayout>
+  return (
+    <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -156,19 +148,25 @@ const ProjectAssign = () => {
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-cbs to-cbs-light bg-clip-text text-transparent">
               Assign Interviewers
             </h1>
-            {project && <p className="text-muted-foreground mt-1 font-bold text-left text-base">
+            {project && (
+              <p className="text-muted-foreground mt-1 font-bold text-left text-base">
                 Project: {project.name}
-              </p>}
+              </p>
+            )}
           </div>
         </div>
         
-        {loading && !project ? <div className="flex justify-center items-center h-64">
+        {loading && !project ? (
+          <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-cbs" />
-          </div> : <>
+          </div>
+        ) : (
+          <>
             <div className="bg-white p-5 rounded-lg shadow-sm border">
               <h2 className="text-lg font-semibold mb-4">Current Interviewers</h2>
               
-              {projectInterviewers.length > 0 ? <div className="overflow-x-auto">
+              {projectInterviewers.length > 0 ? (
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -179,24 +177,40 @@ const ProjectAssign = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {projectInterviewers.map(interviewer => <TableRow key={interviewer.id}>
+                      {projectInterviewers.map(interviewer => (
+                        <TableRow key={interviewer.id}>
                           <TableCell className="font-medium">{interviewer.code}</TableCell>
                           <TableCell>{`${interviewer.first_name} ${interviewer.last_name}`}</TableCell>
                           <TableCell>
-                            {interviewer.island && <Badge variant={interviewer.island === 'Bonaire' ? 'default' : interviewer.island === 'Saba' ? 'info' : 'purple'}>
+                            {interviewer.island && (
+                              <Badge variant={interviewer.island === 'Bonaire' ? 'default' : interviewer.island === 'Saba' ? 'info' : 'purple'}>
                                 {interviewer.island}
-                              </Badge>}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm" onClick={() => handleRemoveInterviewer(interviewer)} disabled={isProcessing(interviewer.id)}>
-                              {isProcessing(interviewer.id) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserMinus className="h-4 w-4 mr-2 text-destructive" />}
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleRemoveInterviewer(interviewer)} 
+                              disabled={isProcessing(interviewer.id)}
+                            >
+                              {isProcessing(interviewer.id) ? (
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              ) : (
+                                <UserMinus className="h-4 w-4 mr-2 text-destructive" />
+                              )}
                               Remove
                             </Button>
                           </TableCell>
-                        </TableRow>)}
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
-                </div> : <p className="text-muted-foreground text-center py-6">No interviewers assigned to this project yet</p>}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-6">No interviewers assigned to this project yet</p>
+              )}
             </div>
             
             <div className="bg-white p-5 rounded-lg shadow-sm border">
@@ -205,11 +219,21 @@ const ProjectAssign = () => {
               <div className="flex flex-col md:flex-row gap-4 items-start md:items-center mb-4">
                 <div className="max-w-md relative grow">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input placeholder="Search by name or code..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 border-gray-200 focus:border-cbs focus:ring-1 focus:ring-cbs" />
+                  <Input 
+                    placeholder="Search by name or code..." 
+                    value={searchQuery} 
+                    onChange={e => setSearchQuery(e.target.value)} 
+                    className="pl-9 border-gray-200 focus:border-cbs focus:ring-1 focus:ring-cbs" 
+                  />
                 </div>
                 
                 <div className="w-full md:w-60">
-                  <IslandSelector selectedIsland={selectedIsland} onIslandChange={handleIslandChange} placeholder="All Islands" showAllOption={true} />
+                  <IslandSelector 
+                    selectedIsland={selectedIsland} 
+                    onIslandChange={handleIslandChange} 
+                    placeholder="All Islands" 
+                    showAllOption={true} 
+                  />
                 </div>
               </div>
               
@@ -224,39 +248,71 @@ const ProjectAssign = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredInterviewers.length === 0 ? <TableRow>
+                    {filteredInterviewers.length === 0 ? (
+                      <TableRow>
                         <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
                           No interviewers found
                         </TableCell>
-                      </TableRow> : filteredInterviewers.map(interviewer => {
-                  const assigned = isInterviewerAssigned(interviewer.id);
-                  const processing = isProcessing(interviewer.id);
-                  return <TableRow key={interviewer.id} className={assigned ? "bg-muted/30" : ""}>
+                      </TableRow>
+                    ) : (
+                      filteredInterviewers.map(interviewer => {
+                        const assigned = isInterviewerAssigned(interviewer.id);
+                        const processing = isProcessing(interviewer.id);
+                        return (
+                          <TableRow key={interviewer.id} className={assigned ? "bg-muted/30" : ""}>
                             <TableCell className="font-medium">{interviewer.code}</TableCell>
                             <TableCell>{`${interviewer.first_name} ${interviewer.last_name}`}</TableCell>
                             <TableCell>
-                              {interviewer.island && <Badge variant={interviewer.island === 'Bonaire' ? 'default' : interviewer.island === 'Saba' ? 'info' : 'purple'}>
+                              {interviewer.island && (
+                                <Badge variant={interviewer.island === 'Bonaire' ? 'default' : interviewer.island === 'Saba' ? 'info' : 'purple'}>
                                   {interviewer.island}
-                                </Badge>}
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell>
-                              {assigned ? <Button variant="ghost" size="sm" onClick={() => handleRemoveInterviewer(interviewer)} disabled={processing}>
-                                  {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserMinus className="h-4 w-4 mr-2 text-destructive" />}
+                              {assigned ? (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleRemoveInterviewer(interviewer)} 
+                                  disabled={processing}
+                                >
+                                  {processing ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : (
+                                    <UserMinus className="h-4 w-4 mr-2 text-destructive" />
+                                  )}
                                   Remove
-                                </Button> : <Button variant="ghost" size="sm" onClick={() => handleAssignInterviewer(interviewer)} disabled={processing}>
-                                  {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2 text-cbs" />}
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleAssignInterviewer(interviewer)} 
+                                  disabled={processing}
+                                >
+                                  {processing ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  ) : (
+                                    <UserPlus className="h-4 w-4 mr-2 text-cbs" />
+                                  )}
                                   Assign
-                                </Button>}
+                                </Button>
+                              )}
                             </TableCell>
-                          </TableRow>;
-                })}
+                          </TableRow>
+                        );
+                      })
+                    )}
                   </TableBody>
                 </Table>
               </div>
             </div>
-          </>}
+          </>
+        )}
       </div>
-    </AdminLayout>;
+    </AdminLayout>
+  );
 };
 
 export default ProjectAssign;

@@ -40,6 +40,7 @@ export const mockSessions: Session[] = [
   {
     id: "1",
     interviewer_id: "1",
+    project_id: "project-1", // Add required project_id
     start_time: "2023-07-01T09:00:00.000Z",
     end_time: "2023-07-01T17:00:00.000Z",
     start_latitude: 52.3676,
@@ -54,6 +55,7 @@ export const mockSessions: Session[] = [
   {
     id: "2",
     interviewer_id: "2",
+    project_id: "project-2", // Add required project_id
     start_time: "2023-07-02T08:30:00.000Z",
     end_time: "2023-07-02T16:30:00.000Z",
     start_latitude: 51.9244,
@@ -68,6 +70,7 @@ export const mockSessions: Session[] = [
   {
     id: "3",
     interviewer_id: "3",
+    project_id: "project-1", // Add required project_id
     start_time: new Date().toISOString(),
     end_time: null,
     start_latitude: 52.0116,
