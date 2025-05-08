@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 
 import AdminLayout from "@/components/layout/AdminLayout";
@@ -21,7 +22,19 @@ import { useFilter } from "@/contexts/FilterContext";
 
 const Settings = () => {
   const { toast } = useToast();
-  const { projectTitle, setProjectTitle, hourlyRate, setHourlyRate, responseRate, setResponseRate, nonResponseRate, setNonResponseRate, showResponseRates, setShowResponseRates, getRates } = useFilter();
+  const { 
+    projectTitle, 
+    setProjectTitle, 
+    hourlyRate, 
+    setHourlyRate,
+    responseRate, 
+    setResponseRate, 
+    nonResponseRate, 
+    setNonResponseRate, 
+    showResponseRates, 
+    setShowResponseRates, 
+    getRates 
+  } = useFilter();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
