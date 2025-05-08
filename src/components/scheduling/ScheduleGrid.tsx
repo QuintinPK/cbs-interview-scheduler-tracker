@@ -56,7 +56,7 @@ export const ScheduleGrid = ({
     });
   }, [currentWeekStart]);
   
-  const hours = useMemo(() => Array.from({ length: 13 }, (_, i) => i + 8), []);
+  const hours = useMemo(() => Array.from({ length: 15 }, (_, i) => i + 8), []); // Updated from 13 to 15 to include hours 8-22
   
   // Process all schedules and sessions data ahead of time
   const processedData = useMemo(() => {
@@ -99,7 +99,7 @@ export const ScheduleGrid = ({
         // Get sessions for this hour
         const hourSessions = daySessions.filter(session => {
           const start = parseISO(session.start_time);
-          const end = parseISO(session.end_time);
+          const end = parseISO(session.end_time as string);
           const startHour = parseInt(formatInTimeZone(start, tz, 'H'));
           let endHour = parseInt(formatInTimeZone(end, tz, 'H'));
           // If endHour is 0 (midnight) and the end date is after the start date, or if it's 0 and it's a full hour session ending at midnight
