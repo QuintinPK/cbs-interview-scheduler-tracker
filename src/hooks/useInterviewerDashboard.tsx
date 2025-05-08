@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useInterviewers } from "@/hooks/useInterviewers";
@@ -90,7 +91,10 @@ export const useInterviewerDashboard = () => {
         // Type casting the island property to ensure it matches the expected type
         const typedInterviewer: Interviewer = {
           ...data,
-          island: data.island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined
+          // Check if island value is one of the valid options, otherwise set to undefined
+          island: (data.island === "Bonaire" || data.island === "Saba" || data.island === "Sint Eustatius") 
+            ? (data.island as "Bonaire" | "Saba" | "Sint Eustatius") 
+            : undefined
         };
         
         setInterviewer(typedInterviewer);
@@ -143,7 +147,16 @@ export const useInterviewerDashboard = () => {
           
         if (error) throw error;
         
-        setCompareInterviewer(interviewerData);
+        // Type casting the island property similar to above
+        const typedCompareInterviewer: Interviewer = {
+          ...interviewerData,
+          island: (interviewerData.island === "Bonaire" || interviewerData.island === "Saba" || 
+                  interviewerData.island === "Sint Eustatius") 
+            ? (interviewerData.island as "Bonaire" | "Saba" | "Sint Eustatius") 
+            : undefined
+        };
+        
+        setCompareInterviewer(typedCompareInterviewer);
         
         // Fetch sessions
         const { data: sessionsData, error: sessionsError } = await supabase
