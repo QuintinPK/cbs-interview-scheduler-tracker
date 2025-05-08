@@ -46,7 +46,7 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   interviewerId,
   schedules,
   sessions,
-  hours = Array.from({ length: 15 }, (_, i) => i + 8), // Updated from 13 to 15 to include hours 8-22
+  hours = Array.from({ length: 13 }, (_, i) => i + 8),
   onSchedulesChanged
 }) => {
   const [showRealised, setShowRealised] = useState(true);
