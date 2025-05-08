@@ -30,7 +30,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
 
   return (
     <div className="space-y-2">
-      {isPrimaryUser ? (
+      {interviewerCode && (
         <div className="flex flex-col gap-3">
           <div className="w-full">
             <Label htmlFor="interviewer-code">Interviewer Code</Label>
@@ -52,7 +52,9 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             <span>Log Out</span>
           </Button>
         </div>
-      ) : (
+      )}
+      
+      {!interviewerCode && (
         <>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
           <Input
@@ -63,11 +65,10 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             className="text-lg"
             disabled={loading || isRunning}
           />
-          {interviewerCode && !isPrimaryUser && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Enter your interviewer code to log in
-            </p>
-          )}
+          
+          <p className="text-xs text-muted-foreground mt-1">
+            Enter your interviewer code to log in
+          </p>
         </>
       )}
     </div>
