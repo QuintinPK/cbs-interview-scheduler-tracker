@@ -1,13 +1,15 @@
 
 import React from "react";
-import { Play, Square } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Play, Square, WifiOff } from "lucide-react";
 
 interface SessionButtonProps {
   isRunning: boolean;
   loading: boolean;
   interviewerCode: string;
   onClick: () => void;
-  disabled?: boolean;
+  disabled: boolean;
+  isOffline?: boolean;
 }
 
 const SessionButton: React.FC<SessionButtonProps> = ({
@@ -15,26 +17,33 @@ const SessionButton: React.FC<SessionButtonProps> = ({
   loading,
   interviewerCode,
   onClick,
-  disabled = false
+  disabled,
+  isOffline = false
 }) => {
   return (
-    <div className="flex justify-center pt-4">
-      <button
-        onClick={onClick}
-        disabled={loading || !interviewerCode || disabled}
-        className={`start-stop-button w-24 h-24 rounded-full flex items-center justify-center ${
-          isRunning ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
-        } ${(loading || !interviewerCode || disabled) ? "opacity-50 cursor-not-allowed" : ""} text-white transition-colors`}
-      >
-        {loading ? (
-          <div className="animate-spin h-10 w-10 border-4 border-white border-t-transparent rounded-full"></div>
-        ) : isRunning ? (
-          <Square className="h-10 w-10" />
-        ) : (
-          <Play className="h-10 w-10 ml-1" />
-        )}
-      </button>
-    </div>
+    <Button
+      onClick={onClick}
+      disabled={disabled || loading || !interviewerCode.trim()}
+      className={`w-full py-6 ${
+        isRunning ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600"
+      } text-white flex items-center justify-center gap-2`}
+    >
+      {loading ? (
+        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+      ) : isRunning ? (
+        <>
+          <Square className="h-5 w-5" />
+          <span>End Session</span>
+          {isOffline && <WifiOff className="h-4 w-4 ml-2" />}
+        </>
+      ) : (
+        <>
+          <Play className="h-5 w-5 ml-1" />
+          <span>Start Session</span>
+          {isOffline && <WifiOff className="h-4 w-4 ml-2" />}
+        </>
+      )}
+    </Button>
   );
 };
 

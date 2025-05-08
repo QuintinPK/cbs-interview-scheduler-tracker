@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -6,6 +5,8 @@ import { useActiveSession } from "@/hooks/useActiveSession";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Interview } from "@/types";
+import { isOnline, getUnsyncedSessionsCount, syncOfflineSessions } from "@/lib/offlineDB";
+import { WifiOff } from "lucide-react";
 
 const Index = () => {
   const {
@@ -22,18 +23,35 @@ const Index = () => {
     isPrimaryUser,
     setIsPrimaryUser,
     switchUser,
-    endSession
+    endSession,
+    startSession,
+    offlineSessionId
   } = useActiveSession();
 
   const [totalHours, setTotalHours] = useState<number>(0);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [interviewsCount, setInterviewsCount] = useState<number>(0);
+  const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
+  
+  // Check for unsynced sessions periodically
+  useEffect(() => {
+    const checkUnsyncedSessions = async () => {
+      const count = await getUnsyncedSessionsCount();
+      setUnsyncedCount(count);
+    };
+    
+    checkUnsyncedSessions();
+    
+    const intervalId = setInterval(checkUnsyncedSessions, 60000); // Every minute
+    
+    return () => clearInterval(intervalId);
+  }, []);
   
   // Fetch total hours and interviews for the current interviewer
   useEffect(() => {
     const fetchInterviewerData = async () => {
-      if (!interviewerCode) return;
+      if (!interviewerCode || !isOnline()) return;
       
       try {
         setIsLoadingHours(true);
@@ -116,7 +134,32 @@ const Index = () => {
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Portal</h1>
           <p className="text-muted-foreground">Track your working hours</p>
+          
+          {!isOnline() && (
+            <div className="mt-2 inline-flex items-center px-3 py-1 bg-amber-100 text-amber-800 text-sm rounded-full">
+              <WifiOff className="h-3 w-3 mr-1" />
+              Offline Mode
+            </div>
+          )}
         </div>
+        
+        {unsyncedCount > 0 && (
+          <Alert className="mb-4 w-full bg-blue-50 border-blue-200 text-blue-800">
+            <AlertDescription className="flex items-center justify-between">
+              <span>
+                {unsyncedCount} offline {unsyncedCount === 1 ? 'session' : 'sessions'} not yet synchronized
+              </span>
+              {isOnline() && (
+                <button 
+                  onClick={() => syncOfflineSessions()}
+                  className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
+                >
+                  Sync Now
+                </button>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
         
         {error && (
           <Alert variant="destructive" className="mb-4 w-full">
@@ -138,6 +181,8 @@ const Index = () => {
           isPrimaryUser={isPrimaryUser}
           switchUser={switchUser}
           endSession={endSession}
+          startSession={startSession}
+          offlineSessionId={offlineSessionId}
         />
         
         {interviewerCode && (

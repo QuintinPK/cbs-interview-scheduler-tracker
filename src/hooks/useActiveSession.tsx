@@ -1,8 +1,13 @@
-
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
+import { 
+  isOnline, 
+  saveOfflineSession, 
+  updateOfflineSession, 
+  syncOfflineSessions
+} from "@/lib/offlineDB";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
@@ -15,6 +20,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [activeSession, setActiveSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
+  const [offlineSessionId, setOfflineSessionId] = useState<number | null>(null);
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
@@ -50,40 +56,48 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       try {
         setLoading(true);
         
-        // Get the interviewer by code
-        const { data: interviewers, error: interviewerError } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', interviewerCode)
-          .limit(1);
+        // Attempt to sync offline sessions when checking for active sessions
+        if (isOnline()) {
+          await syncOfflineSessions();
+        }
+        
+        // Only check online sessions if we're online
+        if (isOnline()) {
+          // Get the interviewer by code
+          const { data: interviewers, error: interviewerError } = await supabase
+            .from('interviewers')
+            .select('id')
+            .eq('code', interviewerCode)
+            .limit(1);
+            
+          if (interviewerError) {
+            throw interviewerError;
+          }
           
-        if (interviewerError) {
-          throw interviewerError;
-        }
-        
-        if (!interviewers || interviewers.length === 0) {
-          return;
-        }
-        
-        const interviewerId = interviewers[0].id;
-        
-        // Check for active sessions
-        const { data: sessions, error: sessionError } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('interviewer_id', interviewerId)
-          .eq('is_active', true)
-          .limit(1);
+          if (!interviewers || interviewers.length === 0) {
+            return;
+          }
           
-        if (sessionError) {
-          throw sessionError;
-        }
-        
-        if (sessions && sessions.length > 0) {
-          console.log("Found active session:", sessions[0]);
-          updateSessionState(sessions[0]);
-        } else {
-          resetSessionState();
+          const interviewerId = interviewers[0].id;
+          
+          // Check for active sessions
+          const { data: sessions, error: sessionError } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('interviewer_id', interviewerId)
+            .eq('is_active', true)
+            .limit(1);
+            
+          if (sessionError) {
+            throw sessionError;
+          }
+          
+          if (sessions && sessions.length > 0) {
+            console.log("Found active session:", sessions[0]);
+            updateSessionState(sessions[0]);
+          } else {
+            resetSessionState();
+          }
         }
       } catch (error) {
         console.error("Error checking active session:", error);
@@ -99,6 +113,28 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     
     checkActiveSession();
   }, [interviewerCode, toast]);
+
+  // Check online status changes
+  useEffect(() => {
+    const handleOnline = async () => {
+      toast({
+        title: "You are back online",
+        description: "Syncing offline sessions...",
+      });
+      
+      try {
+        await syncOfflineSessions();
+      } catch (error) {
+        console.error("Error syncing sessions on reconnect:", error);
+      }
+    };
+    
+    window.addEventListener('online', handleOnline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [toast]);
 
   // Helper function to update session state
   const updateSessionState = (session: Session) => {
@@ -121,6 +157,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setIsRunning(false);
     setStartTime(null);
     setStartLocation(undefined);
+    setOfflineSessionId(null);
   };
 
   // Function to switch user
@@ -135,9 +172,78 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   };
 
   // Function to end session while preserving the primary user status
-  const endSession = () => {
+  const endSession = async () => {
+    // If we have an offline session ID, update the offline session
+    if (offlineSessionId !== null) {
+      try {
+        await updateOfflineSession(
+          offlineSessionId,
+          new Date().toISOString(),
+          // Include end location if available
+          undefined
+        );
+        
+        // Try to sync if we're online
+        if (isOnline()) {
+          await syncOfflineSessions();
+        }
+      } catch (error) {
+        console.error("Error ending offline session:", error);
+      }
+    }
+    
     resetSessionState();
     // We keep the interviewer code and primary user status
+  };
+
+  // Function to start a new session
+  const startSession = async (
+    interviewerId: string,
+    projectId: string | null,
+    locationData?: Location
+  ): Promise<Session | null> => {
+    // If offline, save to local database
+    if (!isOnline()) {
+      try {
+        const now = new Date().toISOString();
+        const id = await saveOfflineSession(
+          interviewerCode,
+          projectId,
+          now,
+          locationData
+        );
+        
+        setOfflineSessionId(id);
+        
+        // Create a pseudo-session object to maintain compatibility
+        const offlineSession: Session = {
+          id: `offline-${id}`,
+          interviewer_id: interviewerId,
+          project_id: projectId,
+          start_time: now,
+          is_active: true,
+          created_at: now
+        };
+        
+        if (locationData) {
+          offlineSession.start_latitude = locationData.latitude;
+          offlineSession.start_longitude = locationData.longitude;
+          offlineSession.start_address = locationData.address;
+        }
+        
+        toast({
+          title: "Offline Mode",
+          description: "Session started locally. It will sync when you're back online.",
+        });
+        
+        return offlineSession;
+      } catch (error) {
+        console.error("Error starting offline session:", error);
+        throw error;
+      }
+    }
+    
+    return null;
   };
 
   return {
@@ -155,6 +261,8 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     isPrimaryUser,
     setIsPrimaryUser,
     switchUser,
-    endSession
+    endSession,
+    startSession,
+    offlineSessionId
   };
 };
