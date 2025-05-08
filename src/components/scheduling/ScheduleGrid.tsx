@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { format, parseISO, eachDayOfInterval, startOfWeek, endOfWeek, differenceInHours, differenceInMinutes } from "date-fns";
+import { formatInTimeZone } from 'date-fns-tz';
 import { Pencil, Trash2, AlertCircle } from "lucide-react";
 import { Schedule, Session } from "@/types";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -55,25 +56,26 @@ export const ScheduleGrid = ({
     });
   }, [currentWeekStart]);
   
-  const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 8), []);
+  const hours = useMemo(() => Array.from({ length: 13 }, (_, i) => i + 8), []);
   
   // Process all schedules and sessions data ahead of time
   const processedData = useMemo(() => {
+    const tz = 'America/Puerto_Rico';
     // Create grid data structure
     const grid = weekDays.map(day => {
-      const dayStr = format(day, "yyyy-MM-dd");
-      const isCurrentDay = dayStr === format(new Date(), "yyyy-MM-dd");
+      const dayStr = formatInTimeZone(day, tz, "yyyy-MM-dd");
+      const isCurrentDay = dayStr === formatInTimeZone(new Date(), tz, "yyyy-MM-dd");
       
       // Get schedules for this day
       const daySchedules = schedules.filter(schedule => {
-        const scheduleDate = format(parseISO(schedule.start_time), "yyyy-MM-dd");
+        const scheduleDate = formatInTimeZone(parseISO(schedule.start_time), 'America/Puerto_Rico', "yyyy-MM-dd");
         return scheduleDate === dayStr && schedule.status !== "canceled";
       });
       
       // Get sessions for this day
       const daySessions = sessions.filter(session => {
         if (!session.start_time || !session.end_time) return false;
-        const sessionDate = format(parseISO(session.start_time), "yyyy-MM-dd");
+        const sessionDate = formatInTimeZone(parseISO(session.start_time), 'America/Puerto_Rico', "yyyy-MM-dd");
         return sessionDate === dayStr;
       });
       
@@ -83,8 +85,14 @@ export const ScheduleGrid = ({
         const hourSchedules = daySchedules.filter(schedule => {
           const start = parseISO(schedule.start_time);
           const end = parseISO(schedule.end_time);
-          const startHour = start.getHours();
-          const endHour = end.getHours();
+          const startHour = parseInt(formatInTimeZone(start, tz, 'H'));
+          let endHour = parseInt(formatInTimeZone(end, tz, 'H'));
+          // If endHour is 0 (midnight) and the end date is after the start date, or if it's 0 and it's a full hour session ending at midnight
+          // treat it as 24 for filtering within the current day's hour slots.
+          // This handles cases like 23:00-00:00 or any slot ending exactly at midnight.
+          if (endHour === 0 && (end.getDate() > start.getDate() || formatInTimeZone(end, tz, 'mm') === '00')) {
+            endHour = 24;
+          }
           return hour >= startHour && hour < endHour;
         });
         
@@ -92,8 +100,13 @@ export const ScheduleGrid = ({
         const hourSessions = daySessions.filter(session => {
           const start = parseISO(session.start_time);
           const end = parseISO(session.end_time);
-          const startHour = start.getHours();
-          const endHour = end.getHours();
+          const startHour = parseInt(formatInTimeZone(start, tz, 'H'));
+          let endHour = parseInt(formatInTimeZone(end, tz, 'H'));
+          // If endHour is 0 (midnight) and the end date is after the start date, or if it's 0 and it's a full hour session ending at midnight
+          // treat it as 24 for filtering within the current day's hour slots.
+          if (endHour === 0 && (end.getDate() > start.getDate() || formatInTimeZone(end, tz, 'mm') === '00')) {
+            endHour = 24;
+          }
           return hour >= startHour && hour < endHour;
         });
         
