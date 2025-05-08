@@ -63,7 +63,12 @@ export const saveOfflineSession = async (
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('sync-sessions');
+        // Check if sync is available
+        if (registration.sync) {
+          await registration.sync.register('sync-sessions');
+        } else {
+          console.log('Background sync not available');
+        }
       } catch (err) {
         console.error('Background sync registration failed:', err);
       }
@@ -96,7 +101,12 @@ export const updateOfflineSession = async (
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register('sync-sessions');
+        // Check if sync is available
+        if (registration.sync) {
+          await registration.sync.register('sync-sessions');
+        } else {
+          console.log('Background sync not available');
+        }
       } catch (err) {
         console.error('Background sync registration failed:', err);
       }

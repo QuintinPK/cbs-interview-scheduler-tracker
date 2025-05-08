@@ -36,13 +36,15 @@ export function registerBackgroundSync() {
     navigator.serviceWorker.ready.then(registration => {
       // Register periodic sync if available (Chrome origin trial)
       if ('periodicSync' in registration) {
-        const periodicSync = registration.periodicSync as any;
-        periodicSync.register({
-          tag: 'sync-sessions',
-          minInterval: 60 * 60 * 1000 // Sync every hour
-        }).catch(error => {
-          console.log('Periodic background sync failed to register: ', error);
-        });
+        const periodicSync = registration.periodicSync;
+        if (periodicSync) {
+          periodicSync.register({
+            tag: 'sync-sessions',
+            minInterval: 60 * 60 * 1000 // Sync every hour
+          }).catch(error => {
+            console.log('Periodic background sync failed to register: ', error);
+          });
+        }
       }
       
       // Register one-time sync
