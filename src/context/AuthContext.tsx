@@ -19,6 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const checkAuth = async () => {
       const auth = localStorage.getItem("cbs_auth");
+      // Only check localStorage if it exists
       if (auth === "true") {
         setIsAuthenticated(true);
       } else {
@@ -113,6 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Continue without Supabase auth as fallback
         }
         
+        // Set auth state and persist it in localStorage
         setIsAuthenticated(true);
         localStorage.setItem("cbs_auth", "true");
         return true;
@@ -122,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const logout = () => {
+    // Remove authenticated state
     setIsAuthenticated(false);
     localStorage.removeItem("cbs_auth");
     // Sign out from Supabase
