@@ -58,6 +58,17 @@ export const saveOfflineSession = async (
     });
     
     console.log("Session saved locally:", id);
+    
+    // Try to register background sync
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.sync.register('sync-sessions');
+      } catch (err) {
+        console.error('Background sync registration failed:', err);
+      }
+    }
+    
     return id;
   } catch (error) {
     console.error("Error saving offline session:", error);
@@ -80,6 +91,16 @@ export const updateOfflineSession = async (
     });
     
     console.log("Offline session updated:", id);
+    
+    // Try to register background sync
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.sync.register('sync-sessions');
+      } catch (err) {
+        console.error('Background sync registration failed:', err);
+      }
+    }
   } catch (error) {
     console.error("Error updating offline session:", error);
     throw error;
@@ -190,5 +211,23 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
   } catch (error) {
     console.error("Error counting unsynced sessions:", error);
     return 0;
+  }
+};
+
+// Check if the app has offline capability
+export const hasOfflineCapability = (): boolean => {
+  return 'indexedDB' in window && 'serviceWorker' in navigator;
+};
+
+// Clear all synced sessions
+export const clearSyncedSessions = async (): Promise<void> => {
+  try {
+    await offlineDB.sessions
+      .where('synced')
+      .equals(1)
+      .delete();
+    console.log("Cleared synced sessions from local DB");
+  } catch (error) {
+    console.error("Error clearing synced sessions:", error);
   }
 };
