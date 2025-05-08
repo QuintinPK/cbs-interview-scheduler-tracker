@@ -17,7 +17,7 @@ export interface OfflineSession {
   endLongitude: number | null;
   endAddress: string | null;
   projectId: string | null;
-  synced: boolean;
+  synced: number; // Changed from boolean to number (0 = false, 1 = true)
 }
 
 // Create a Dexie database class
@@ -54,7 +54,7 @@ export const saveOfflineSession = async (
       endLatitude: null,
       endLongitude: null,
       endAddress: null,
-      synced: false
+      synced: 0 // Using 0 instead of false
     });
     
     console.log("Session saved locally:", id);
@@ -101,7 +101,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
     // Get all unsynced sessions
     const unsyncedSessions = await offlineDB.sessions
       .where('synced')
-      .equals(false)
+      .equals(0) // Using 0 instead of false
       .toArray();
       
     if (unsyncedSessions.length === 0) {
@@ -158,7 +158,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         }
         
         // Mark as synced in local DB
-        await offlineDB.sessions.update(session.id!, { synced: true });
+        await offlineDB.sessions.update(session.id!, { synced: 1 }); // Using 1 instead of true
         syncedCount++;
         
       } catch (error) {
@@ -185,7 +185,7 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
   try {
     return await offlineDB.sessions
       .where('synced')
-      .equals(false)
+      .equals(0) // Using 0 instead of false
       .count();
   } catch (error) {
     console.error("Error counting unsynced sessions:", error);
