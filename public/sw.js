@@ -95,9 +95,24 @@ self.addEventListener('sync', (event) => {
   console.log('[Service Worker] Background Syncing', event);
   
   if (event.tag === 'sync-sessions') {
-    console.log('[Service Worker] Syncing Sessions');
+    console.log('[Service Worker] Syncing Sessions and Interviews');
     
     // Post a message to the client to initiate the sync
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'SYNC_SESSIONS'
+        });
+      });
+    });
+  }
+});
+
+// Handle periodic sync events
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'sync-sessions') {
+    console.log('[Service Worker] Periodic Sync: Syncing sessions and interviews');
+    
     self.clients.matchAll().then((clients) => {
       clients.forEach((client) => {
         client.postMessage({

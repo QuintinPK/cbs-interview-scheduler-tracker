@@ -14,7 +14,12 @@ import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
-import { isOnline, syncOfflineSessions, getUnsyncedSessionsCount } from "@/lib/offlineDB";
+import { 
+  isOnline, 
+  syncOfflineSessions, 
+  getUnsyncedSessionsCount,
+  getUnsyncedInterviewsCount 
+} from "@/lib/offlineDB";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -67,8 +72,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
     stopInterview,
     setInterviewResult,
     cancelResultDialog,
-    fetchActiveInterview
-  } = useInterviewActions(activeSession?.id || null);
+    fetchActiveInterview,
+    offlineInterviews
+  } = useInterviewActions(activeSession?.id || null, offlineSessionId);
 
   // Set selected project ID when active session has a project ID
   useEffect(() => {
@@ -204,6 +210,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   // Add state for offline status and unsync count
   const [isOffline, setIsOffline] = useState(!isOnline());
   const [unsyncedCount, setUnsyncedCount] = useState(0);
+  const [unsyncedInterviews, setUnsyncedInterviews] = useState(0);
 
   // Update online status and check for unsyced sessions
   useEffect(() => {
@@ -211,21 +218,23 @@ const SessionForm: React.FC<SessionFormProps> = ({
       setIsOffline(!isOnline());
     };
     
-    const checkUnsyncedSessions = async () => {
-      const count = await getUnsyncedSessionsCount();
-      setUnsyncedCount(count);
+    const checkUnsyncedItems = async () => {
+      const sessionCount = await getUnsyncedSessionsCount();
+      const interviewCount = await getUnsyncedInterviewsCount();
+      setUnsyncedCount(sessionCount);
+      setUnsyncedInterviews(interviewCount);
     };
     
     // Check initial state
     checkOnlineStatus();
-    checkUnsyncedSessions();
+    checkUnsyncedItems();
     
     // Setup listeners for online/offline events
     window.addEventListener('online', checkOnlineStatus);
     window.addEventListener('offline', checkOnlineStatus);
     
     // Setup interval to check unsync count
-    const intervalId = setInterval(checkUnsyncedSessions, 30000); // every 30 seconds
+    const intervalId = setInterval(checkUnsyncedItems, 30000); // every 30 seconds
     
     return () => {
       window.removeEventListener('online', checkOnlineStatus);
@@ -237,18 +246,20 @@ const SessionForm: React.FC<SessionFormProps> = ({
   // Attempt to sync when back online
   useEffect(() => {
     const handleSync = async () => {
-      if (!isOffline && unsyncedCount > 0) {
+      if (!isOffline && (unsyncedCount > 0 || unsyncedInterviews > 0)) {
         await syncOfflineSessions();
         // Update count after sync attempt
-        const newCount = await getUnsyncedSessionsCount();
-        setUnsyncedCount(newCount);
+        const newSessionCount = await getUnsyncedSessionsCount();
+        const newInterviewCount = await getUnsyncedInterviewsCount();
+        setUnsyncedCount(newSessionCount);
+        setUnsyncedInterviews(newInterviewCount);
       }
     };
     
     if (!isOffline) {
       handleSync();
     }
-  }, [isOffline, unsyncedCount]);
+  }, [isOffline, unsyncedCount, unsyncedInterviews]);
 
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
@@ -423,25 +434,28 @@ const SessionForm: React.FC<SessionFormProps> = ({
         return;
       }
       
-      if (!activeSession) {
+      if (!activeSession && offlineSessionId === null) {
         return;
       }
       
       const currentLocation = await getCurrentLocation();
       
-      const { error: updateError } = await supabase
-        .from('sessions')
-        .update({
-          end_time: new Date().toISOString(),
-          end_latitude: currentLocation?.latitude || null,
-          end_longitude: currentLocation?.longitude || null,
-          end_address: currentLocation?.address || null,
-          is_active: false
-        })
-        .eq('id', activeSession.id);
-        
-      if (updateError) {
-        throw updateError;
+      // If online with an active session
+      if (activeSession) {
+        const { error: updateError } = await supabase
+          .from('sessions')
+          .update({
+            end_time: new Date().toISOString(),
+            end_latitude: currentLocation?.latitude || null,
+            end_longitude: currentLocation?.longitude || null,
+            end_address: currentLocation?.address || null,
+            is_active: false
+          })
+          .eq('id', activeSession.id);
+          
+        if (updateError) {
+          throw updateError;
+        }
       }
       
       endSession();
@@ -487,18 +501,20 @@ const SessionForm: React.FC<SessionFormProps> = ({
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            You are currently offline. Sessions will be saved locally and synchronized when you're back online.
+            You are currently offline. Sessions and interviews will be saved locally and synchronized when you're back online.
           </p>
         </div>
       )}
       
-      {!isOffline && unsyncedCount > 0 && (
+      {!isOffline && (unsyncedCount > 0 || unsyncedInterviews > 0) && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm">
-          <p className="flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {unsyncedCount} offline {unsyncedCount === 1 ? 'session' : 'sessions'} waiting to be synchronized
+          <p className="flex items-center justify-between">
+            <span>
+              {unsyncedCount > 0 && `${unsyncedCount} offline ${unsyncedCount === 1 ? 'session' : 'sessions'}`}
+              {unsyncedCount > 0 && unsyncedInterviews > 0 && ' and '}
+              {unsyncedInterviews > 0 && `${unsyncedInterviews} ${unsyncedInterviews === 1 ? 'interview' : 'interviews'}`}
+              {' waiting to be synchronized'}
+            </span>
             <button 
               onClick={() => syncOfflineSessions()}
               className="ml-2 px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
@@ -556,6 +572,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           onClick={handleStartStop}
           disabled={isRunning && !!activeInterview}
           isOffline={isOffline}
+          unsyncedCount={unsyncedCount + unsyncedInterviews}
         />
       </div>
       

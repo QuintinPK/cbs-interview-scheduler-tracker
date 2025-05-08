@@ -17,17 +17,44 @@ export interface OfflineSession {
   endLongitude: number | null;
   endAddress: string | null;
   projectId: string | null;
-  synced: number; // Changed from boolean to number (0 = false, 1 = true)
+  synced: number; // 0 = false, 1 = true
+  supabaseId: string | null; // To store the ID from Supabase after sync
+}
+
+// Define the structure for our offline interviews
+export interface OfflineInterview {
+  id?: number;
+  sessionId: number; // Local Dexie session ID
+  supabaseSessionId: string | null; // Supabase session ID (will be null until session is synced)
+  candidateName: string;
+  startTime: string;
+  endTime: string | null;
+  startLatitude: number | null;
+  startLongitude: number | null;
+  startAddress: string | null;
+  endLatitude: number | null;
+  endLongitude: number | null;
+  endAddress: string | null;
+  projectId: string | null;
+  result: string | null; // 'response' | 'non-response' | null
+  synced: number; // 0 = false, 1 = true
 }
 
 // Create a Dexie database class
 class OfflineDatabase extends Dexie {
   sessions!: Table<OfflineSession>;
+  interviews!: Table<OfflineInterview>;
 
   constructor() {
     super('offlineSessionsDB');
     this.version(1).stores({
       sessions: '++id, interviewerCode, startTime, synced'
+    });
+    
+    // Update the database schema to include interviews
+    this.version(2).stores({
+      sessions: '++id, interviewerCode, startTime, synced, supabaseId',
+      interviews: '++id, sessionId, startTime, endTime, synced, supabaseSessionId'
     });
   }
 }
@@ -54,7 +81,8 @@ export const saveOfflineSession = async (
       endLatitude: null,
       endLongitude: null,
       endAddress: null,
-      synced: 0 // Using 0 instead of false
+      synced: 0, // Using 0 instead of false
+      supabaseId: null
     });
     
     console.log("Session saved locally:", id);
@@ -117,6 +145,78 @@ export const updateOfflineSession = async (
   }
 };
 
+// Save interview to the offline database
+export const saveOfflineInterview = async (
+  sessionId: number,
+  candidateName: string,
+  projectId: string | null,
+  startTime: string,
+  startLocation?: Location
+): Promise<number> => {
+  try {
+    const id = await offlineDB.interviews.add({
+      sessionId,
+      supabaseSessionId: null,
+      candidateName,
+      projectId,
+      startTime,
+      startLatitude: startLocation?.latitude || null,
+      startLongitude: startLocation?.longitude || null,
+      startAddress: startLocation?.address || null,
+      endTime: null,
+      endLatitude: null,
+      endLongitude: null,
+      endAddress: null,
+      result: null,
+      synced: 0
+    });
+    
+    console.log("Interview saved locally:", id);
+    return id;
+  } catch (error) {
+    console.error("Error saving offline interview:", error);
+    throw error;
+  }
+};
+
+// Update an offline interview with end details
+export const updateOfflineInterview = async (
+  id: number,
+  endTime: string,
+  endLocation?: Location
+): Promise<void> => {
+  try {
+    await offlineDB.interviews.update(id, {
+      endTime,
+      endLatitude: endLocation?.latitude || null,
+      endLongitude: endLocation?.longitude || null,
+      endAddress: endLocation?.address || null
+    });
+    
+    console.log("Offline interview updated:", id);
+  } catch (error) {
+    console.error("Error updating offline interview:", error);
+    throw error;
+  }
+};
+
+// Set interview result
+export const setOfflineInterviewResult = async (
+  id: number,
+  result: 'response' | 'non-response'
+): Promise<void> => {
+  try {
+    await offlineDB.interviews.update(id, {
+      result
+    });
+    
+    console.log("Offline interview result set:", id, result);
+  } catch (error) {
+    console.error("Error setting offline interview result:", error);
+    throw error;
+  }
+};
+
 // Check if a network connection is available
 export const isOnline = (): boolean => {
   return navigator.onLine;
@@ -132,7 +232,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
     // Get all unsynced sessions
     const unsyncedSessions = await offlineDB.sessions
       .where('synced')
-      .equals(0) // Using 0 instead of false
+      .equals(0)
       .toArray();
       
     if (unsyncedSessions.length === 0) {
@@ -179,17 +279,26 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           });
         }
         
-        const { error: insertError } = await supabase
+        const { data: supabaseSession, error: insertError } = await supabase
           .from('sessions')
-          .insert([sessionData]);
+          .insert([sessionData])
+          .select()
+          .single();
           
         if (insertError) {
           console.error("Error syncing session to server:", insertError);
           continue;
         }
         
-        // Mark as synced in local DB
-        await offlineDB.sessions.update(session.id!, { synced: 1 }); // Using 1 instead of true
+        // Store the Supabase session ID in the local session
+        await offlineDB.sessions.update(session.id!, { 
+          synced: 1, 
+          supabaseId: supabaseSession.id 
+        });
+        
+        // Now sync any interviews associated with this session
+        await syncInterviewsForSession(session.id!, supabaseSession.id);
+        
         syncedCount++;
         
       } catch (error) {
@@ -211,15 +320,108 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
   }
 };
 
+// Sync interviews for a specific session
+export const syncInterviewsForSession = async (
+  localSessionId: number,
+  supabaseSessionId: string
+): Promise<boolean> => {
+  try {
+    // Find all unsynced interviews for this session
+    const interviews = await offlineDB.interviews
+      .where('sessionId')
+      .equals(localSessionId)
+      .and(interview => interview.synced === 0)
+      .toArray();
+    
+    if (interviews.length === 0) {
+      return true;
+    }
+    
+    console.log(`Syncing ${interviews.length} interviews for session ${localSessionId} -> ${supabaseSessionId}`);
+    
+    let syncedCount = 0;
+    
+    for (const interview of interviews) {
+      try {
+        // Create interview in Supabase
+        const interviewData = {
+          session_id: supabaseSessionId,
+          project_id: interview.projectId,
+          candidate_name: interview.candidateName,
+          start_time: interview.startTime,
+          start_latitude: interview.startLatitude,
+          start_longitude: interview.startLongitude,
+          start_address: interview.startAddress,
+          is_active: !interview.endTime,
+        };
+        
+        if (interview.endTime) {
+          Object.assign(interviewData, {
+            end_time: interview.endTime,
+            end_latitude: interview.endLatitude,
+            end_longitude: interview.endLongitude,
+            end_address: interview.endAddress
+          });
+        }
+        
+        if (interview.result) {
+          Object.assign(interviewData, {
+            result: interview.result,
+            is_active: false
+          });
+        }
+        
+        const { error: insertError } = await supabase
+          .from('interviews')
+          .insert([interviewData]);
+          
+        if (insertError) {
+          console.error("Error syncing interview to server:", insertError);
+          continue;
+        }
+        
+        // Mark interview as synced
+        await offlineDB.interviews.update(interview.id!, { 
+          synced: 1,
+          supabaseSessionId 
+        });
+        
+        syncedCount++;
+      } catch (error) {
+        console.error("Error syncing individual interview:", error);
+      }
+    }
+    
+    console.log(`Synced ${syncedCount}/${interviews.length} interviews for session ${localSessionId}`);
+    return syncedCount === interviews.length;
+  } catch (error) {
+    console.error("Error syncing interviews:", error);
+    return false;
+  }
+};
+
 // Get the count of unsynced sessions
 export const getUnsyncedSessionsCount = async (): Promise<number> => {
   try {
     return await offlineDB.sessions
       .where('synced')
-      .equals(0) // Using 0 instead of false
+      .equals(0)
       .count();
   } catch (error) {
     console.error("Error counting unsynced sessions:", error);
+    return 0;
+  }
+};
+
+// Get the count of unsynced interviews
+export const getUnsyncedInterviewsCount = async (): Promise<number> => {
+  try {
+    return await offlineDB.interviews
+      .where('synced')
+      .equals(0)
+      .count();
+  } catch (error) {
+    console.error("Error counting unsynced interviews:", error);
     return 0;
   }
 };
@@ -239,5 +441,42 @@ export const clearSyncedSessions = async (): Promise<void> => {
     console.log("Cleared synced sessions from local DB");
   } catch (error) {
     console.error("Error clearing synced sessions:", error);
+  }
+};
+
+// Clear all synced interviews 
+export const clearSyncedInterviews = async (): Promise<void> => {
+  try {
+    await offlineDB.interviews
+      .where('synced')
+      .equals(1)
+      .delete();
+    console.log("Cleared synced interviews from local DB");
+  } catch (error) {
+    console.error("Error clearing synced interviews:", error);
+  }
+};
+
+// Get interviews for a local session
+export const getInterviewsForOfflineSession = async (sessionId: number): Promise<OfflineInterview[]> => {
+  try {
+    const interviews = await offlineDB.interviews
+      .where('sessionId')
+      .equals(sessionId)
+      .toArray();
+    return interviews;
+  } catch (error) {
+    console.error("Error getting interviews for session:", error);
+    return [];
+  }
+};
+
+// Get a specific offline interview
+export const getOfflineInterview = async (interviewId: number): Promise<OfflineInterview | undefined> => {
+  try {
+    return await offlineDB.interviews.get(interviewId);
+  } catch (error) {
+    console.error("Error getting offline interview:", error);
+    return undefined;
   }
 };

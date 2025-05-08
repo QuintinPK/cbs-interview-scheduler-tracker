@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
+import { isOnline, updateOfflineInterview } from "@/lib/offlineDB";
 
 /**
  * Hook for stopping interviews
@@ -11,7 +12,8 @@ import { getCurrentLocation } from "@/lib/utils";
 export const useInterviewStop = (
   activeInterview: Interview | null,
   setShowResultDialog: (show: boolean) => void,
-  setIsInterviewLoading: (isLoading: boolean) => void
+  setIsInterviewLoading: (isLoading: boolean) => void,
+  activeOfflineInterviewId: number | null = null
 ) => {
   const { toast } = useToast();
 
@@ -23,7 +25,22 @@ export const useInterviewStop = (
       
       const currentLocation = await getCurrentLocation();
       
-      // Update interview with end location but don't set result yet
+      // Check if this is an offline interview
+      if (activeOfflineInterviewId !== null && !isOnline()) {
+        // Update the offline interview with end details
+        await updateOfflineInterview(
+          activeOfflineInterviewId,
+          new Date().toISOString(),
+          currentLocation
+        );
+        
+        // Show dialog to select interview result
+        setShowResultDialog(true);
+        setIsInterviewLoading(false);
+        return;
+      }
+      
+      // For online interviews, proceed as usual
       const { error } = await supabase
         .from('interviews')
         .update({
@@ -48,7 +65,7 @@ export const useInterviewStop = (
     } finally {
       setIsInterviewLoading(false);
     }
-  }, [activeInterview, setShowResultDialog, setIsInterviewLoading, toast]);
+  }, [activeInterview, activeOfflineInterviewId, setShowResultDialog, setIsInterviewLoading, toast]);
 
   return { stopInterview };
 };

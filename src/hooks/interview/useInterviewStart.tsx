@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
+import { isOnline, saveOfflineInterview } from "@/lib/offlineDB";
 
 /**
  * Hook for starting interviews
@@ -11,12 +12,14 @@ import { getCurrentLocation } from "@/lib/utils";
 export const useInterviewStart = (
   sessionId: string | null,
   setActiveInterview: (interview: Interview | null) => void,
-  setIsInterviewLoading: (isLoading: boolean) => void
+  setIsInterviewLoading: (isLoading: boolean) => void,
+  offlineSessionId: number | null = null,
+  setActiveOfflineInterviewId?: (id: number | null) => void
 ) => {
   const { toast } = useToast();
 
   const startInterview = useCallback(async (projectId?: string) => {
-    if (!sessionId) {
+    if (!sessionId && offlineSessionId === null) {
       toast({
         title: "Error",
         description: "No active session to attach an interview to",
@@ -29,6 +32,55 @@ export const useInterviewStart = (
       setIsInterviewLoading(true);
       
       const currentLocation = await getCurrentLocation();
+      
+      // Check if we're offline and have an offline session
+      if (!isOnline() && offlineSessionId !== null) {
+        // Save interview to offline storage
+        const candidateName = "New interview";
+        const now = new Date().toISOString();
+        
+        const id = await saveOfflineInterview(
+          offlineSessionId,
+          candidateName,
+          projectId || null,
+          now,
+          currentLocation
+        );
+        
+        if (setActiveOfflineInterviewId) {
+          setActiveOfflineInterviewId(id);
+        }
+        
+        // Create a pseudo-interview to maintain compatibility with the UI
+        const offlineInterview: Interview = {
+          id: `offline-${id}`,
+          session_id: `offline-${offlineSessionId}`,
+          candidate_name: candidateName,
+          start_time: now,
+          is_active: true
+        };
+        
+        if (currentLocation) {
+          offlineInterview.start_latitude = currentLocation.latitude;
+          offlineInterview.start_longitude = currentLocation.longitude;
+          offlineInterview.start_address = currentLocation.address;
+        }
+        
+        setActiveInterview(offlineInterview);
+        
+        toast({
+          title: "Offline Interview Started",
+          description: "Interview has been saved locally and will sync when you're online",
+        });
+        
+        setIsInterviewLoading(false);
+        return;
+      }
+      
+      // If we're online, continue with the normal flow
+      if (!sessionId) {
+        throw new Error("No session ID available");
+      }
       
       // Get the session's project_id if not provided
       let interviewProjectId = projectId;
@@ -53,7 +105,7 @@ export const useInterviewStart = (
             start_longitude: currentLocation?.longitude || null,
             start_address: currentLocation?.address || null,
             is_active: true,
-            candidate_name: "New interview" // Now explicitly add candidate_name
+            candidate_name: "New interview"
           }
         ])
         .select()
@@ -82,7 +134,7 @@ export const useInterviewStart = (
     } finally {
       setIsInterviewLoading(false);
     }
-  }, [sessionId, setActiveInterview, setIsInterviewLoading, toast]);
+  }, [sessionId, offlineSessionId, setActiveInterview, setIsInterviewLoading, toast, setActiveOfflineInterviewId]);
 
   return { startInterview };
 };

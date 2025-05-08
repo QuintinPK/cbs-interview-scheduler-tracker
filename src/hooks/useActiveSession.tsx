@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,8 @@ import {
   isOnline, 
   saveOfflineSession, 
   updateOfflineSession, 
-  syncOfflineSessions
+  syncOfflineSessions,
+  getInterviewsForOfflineSession
 } from "@/lib/offlineDB";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
@@ -176,6 +178,19 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     // If we have an offline session ID, update the offline session
     if (offlineSessionId !== null) {
       try {
+        // Check if all interviews are completed (have results)
+        const interviews = await getInterviewsForOfflineSession(offlineSessionId);
+        const hasUnfinishedInterviews = interviews.some(i => i.result === null);
+        
+        if (hasUnfinishedInterviews) {
+          toast({
+            title: "Error",
+            description: "Please complete all interviews before ending your session",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         await updateOfflineSession(
           offlineSessionId,
           new Date().toISOString(),
