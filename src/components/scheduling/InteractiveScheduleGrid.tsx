@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { format, isSameDay, getHours, parseISO, getMinutes, addHours, isSameHour } from 'date-fns';
+import { format, isSameDay, getHours, parseISO, getMinutes, addHours, isSameHour, startOfDay } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
@@ -67,6 +67,22 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
   
   const gridRef = useRef<HTMLDivElement>(null);
 
+  // Helper function to check if a schedule matches a specific day and hour
+  const isScheduleForTimeSlot = (schedule: Schedule, date: Date, hour: number): boolean => {
+    const scheduleStartTime = parseISO(schedule.start_time);
+    const scheduleHour = getHours(scheduleStartTime);
+    const scheduleDayStart = startOfDay(scheduleStartTime);
+    const cellDayStart = startOfDay(date);
+    
+    return scheduleHour === hour && 
+           scheduleDayStart.getTime() === cellDayStart.getTime();
+  };
+
+  // Helper function to find a schedule for a specific day and hour
+  const findScheduleForTimeSlot = (date: Date, hour: number): Schedule | undefined => {
+    return schedules.find(schedule => isScheduleForTimeSlot(schedule, date, hour));
+  };
+
   useEffect(() => {
     const newGrid: CellData[][] = [];
     
@@ -80,40 +96,24 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         const endTime = new Date(date);
         endTime.setHours(hour + 1, 0, 0, 0);
         
+        // Find matching schedule for this time slot
+        const matchingSchedule = findScheduleForTimeSlot(date, hour);
+        
         newGrid[dayIndex][hour] = {
           dayIndex,
           hour,
-          isScheduled: false,
+          isScheduled: !!matchingSchedule,
+          scheduleId: matchingSchedule?.id,
           isSession: false,
           startTime,
           endTime,
+          status: matchingSchedule?.status as 'scheduled' | 'completed' | 'cancelled' | undefined,
+          notes: matchingSchedule?.notes
         };
       });
     });
     
-    // Fix: Ensure we're properly matching schedules to grid cells by comparing both date and hour
-    schedules.forEach(schedule => {
-      const scheduleStartTime = parseISO(schedule.start_time);
-      
-      weekDates.forEach((date, dayIndex) => {
-        if (isSameDay(date, scheduleStartTime)) {
-          const scheduleHour = getHours(scheduleStartTime);
-          
-          if (hours.includes(scheduleHour)) {
-            if (newGrid[dayIndex] && newGrid[dayIndex][scheduleHour]) {
-              newGrid[dayIndex][scheduleHour] = {
-                ...newGrid[dayIndex][scheduleHour],
-                isScheduled: true,
-                scheduleId: schedule.id,
-                status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
-                notes: schedule.notes
-              };
-            }
-          }
-        }
-      });
-    });
-    
+    // Process sessions
     sessions.forEach(session => {
       if (!session.start_time || !session.end_time) return;
       
@@ -346,37 +346,32 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
     try {
       setTransitioningCellKeys(new Set([cellKey]));
       
+      // Get the date for this cell
+      const cellDate = weekDates[dayIndex];
+      
+      // Check if there's already a schedule for this exact time slot
+      const existingSchedule = findScheduleForTimeSlot(cellDate, hour);
+      
       if (cell.isScheduled && cell.scheduleId) {
+        // If the cell is showing as scheduled in the UI, delete that schedule
         setProcessingCellKeys(new Set([cellKey]));
         await deleteSchedulesBatch([cell.scheduleId]);
-      } else if (!cell.isScheduled) {
-        // Check if there's already a schedule for this exact time slot
-        const existingSchedule = schedules.find(schedule => {
-          const scheduleStartTime = parseISO(schedule.start_time);
-          return (
-            isSameDay(cell.startTime, scheduleStartTime) && 
-            isSameHour(cell.startTime, scheduleStartTime)
-          );
-        });
-        
-        if (existingSchedule) {
-          // If there's already a schedule for this time slot, delete it instead
-          setProcessingCellKeys(new Set([cellKey]));
-          await deleteSchedulesBatch([existingSchedule.id]);
-          toast({
-            title: "Success",
-            description: "Schedule removed",
-          });
-        } else {
-          // Otherwise add a new schedule
-          setProcessingCellKeys(new Set([cellKey]));
-          await addSchedulesBatch([{
-            interviewer_id: interviewerId,
-            start_time: cell.startTime.toISOString(),
-            end_time: cell.endTime.toISOString(),
-            status: 'scheduled',
-          }]);
-        }
+        console.log(`Deleted schedule ${cell.scheduleId} for day ${dayIndex}, hour ${hour}`);
+      } else if (existingSchedule) {
+        // If there's a schedule in the database that isn't reflected in the UI, delete it
+        setProcessingCellKeys(new Set([cellKey]));
+        await deleteSchedulesBatch([existingSchedule.id]);
+        console.log(`Deleted existing schedule ${existingSchedule.id} for day ${dayIndex}, hour ${hour} that wasn't showing in UI`);
+      } else {
+        // Otherwise add a new schedule
+        setProcessingCellKeys(new Set([cellKey]));
+        await addSchedulesBatch([{
+          interviewer_id: interviewerId,
+          start_time: cell.startTime.toISOString(),
+          end_time: cell.endTime.toISOString(),
+          status: 'scheduled',
+        }]);
+        console.log(`Added new schedule for day ${dayIndex}, hour ${hour}`);
       }
       
       onSchedulesChanged();
