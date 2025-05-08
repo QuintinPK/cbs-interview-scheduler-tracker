@@ -6,7 +6,7 @@ import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
 import { supabase } from "@/integrations/supabase/client";
 import { DateRange } from "react-day-picker";
-import { Interviewer } from "@/types";
+import { Interviewer, Interview } from "@/types";
 
 export const useInterviewerDashboard = () => {
   const navigate = useNavigate();
@@ -27,11 +27,12 @@ export const useInterviewerDashboard = () => {
   });
 
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
-  const [interviews, setInterviews] = useState<any[]>([]);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [compareInterviewer, setCompareInterviewer] = useState<Interviewer | null>(null);
   const [compareSessions, setCompareSessions] = useState<any[]>([]);
+  const [compareInterviews, setCompareInterviews] = useState<Interview[]>([]);
 
   // Debug the interviewerId parameter
   console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
@@ -109,73 +110,169 @@ export const useInterviewerDashboard = () => {
     fetchInterviewer();
   }, [interviewerId, interviewers, interviewersLoading, navigate]);
 
+  // Function to fetch projects shared between two interviewers
+  const getSharedProjects = async (interviewer1Id: string, interviewer2Id: string) => {
+    try {
+      // Get projects for first interviewer
+      const { data: projects1, error: error1 } = await supabase
+        .from('project_interviewers')
+        .select('project_id')
+        .eq('interviewer_id', interviewer1Id);
+        
+      if (error1) throw error1;
+      
+      // Get projects for second interviewer
+      const { data: projects2, error: error2 } = await supabase
+        .from('project_interviewers')
+        .select('project_id')
+        .eq('interviewer_id', interviewer2Id);
+        
+      if (error2) throw error2;
+      
+      // Find intersection of project IDs
+      const projectIds1 = projects1?.map(p => p.project_id) || [];
+      const projectIds2 = projects2?.map(p => p.project_id) || [];
+      
+      return projectIds1.filter(id => projectIds2.includes(id));
+      
+    } catch (error) {
+      console.error("Error getting shared projects:", error);
+      return [];
+    }
+  };
+
   // If there's a compare parameter, fetch the comparison interviewer data
   useEffect(() => {
-    if (!compareId) {
+    if (!compareId || !interviewerId) {
       setCompareInterviewer(null);
       setCompareSessions([]);
+      setCompareInterviews([]);
       return;
     }
     
     const fetchCompareData = async () => {
       try {
-        // First try to find the interviewer in the already loaded interviewers
-        if (!interviewersLoading && interviewers.length > 0) {
-          const foundInterviewer = interviewers.find(i => i.id === compareId);
+        console.log("Fetching comparison data for interviewer:", compareId);
+        
+        // Check if interviewers share island and projects before proceeding
+        if (interviewer) {
+          // Get shared projects
+          const sharedProjects = await getSharedProjects(interviewerId, compareId);
           
-          if (foundInterviewer) {
-            setCompareInterviewer(foundInterviewer);
-            
-            // Now fetch sessions for this interviewer
-            const { data: compareSessions, error: sessionsError } = await supabase
-              .from('sessions')
-              .select('*')
-              .eq('interviewer_id', compareId);
-              
-            if (sessionsError) throw sessionsError;
-            setCompareSessions(compareSessions || []);
+          if (sharedProjects.length === 0) {
+            console.log("No shared projects between interviewers");
+            // No shared projects, don't compare
+            setCompareInterviewer(null);
+            setCompareSessions([]);
+            setCompareInterviews([]);
             return;
           }
+          
+          // First try to find the interviewer in the already loaded interviewers
+          if (!interviewersLoading && interviewers.length > 0) {
+            const foundInterviewer = interviewers.find(i => i.id === compareId);
+            
+            if (foundInterviewer) {
+              // Check if they're from the same island
+              if (foundInterviewer.island !== interviewer.island) {
+                console.log("Interviewers are from different islands");
+                setCompareInterviewer(null);
+                setCompareSessions([]);
+                setCompareInterviews([]);
+                return;
+              }
+              
+              setCompareInterviewer(foundInterviewer);
+              
+              // Now fetch sessions for this interviewer
+              const { data: compareSessions, error: sessionsError } = await supabase
+                .from('sessions')
+                .select('*')
+                .eq('interviewer_id', compareId)
+                .in('project_id', sharedProjects);
+                
+              if (sessionsError) throw sessionsError;
+              setCompareSessions(compareSessions || []);
+              
+              // Also fetch interviews
+              if (compareSessions && compareSessions.length > 0) {
+                const sessionIds = compareSessions.map(s => s.id);
+                const { data: interviewsData, error: interviewsError } = await supabase
+                  .from('interviews')
+                  .select('*')
+                  .in('session_id', sessionIds);
+                  
+                if (interviewsError) throw interviewsError;
+                setCompareInterviews(interviewsData || []);
+              }
+              
+              return;
+            }
+          }
+          
+          // If not found, fetch directly
+          const { data: interviewerData, error } = await supabase
+            .from('interviewers')
+            .select('*')
+            .eq('id', compareId)
+            .single();
+            
+          if (error) throw error;
+          
+          // Check if they're from the same island
+          if (interviewerData.island !== interviewer.island) {
+            console.log("Interviewers are from different islands");
+            setCompareInterviewer(null);
+            setCompareSessions([]);
+            setCompareInterviews([]);
+            return;
+          }
+          
+          // Type casting the island property similar to above
+          const typedCompareInterviewer: Interviewer = {
+            ...interviewerData,
+            island: (interviewerData.island === "Bonaire" || interviewerData.island === "Saba" || 
+                    interviewerData.island === "Sint Eustatius") 
+              ? (interviewerData.island as "Bonaire" | "Saba" | "Sint Eustatius") 
+              : undefined
+          };
+          
+          setCompareInterviewer(typedCompareInterviewer);
+          
+          // Fetch sessions for shared projects only
+          const { data: sessionsData, error: sessionsError } = await supabase
+            .from('sessions')
+            .select('*')
+            .eq('interviewer_id', compareId)
+            .in('project_id', sharedProjects);
+            
+          if (sessionsError) throw sessionsError;
+          setCompareSessions(sessionsData || []);
+          
+          // Also fetch interviews for these sessions
+          if (sessionsData && sessionsData.length > 0) {
+            const sessionIds = sessionsData.map(s => s.id);
+            const { data: interviewsData, error: interviewsError } = await supabase
+              .from('interviews')
+              .select('*')
+              .in('session_id', sessionIds);
+              
+            if (interviewsError) throw interviewsError;
+            setCompareInterviews(interviewsData || []);
+          }
+        } else {
+          console.log("Primary interviewer not loaded yet, deferring comparison");
         }
-        
-        // If not found, fetch directly
-        const { data: interviewerData, error } = await supabase
-          .from('interviewers')
-          .select('*')
-          .eq('id', compareId)
-          .single();
-          
-        if (error) throw error;
-        
-        // Type casting the island property similar to above
-        const typedCompareInterviewer: Interviewer = {
-          ...interviewerData,
-          island: (interviewerData.island === "Bonaire" || interviewerData.island === "Saba" || 
-                  interviewerData.island === "Sint Eustatius") 
-            ? (interviewerData.island as "Bonaire" | "Saba" | "Sint Eustatius") 
-            : undefined
-        };
-        
-        setCompareInterviewer(typedCompareInterviewer);
-        
-        // Fetch sessions
-        const { data: sessionsData, error: sessionsError } = await supabase
-          .from('sessions')
-          .select('*')
-          .eq('interviewer_id', compareId);
-          
-        if (sessionsError) throw sessionsError;
-        setCompareSessions(sessionsData || []);
-        
       } catch (error) {
         console.error("Error fetching comparison data:", error);
         setCompareInterviewer(null);
         setCompareSessions([]);
+        setCompareInterviews([]);
       }
     };
     
     fetchCompareData();
-  }, [compareId, interviewers, interviewersLoading]);
+  }, [compareId, interviewerId, interviewers, interviewersLoading, interviewer]);
 
   // Load interviews data based on sessions
   useEffect(() => {
@@ -236,6 +333,7 @@ export const useInterviewerDashboard = () => {
     getProjectName,
     projects,
     compareInterviewer,
-    compareSessions
+    compareSessions,
+    compareInterviews
   };
 };

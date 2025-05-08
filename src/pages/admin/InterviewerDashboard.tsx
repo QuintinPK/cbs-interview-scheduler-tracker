@@ -141,6 +141,8 @@ const InterviewerDashboard = () => {
               interviews={interviews}
               interviewer={interviewer}
               getProjectName={getProjectName}
+              compareInterviewer={compareInterviewer}
+              compareSessions={compareSessions}
             />
           </TabsContent>
           

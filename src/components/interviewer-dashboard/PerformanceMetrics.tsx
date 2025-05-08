@@ -16,6 +16,7 @@ interface PerformanceMetricsProps {
   interviewer?: Interviewer | null;
   allInterviewersSessions?: Session[];
   onCompare?: (interviewerId: string) => void;
+  showComparisonSelector?: boolean;
 }
 
 export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
@@ -23,7 +24,8 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   interviews,
   interviewer,
   allInterviewersSessions = [],
-  onCompare
+  onCompare,
+  showComparisonSelector = true
 }) => {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const { projects } = useProjects();
@@ -89,9 +91,12 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
     return interviewers.filter(i => 
       i.id !== interviewer.id && 
       i.island === interviewer.island &&
-      (selectedProject === "all" || sessions.some(s => s.project_id === selectedProject))
+      // Check if they have any projects in common
+      projectIds.some(projectId => 
+        sessions.some(s => s.project_id === projectId)
+      )
     );
-  }, [interviewers, interviewer, selectedProject, sessions]);
+  }, [interviewers, interviewer, projectIds, sessions]);
 
   return (
     <div className="space-y-6">
@@ -103,10 +108,11 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           projectMap={projectMap}
         />
 
-        {interviewer && comparableInterviewers.length > 0 && onCompare && (
+        {interviewer && comparableInterviewers.length > 0 && onCompare && showComparisonSelector && (
           <CompareInterviewer 
             comparableInterviewers={comparableInterviewers}
             onCompare={onCompare}
+            currentInterviewerId={interviewer.id}
           />
         )}
       </div>
