@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { format, isSameDay, getHours, parseISO, getMinutes, addHours } from 'date-fns';
+import { format, isSameDay, getHours, parseISO, getMinutes, addHours, isSameHour } from 'date-fns';
 import { Schedule, Session } from '@/types';
 import { InteractiveGridCell } from './InteractiveGridCell';
 import { useScheduleOperations } from '@/hooks/useScheduleOperations';
@@ -92,24 +91,27 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
       });
     });
     
-    // Fix: Ensure we're properly checking each schedule against the grid
+    // Fix: Ensure we're properly matching schedules to grid cells by comparing both date and hour
     schedules.forEach(schedule => {
-      const startTime = new Date(schedule.start_time);
-      const scheduleDay = startTime.getDay();
-      const scheduleHour = startTime.getHours();
+      const scheduleStartTime = parseISO(schedule.start_time);
       
-      // Find the matching day index in our week dates
-      const dayIndex = weekDates.findIndex(date => isSameDay(date, startTime));
-      
-      if (dayIndex >= 0 && hours.includes(scheduleHour)) {
-        newGrid[dayIndex][scheduleHour] = {
-          ...newGrid[dayIndex][scheduleHour],
-          isScheduled: true,
-          scheduleId: schedule.id,
-          status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
-          notes: schedule.notes
-        };
-      }
+      weekDates.forEach((date, dayIndex) => {
+        if (isSameDay(date, scheduleStartTime)) {
+          const scheduleHour = getHours(scheduleStartTime);
+          
+          if (hours.includes(scheduleHour)) {
+            if (newGrid[dayIndex] && newGrid[dayIndex][scheduleHour]) {
+              newGrid[dayIndex][scheduleHour] = {
+                ...newGrid[dayIndex][scheduleHour],
+                isScheduled: true,
+                scheduleId: schedule.id,
+                status: schedule.status as 'scheduled' | 'completed' | 'cancelled',
+                notes: schedule.notes
+              };
+            }
+          }
+        }
+      });
     });
     
     sessions.forEach(session => {
@@ -348,13 +350,33 @@ export const InteractiveScheduleGrid: React.FC<InteractiveScheduleGridProps> = (
         setProcessingCellKeys(new Set([cellKey]));
         await deleteSchedulesBatch([cell.scheduleId]);
       } else if (!cell.isScheduled) {
-        setProcessingCellKeys(new Set([cellKey]));
-        await addSchedulesBatch([{
-          interviewer_id: interviewerId,
-          start_time: cell.startTime.toISOString(),
-          end_time: cell.endTime.toISOString(),
-          status: 'scheduled',
-        }]);
+        // Check if there's already a schedule for this exact time slot
+        const existingSchedule = schedules.find(schedule => {
+          const scheduleStartTime = parseISO(schedule.start_time);
+          return (
+            isSameDay(cell.startTime, scheduleStartTime) && 
+            isSameHour(cell.startTime, scheduleStartTime)
+          );
+        });
+        
+        if (existingSchedule) {
+          // If there's already a schedule for this time slot, delete it instead
+          setProcessingCellKeys(new Set([cellKey]));
+          await deleteSchedulesBatch([existingSchedule.id]);
+          toast({
+            title: "Success",
+            description: "Schedule removed",
+          });
+        } else {
+          // Otherwise add a new schedule
+          setProcessingCellKeys(new Set([cellKey]));
+          await addSchedulesBatch([{
+            interviewer_id: interviewerId,
+            start_time: cell.startTime.toISOString(),
+            end_time: cell.endTime.toISOString(),
+            status: 'scheduled',
+          }]);
+        }
       }
       
       onSchedulesChanged();
