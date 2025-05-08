@@ -55,7 +55,7 @@ export const ScheduleGrid = ({
     });
   }, [currentWeekStart]);
   
-  const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 8), []);
+  const hours = useMemo(() => Array.from({ length: 13 }, (_, i) => i + 8), []);
   
   // Process all schedules and sessions data ahead of time
   const processedData = useMemo(() => {
