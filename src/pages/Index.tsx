@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -9,6 +10,7 @@ import { isOnline, getUnsyncedSessionsCount, syncOfflineSessions } from "@/lib/o
 import { WifiOff } from "lucide-react";
 
 const Index = () => {
+  // Load the active session hook with all authentication and session state
   const {
     interviewerCode,
     setInterviewerCode,

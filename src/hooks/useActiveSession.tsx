@@ -18,7 +18,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
   
   // State variables
-  const [interviewerCode, setInterviewerCode] = useState(initialInterviewerCode);
+  const [interviewerCode, setInterviewerCode] = useState<string>(initialInterviewerCode);
   const [isRunning, setIsRunning] = useState(false);
   const [startTime, setStartTime] = useState<string | null>(null);
   const [startLocation, setStartLocation] = useState<Location | undefined>(undefined);
@@ -30,7 +30,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
-    const loadSavedInterviewerCode = async () => {
+    const loadSavedData = async () => {
       // First check if there's an active session in localStorage
       const savedSession = localStorage.getItem("active_session");
       const savedCode = localStorage.getItem("interviewerCode");
@@ -60,20 +60,21 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         }
       }
       
-      if (savedCode && !interviewerCode) {
+      // If there's a saved interviewer code, use it and set as primary user
+      if (savedCode) {
         setInterviewerCode(savedCode);
         setIsPrimaryUser(true);
+        setLastValidatedCode(savedCode);
         
         // Cache the interviewer for offline use
         await cacheInterviewer(savedCode);
-        setLastValidatedCode(savedCode);
       }
     };
     
-    loadSavedInterviewerCode();
-  }, [interviewerCode]);
+    loadSavedData();
+  }, []); // Remove dependency on interviewerCode to avoid loops
 
-  // Save interviewer code to localStorage when it changes
+  // Effect for handling changes to interviewerCode
   useEffect(() => {
     const saveInterviewerCode = async () => {
       if (interviewerCode && isPrimaryUser) {
@@ -82,6 +83,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         // Cache the interviewer for offline use
         await cacheInterviewer(interviewerCode);
         setLastValidatedCode(interviewerCode);
+      } else if (!interviewerCode && isPrimaryUser) {
+        // If code is cleared but user was primary, remove from storage
+        localStorage.removeItem("interviewerCode");
       }
     };
     

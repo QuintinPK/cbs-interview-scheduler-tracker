@@ -24,7 +24,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
 }) => {
   return (
     <div className="space-y-2">
-      {isPrimaryUser && !isRunning ? (
+      {isPrimaryUser ? (
         <div className="flex justify-between items-center">
           <div className="w-full">
             <Label htmlFor="interviewer-code">Interviewer Code</Label>
