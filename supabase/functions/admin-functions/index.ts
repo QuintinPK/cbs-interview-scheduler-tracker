@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.21.0";
 
@@ -300,24 +301,6 @@ serve(async (req) => {
         
         console.log("Returning Google Maps API key");
         result = { success: true, data: { apiKey: googleMapsApiKey } };
-        break;
-        
-      case "deleteAllSchedules":
-        // Delete all schedules
-        console.log("Deleting all schedules");
-        
-        const { error: schedulesDeleteError } = await supabase
-          .from('schedules')
-          .delete()
-          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all entries
-        
-        if (schedulesDeleteError) {
-          console.error("Error deleting schedules:", schedulesDeleteError);
-          throw schedulesDeleteError;
-        }
-        
-        console.log("All schedules deleted successfully");
-        result = { success: true };
         break;
         
       default:

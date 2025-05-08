@@ -1,7 +1,6 @@
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Project, Interviewer, Session } from '@/types';
-import { supabase } from '@/integrations/supabase/client';
 
 interface FilterContextType {
   selectedProject: Project | null;
@@ -12,17 +11,6 @@ interface FilterContextType {
   filterInterviewers: (interviewers: Interviewer[], interviewerProjects?: Record<string, Project[]>) => Interviewer[];
   filterSessions: (sessions: Session[]) => Session[];
   filterProjects: (projects: Project[]) => Project[];
-  projectTitle: string;
-  setProjectTitle: (title: string) => void;
-  hourlyRate: number;
-  setHourlyRate: (rate: number) => void;
-  responseRate: number;
-  setResponseRate: (rate: number) => void;
-  nonResponseRate: number;
-  setNonResponseRate: (rate: number) => void;
-  showResponseRates: boolean;
-  setShowResponseRates: (show: boolean) => void;
-  getRates: () => Promise<void>;
 }
 
 const FilterContext = createContext<FilterContextType | undefined>(undefined);
@@ -30,11 +18,6 @@ const FilterContext = createContext<FilterContextType | undefined>(undefined);
 export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedIsland, setSelectedIsland] = useState<'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined>(undefined);
-  const [projectTitle, setProjectTitle] = useState<string>('CBS Interview System');
-  const [hourlyRate, setHourlyRate] = useState<number>(0);
-  const [responseRate, setResponseRate] = useState<number>(0);
-  const [nonResponseRate, setNonResponseRate] = useState<number>(0);
-  const [showResponseRates, setShowResponseRates] = useState<boolean>(false);
 
   const clearFilters = () => {
     setSelectedProject(null);
@@ -85,35 +68,6 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
-  // Get rates from Supabase
-  const getRates = useCallback(async () => {
-    try {
-      const { data: settingsData, error } = await supabase
-        .from('settings')
-        .select('*')
-        .single();
-      
-      if (error) {
-        console.error('Error fetching settings:', error);
-        return;
-      }
-
-      if (settingsData) {
-        setHourlyRate(settingsData.hourly_rate || 0);
-        setResponseRate(settingsData.response_rate || 0);
-        setNonResponseRate(settingsData.non_response_rate || 0);
-        setShowResponseRates(settingsData.show_response_rates || false);
-        setProjectTitle(settingsData.project_title || 'CBS Interview System');
-      }
-    } catch (error) {
-      console.error('Error in getRates:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    getRates();
-  }, [getRates]);
-
   return (
     <FilterContext.Provider value={{
       selectedProject,
@@ -123,18 +77,7 @@ export const FilterProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       clearFilters,
       filterInterviewers,
       filterSessions,
-      filterProjects,
-      projectTitle,
-      setProjectTitle,
-      hourlyRate,
-      setHourlyRate,
-      responseRate,
-      setResponseRate,
-      nonResponseRate,
-      setNonResponseRate,
-      showResponseRates,
-      setShowResponseRates,
-      getRates
+      filterProjects
     }}>
       {children}
     </FilterContext.Provider>
