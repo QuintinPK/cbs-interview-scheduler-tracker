@@ -8,7 +8,10 @@ import {
   saveOfflineSession, 
   updateOfflineSession, 
   syncOfflineSessions,
-  getInterviewsForOfflineSession
+  getInterviewsForOfflineSession,
+  cacheInterviewer,
+  getInterviewerByCode,
+  cacheProjects
 } from "@/lib/offlineDB";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
@@ -23,14 +26,19 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [loading, setLoading] = useState(false);
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
   const [offlineSessionId, setOfflineSessionId] = useState<number | null>(null);
+  const [lastValidatedCode, setLastValidatedCode] = useState<string>("");
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
-    const loadSavedInterviewerCode = () => {
+    const loadSavedInterviewerCode = async () => {
       const savedCode = localStorage.getItem("interviewerCode");
       if (savedCode && !interviewerCode) {
         setInterviewerCode(savedCode);
         setIsPrimaryUser(true);
+        
+        // Cache the interviewer for offline use
+        await cacheInterviewer(savedCode);
+        setLastValidatedCode(savedCode);
       }
     };
     
@@ -39,9 +47,13 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Save interviewer code to localStorage when it changes
   useEffect(() => {
-    const saveInterviewerCode = () => {
+    const saveInterviewerCode = async () => {
       if (interviewerCode && isPrimaryUser) {
         localStorage.setItem("interviewerCode", interviewerCode);
+        
+        // Cache the interviewer for offline use
+        await cacheInterviewer(interviewerCode);
+        setLastValidatedCode(interviewerCode);
       }
     };
     
@@ -57,6 +69,26 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       
       try {
         setLoading(true);
+        
+        // Validate interviewer code (online or offline)
+        const interviewer = await getInterviewerByCode(interviewerCode);
+        
+        if (!interviewer) {
+          // If we've previously validated this code, don't show an error
+          // This helps when going offline with a previously validated code
+          if (interviewerCode !== lastValidatedCode) {
+            toast({
+              title: "Error",
+              description: "Interviewer code not found",
+              variant: "destructive",
+            });
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // Remember the last valid code
+        setLastValidatedCode(interviewerCode);
         
         // Attempt to sync offline sessions when checking for active sessions
         if (isOnline()) {
@@ -114,7 +146,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     checkActiveSession();
-  }, [interviewerCode, toast]);
+  }, [interviewerCode, toast, lastValidatedCode]);
 
   // Check online status changes
   useEffect(() => {
@@ -171,6 +203,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setInterviewerCode("");
     setIsPrimaryUser(false);
     resetSessionState();
+    setLastValidatedCode("");
   };
 
   // Function to end session while preserving the primary user status
@@ -202,9 +235,18 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         if (isOnline()) {
           await syncOfflineSessions();
         }
+        
+        // Reset session state
+        resetSessionState();
       } catch (error) {
         console.error("Error ending offline session:", error);
+        toast({
+          title: "Error",
+          description: "Could not end session",
+          variant: "destructive",
+        });
       }
+      return;
     }
     
     resetSessionState();
@@ -278,6 +320,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     switchUser,
     endSession,
     startSession,
-    offlineSessionId
+    offlineSessionId,
+    lastValidatedCode
   };
 };

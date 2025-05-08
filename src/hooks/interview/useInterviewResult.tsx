@@ -25,7 +25,7 @@ export const useInterviewResult = (
       setIsInterviewLoading(true);
       
       // Check if this is an offline interview
-      if (activeOfflineInterviewId !== null && !isOnline()) {
+      if (activeOfflineInterviewId !== null) {
         // Update the offline interview with the result
         await setOfflineInterviewResult(activeOfflineInterviewId, result);
         
@@ -36,8 +36,8 @@ export const useInterviewResult = (
         setShowResultDialog(false);
         
         toast({
-          title: "Offline Interview Completed",
-          description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}. Will sync when online.`,
+          title: "Interview Completed",
+          description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}. ${!isOnline() ? 'Will sync when online.' : ''}`,
         });
         
         setIsInterviewLoading(false);
@@ -45,6 +45,10 @@ export const useInterviewResult = (
       }
       
       // For online interviews, proceed as usual
+      if (!activeInterview.id) {
+        throw new Error("Invalid interview ID");
+      }
+      
       const { error } = await supabase
         .from('interviews')
         .update({

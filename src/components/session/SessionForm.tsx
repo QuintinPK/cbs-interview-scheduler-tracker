@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +19,11 @@ import {
   isOnline, 
   syncOfflineSessions, 
   getUnsyncedSessionsCount,
-  getUnsyncedInterviewsCount 
+  getUnsyncedInterviewsCount,
+  cacheInterviewer,
+  getInterviewerByCode,
+  cacheProjects,
+  getCachedProjects
 } from "@/lib/offlineDB";
 
 interface SessionFormProps {
@@ -37,6 +42,7 @@ interface SessionFormProps {
   endSession: () => void;
   startSession?: (interviewerId: string, projectId: string | null, locationData?: Location) => Promise<Session | null>;
   offlineSessionId?: number | null;
+  lastValidatedCode?: string;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -54,7 +60,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   switchUser,
   endSession,
   startSession,
-  offlineSessionId
+  offlineSessionId,
+  lastValidatedCode
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -90,50 +97,66 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   }, [activeSession, fetchActiveInterview]);
 
-  // Fetch interviewer ID from interviewer code
+  // Fetch interviewer ID from interviewer code (with offline support)
   useEffect(() => {
-    const getInterviewerId = async () => {
+    const getInterviewer = async () => {
       if (!interviewerCode.trim()) {
         setInterviewerId(null);
         return;
       }
       
       try {
-        console.log("Getting interviewer ID for code:", interviewerCode);
-        const { data, error } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', interviewerCode)
-          .single();
-          
-        if (error) {
-          console.error("Error getting interviewer ID:", error);
-          setInterviewerId(null);
-          return;
-        }
+        const interviewer = await getInterviewerByCode(interviewerCode);
         
-        console.log("Found interviewer ID:", data.id);
-        setInterviewerId(data.id);
+        if (interviewer) {
+          setInterviewerId(interviewer.id);
+        } else if (lastValidatedCode === interviewerCode) {
+          // If we've already validated this code before, trust it
+          // This helps when going offline with a code we've used before
+          const offlineId = `offline-${interviewerCode}`;
+          setInterviewerId(offlineId);
+        } else {
+          setInterviewerId(null);
+        }
       } catch (error) {
-        console.error("Error getting interviewer ID:", error);
+        console.error("Error getting interviewer:", error);
         setInterviewerId(null);
       }
     };
     
-    getInterviewerId();
-  }, [interviewerCode]);
+    getInterviewer();
+  }, [interviewerCode, lastValidatedCode]);
 
-  // Fetch available projects when interviewer ID changes
-  useEffect(() => {
-    const fetchProjects = async () => {
-      if (!interviewerId) {
-        setAvailableProjects([]);
-        return;
+  // Fetch available projects with offline support
+  const fetchProjects = useCallback(async (interviewerId: string | null) => {
+    if (!interviewerId) {
+      setAvailableProjects([]);
+      return;
+    }
+    
+    try {
+      console.log("Fetching projects for interviewer ID:", interviewerId);
+      
+      // If offline, try to get cached projects
+      if (!isOnline()) {
+        const cachedProjects = await getCachedProjects();
+        if (cachedProjects.length > 0) {
+          console.log("Using cached projects:", cachedProjects);
+          setAvailableProjects(cachedProjects as any);
+          
+          // If only one project, auto-select it
+          if (cachedProjects.length === 1) {
+            setSelectedProjectId(cachedProjects[0].id);
+          } else if (cachedProjects.length > 1 && !isRunning) {
+            setSelectedProjectId(null);
+          }
+          
+          return;
+        }
       }
       
-      try {
-        console.log("Fetching projects for interviewer ID:", interviewerId);
-        
+      // If online, get from Supabase
+      if (isOnline()) {
         // Get assigned projects
         const { data: projectAssignments, error: projectsError } = await supabase
           .from('project_interviewers')
@@ -147,6 +170,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
         if (projectAssignments && projectAssignments.length > 0) {
           const projects = projectAssignments.map(pa => pa.projects as Project);
           console.log("Found projects:", projects);
+          
+          // Cache projects for offline use
+          await cacheProjects(projects);
+          
           setAvailableProjects(projects);
           
           // If only one project, auto-select it
@@ -162,14 +189,17 @@ const SessionForm: React.FC<SessionFormProps> = ({
           setAvailableProjects([]);
           setSelectedProjectId(null);
         }
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-        setAvailableProjects([]);
       }
-    };
-    
-    fetchProjects();
-  }, [interviewerId, isRunning]);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      setAvailableProjects([]);
+    }
+  }, [isRunning]);
+  
+  // Fetch projects when interviewer ID changes
+  useEffect(() => {
+    fetchProjects(interviewerId);
+  }, [interviewerId, fetchProjects]);
 
   // Fetch active project details when selected project changes
   useEffect(() => {
@@ -179,28 +209,42 @@ const SessionForm: React.FC<SessionFormProps> = ({
         return;
       }
       
-      try {
-        const { data: project, error } = await supabase
-          .from('projects')
-          .select('*')
-          .eq('id', selectedProjectId)
-          .single();
-          
-        if (error) {
-          throw error;
-        }
+      // For offline mode, check cached projects
+      if (!isOnline()) {
+        const cachedProjects = await getCachedProjects();
+        const project = cachedProjects.find(p => p.id === selectedProjectId);
         
-        // Cast the excluded_islands to the correct type
-        setActiveProject({
-          id: project.id,
-          name: project.name,
-          start_date: project.start_date,
-          end_date: project.end_date,
-          excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
-        });
-      } catch (error) {
-        console.error("Error fetching project details:", error);
-        setActiveProject(null);
+        if (project) {
+          setActiveProject(project);
+          return;
+        }
+      }
+      
+      // If online, fetch from Supabase
+      if (isOnline()) {
+        try {
+          const { data: project, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('id', selectedProjectId)
+            .single();
+            
+          if (error) {
+            throw error;
+          }
+          
+          // Cast the excluded_islands to the correct type
+          setActiveProject({
+            id: project.id,
+            name: project.name,
+            start_date: project.start_date,
+            end_date: project.end_date,
+            excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+          });
+        } catch (error) {
+          console.error("Error fetching project details:", error);
+          setActiveProject(null);
+        }
       }
     };
     
@@ -431,17 +475,20 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: "Please stop the active interview before ending your session",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
       
       if (!activeSession && offlineSessionId === null) {
+        setLoading(false);
         return;
       }
       
+      // Get current location
       const currentLocation = await getCurrentLocation();
       
       // If online with an active session
-      if (activeSession) {
+      if (isOnline() && activeSession) {
         const { error: updateError } = await supabase
           .from('sessions')
           .update({
@@ -458,7 +505,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
         }
       }
       
-      endSession();
+      // Call the endSession function which handles offline sessions
+      await endSession();
       
       toast({
         title: "Session Ended",

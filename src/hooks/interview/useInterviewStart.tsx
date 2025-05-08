@@ -34,7 +34,7 @@ export const useInterviewStart = (
       const currentLocation = await getCurrentLocation();
       
       // Check if we're offline and have an offline session
-      if (!isOnline() && offlineSessionId !== null) {
+      if (offlineSessionId !== null) {
         // Save interview to offline storage
         const candidateName = "New interview";
         const now = new Date().toISOString();
@@ -69,8 +69,8 @@ export const useInterviewStart = (
         setActiveInterview(offlineInterview);
         
         toast({
-          title: "Offline Interview Started",
-          description: "Interview has been saved locally and will sync when you're online",
+          title: "Interview Started",
+          description: isOnline() ? "" : "Interview has been saved locally and will sync when you're online",
         });
         
         setIsInterviewLoading(false);

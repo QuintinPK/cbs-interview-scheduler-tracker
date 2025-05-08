@@ -26,7 +26,7 @@ export const useInterviewStop = (
       const currentLocation = await getCurrentLocation();
       
       // Check if this is an offline interview
-      if (activeOfflineInterviewId !== null && !isOnline()) {
+      if (activeOfflineInterviewId !== null) {
         // Update the offline interview with end details
         await updateOfflineInterview(
           activeOfflineInterviewId,
@@ -41,6 +41,10 @@ export const useInterviewStop = (
       }
       
       // For online interviews, proceed as usual
+      if (!activeInterview.id) {
+        throw new Error("Invalid interview ID");
+      }
+      
       const { error } = await supabase
         .from('interviews')
         .update({

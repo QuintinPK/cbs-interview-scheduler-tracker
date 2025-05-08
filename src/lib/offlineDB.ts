@@ -4,6 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
 import { Location } from '@/types';
 
+// Define the structure for our offline interviewers
+export interface OfflineInterviewer {
+  id?: number;
+  code: string;
+  supabaseId: string | null;
+}
+
 // Define the structure for our offline sessions
 export interface OfflineSession {
   id?: number;
@@ -40,27 +47,164 @@ export interface OfflineInterview {
   synced: number; // 0 = false, 1 = true
 }
 
+// Define the structure for our offline projects
+export interface OfflineProject {
+  id: string;
+  name: string;
+  excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+}
+
 // Create a Dexie database class
 class OfflineDatabase extends Dexie {
+  interviewers!: Table<OfflineInterviewer>;
   sessions!: Table<OfflineSession>;
   interviews!: Table<OfflineInterview>;
+  projects!: Table<OfflineProject>;
 
   constructor() {
     super('offlineSessionsDB');
-    this.version(1).stores({
-      sessions: '++id, interviewerCode, startTime, synced'
-    });
     
-    // Update the database schema to include interviews
-    this.version(2).stores({
+    // Update the database schema to include all tables we need
+    this.version(3).stores({
+      interviewers: '++id, code',
       sessions: '++id, interviewerCode, startTime, synced, supabaseId',
-      interviews: '++id, sessionId, startTime, endTime, synced, supabaseSessionId'
+      interviews: '++id, sessionId, startTime, endTime, synced, supabaseSessionId',
+      projects: 'id, name'
     });
   }
 }
 
 // Create a singleton instance
 export const offlineDB = new OfflineDatabase();
+
+// Check if a network connection is available
+export const isOnline = (): boolean => {
+  return navigator.onLine;
+};
+
+// Cache interviewer when they login
+export const cacheInterviewer = async (code: string): Promise<void> => {
+  try {
+    // Check if interviewer is already cached
+    const existingInterviewer = await offlineDB.interviewers
+      .where('code')
+      .equals(code)
+      .first();
+      
+    if (existingInterviewer) {
+      console.log("Interviewer already cached:", existingInterviewer);
+      return;
+    }
+    
+    // Only fetch from Supabase if online
+    if (isOnline()) {
+      const { data, error } = await supabase
+        .from('interviewers')
+        .select('id, code')
+        .eq('code', code)
+        .single();
+        
+      if (error || !data) {
+        console.log("Error fetching interviewer data, skipping cache:", error);
+        return;
+      }
+      
+      await offlineDB.interviewers.add({
+        code: data.code,
+        supabaseId: data.id
+      });
+      
+      console.log("Interviewer cached for offline use:", data.code);
+    }
+  } catch (error) {
+    console.error("Error caching interviewer:", error);
+  }
+};
+
+// Cache projects when they are loaded
+export const cacheProjects = async (projects: any[]): Promise<void> => {
+  try {
+    if (!projects || projects.length === 0) return;
+    
+    for (const project of projects) {
+      // Check if project is already cached
+      const existingProject = await offlineDB.projects
+        .where('id')
+        .equals(project.id)
+        .first();
+        
+      if (!existingProject) {
+        await offlineDB.projects.add({
+          id: project.id,
+          name: project.name,
+          excluded_islands: project.excluded_islands
+        });
+      }
+    }
+    
+    console.log(`${projects.length} projects cached for offline use`);
+  } catch (error) {
+    console.error("Error caching projects:", error);
+  }
+};
+
+// Get interviewer by code (from cache or Supabase)
+export const getInterviewerByCode = async (code: string): Promise<{ id: string; code: string } | null> => {
+  try {
+    // First try the offline database
+    const cachedInterviewer = await offlineDB.interviewers
+      .where('code')
+      .equals(code)
+      .first();
+      
+    if (cachedInterviewer) {
+      console.log("Found interviewer in cache:", cachedInterviewer);
+      return {
+        id: cachedInterviewer.supabaseId || `offline-${cachedInterviewer.id}`,
+        code: cachedInterviewer.code
+      };
+    }
+    
+    // If online, try Supabase
+    if (isOnline()) {
+      const { data, error } = await supabase
+        .from('interviewers')
+        .select('id, code')
+        .eq('code', code)
+        .single();
+        
+      if (error || !data) {
+        console.error("Interviewer not found:", error);
+        return null;
+      }
+      
+      // Cache for future offline use
+      await cacheInterviewer(code);
+      
+      return {
+        id: data.id,
+        code: data.code
+      };
+    }
+    
+    console.log("Interviewer not found in offline cache and user is offline");
+    return null;
+  } catch (error) {
+    console.error("Error getting interviewer by code:", error);
+    return null;
+  }
+};
+
+// Get cached projects
+export const getCachedProjects = async (): Promise<OfflineProject[]> => {
+  try {
+    const projects = await offlineDB.projects.toArray();
+    return projects;
+  } catch (error) {
+    console.error("Error getting cached projects:", error);
+    return [];
+  }
+};
 
 // Save a session to the offline database
 export const saveOfflineSession = async (
@@ -217,11 +361,6 @@ export const setOfflineInterviewResult = async (
   }
 };
 
-// Check if a network connection is available
-export const isOnline = (): boolean => {
-  return navigator.onLine;
-};
-
 // Synchronize offline sessions with the server
 export const syncOfflineSessions = async (): Promise<boolean> => {
   if (!isOnline()) {
@@ -246,18 +385,14 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
     for (const session of unsyncedSessions) {
       try {
         // First get the interviewer ID from the code
-        const { data: interviewers, error: interviewerError } = await supabase
-          .from('interviewers')
-          .select('id')
-          .eq('code', session.interviewerCode)
-          .limit(1);
-          
-        if (interviewerError || !interviewers || interviewers.length === 0) {
+        const cachedInterviewer = await getInterviewerByCode(session.interviewerCode);
+        
+        if (!cachedInterviewer) {
           console.error("Could not find interviewer with code:", session.interviewerCode);
           continue;
         }
         
-        const interviewerId = interviewers[0].id;
+        const interviewerId = cachedInterviewer.id;
         
         // Create session in Supabase
         const sessionData = {

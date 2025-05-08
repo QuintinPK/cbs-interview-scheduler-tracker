@@ -32,11 +32,14 @@ export function listenForSWMessages() {
 }
 
 export function registerBackgroundSync() {
-  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+  if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then(registration => {
       // Register periodic sync if available (Chrome origin trial)
       if ('periodicSync' in registration) {
-        const periodicSync = registration.periodicSync;
+        const periodicSync = registration.periodicSync as unknown as {
+          register: (options: { tag: string; minInterval: number }) => Promise<void>
+        };
+        
         if (periodicSync) {
           periodicSync.register({
             tag: 'sync-sessions',
@@ -47,10 +50,16 @@ export function registerBackgroundSync() {
         }
       }
       
-      // Register one-time sync
-      registration.sync.register('sync-sessions').catch(error => {
-        console.log('Background sync failed to register: ', error);
-      });
+      // Register one-time sync if available
+      if ('sync' in registration) {
+        const sync = registration.sync as unknown as {
+          register: (tag: string) => Promise<void>
+        };
+        
+        sync.register('sync-sessions').catch(error => {
+          console.log('Background sync failed to register: ', error);
+        });
+      }
     });
   }
 }
@@ -58,11 +67,17 @@ export function registerBackgroundSync() {
 // Trigger manual sync when online
 export function setupOnlineListener() {
   window.addEventListener('online', () => {
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(registration => {
-        registration.sync.register('sync-sessions').catch(error => {
-          console.log('Background sync failed to register: ', error);
-        });
+        if ('sync' in registration) {
+          const sync = registration.sync as unknown as {
+            register: (tag: string) => Promise<void>
+          };
+          
+          sync.register('sync-sessions').catch(error => {
+            console.log('Background sync failed to register: ', error);
+          });
+        }
       });
     }
   });

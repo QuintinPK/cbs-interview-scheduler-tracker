@@ -16,6 +16,7 @@ const appShellFiles = [
   '/icons/icon-192x192.png',
   '/icons/icon-384x384.png',
   '/icons/icon-512x512.png',
+  '/offline.html'
 ];
 
 // Install event - cache app shell assets
@@ -50,44 +51,56 @@ self.addEventListener('activate', (event) => {
   return self.clients.claim();
 });
 
-// Fetch event - handle network requests with cache-first strategy
+// Fetch event - handle network requests with network-first strategy for API requests and cache-first for assets
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
-        }
-        
-        return fetch(event.request)
-          .then((res) => {
-            // Check if we received a valid response
-            if (!res || res.status !== 200 || res.type !== 'basic') {
-              return res;
-            }
-            
-            // Clone the response as it can only be consumed once
-            const responseToCache = res.clone();
-            
-            caches.open(DYNAMIC_CACHE)
-              .then((cache) => {
-                // Don't cache API responses
-                if (!event.request.url.includes('/api/')) {
+  const url = new URL(event.request.url);
+  const isAPIRequest = url.pathname.includes('/api/') || 
+                       url.pathname.includes('/rest/') || 
+                       url.host.includes('supabase');
+
+  if (isAPIRequest) {
+    // For API requests, use network-first strategy
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          return caches.match('/offline.html');
+        })
+    );
+  } else {
+    // For static assets, use cache-first strategy
+    event.respondWith(
+      caches.match(event.request)
+        .then((response) => {
+          if (response) {
+            return response;
+          }
+          
+          return fetch(event.request)
+            .then((res) => {
+              // Check if we received a valid response
+              if (!res || res.status !== 200 || res.type !== 'basic') {
+                return res;
+              }
+              
+              // Clone the response as it can only be consumed once
+              const responseToCache = res.clone();
+              
+              caches.open(DYNAMIC_CACHE)
+                .then((cache) => {
                   cache.put(event.request, responseToCache);
-                }
-              });
-            
-            return res;
-          })
-          .catch(() => {
-            // If offline and trying to access a page, show the offline page
-            if (event.request.url.indexOf('.html') > -1 || 
-                event.request.mode === 'navigate') {
-              return caches.match('/offline.html');
-            }
-          });
-      })
-  );
+                });
+              
+              return res;
+            })
+            .catch(() => {
+              // If offline and trying to access a page, show the offline page
+              if (event.request.mode === 'navigate') {
+                return caches.match('/offline.html');
+              }
+            });
+        })
+    );
+  }
 });
 
 // Handle sync events for offline data
@@ -120,5 +133,12 @@ self.addEventListener('periodicsync', (event) => {
         });
       });
     });
+  }
+});
+
+// Add message handler to allow clients to communicate with service worker
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
