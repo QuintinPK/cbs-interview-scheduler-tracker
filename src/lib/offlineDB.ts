@@ -1,4 +1,3 @@
-
 import Dexie, { Table } from 'dexie';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
@@ -52,6 +51,8 @@ export interface OfflineProject {
   id: string;
   name: string;
   excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+  start_date?: string; // Added to match Project type
+  end_date?: string;   // Added to match Project type
 }
 
 // Create a Dexie database class
@@ -137,7 +138,9 @@ export const cacheProjects = async (projects: any[]): Promise<void> => {
         await offlineDB.projects.add({
           id: project.id,
           name: project.name,
-          excluded_islands: project.excluded_islands
+          excluded_islands: project.excluded_islands,
+          start_date: project.start_date,
+          end_date: project.end_date
         });
       }
     }

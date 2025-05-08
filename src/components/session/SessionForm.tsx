@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -215,7 +214,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
         const project = cachedProjects.find(p => p.id === selectedProjectId);
         
         if (project) {
-          setActiveProject(project);
+          // Convert the OfflineProject to a full Project type by adding the missing required fields
+          setActiveProject({
+            id: project.id,
+            name: project.name,
+            excluded_islands: project.excluded_islands || [],
+            // Add required fields for Project type that might not exist in OfflineProject
+            start_date: project.start_date || new Date().toISOString().split('T')[0],
+            end_date: project.end_date || new Date().toISOString().split('T')[0]
+          });
           return;
         }
       }
