@@ -25,7 +25,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
   return (
     <div className="space-y-2">
       {isPrimaryUser ? (
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-3">
           <div className="w-full">
             <Label htmlFor="interviewer-code">Interviewer Code</Label>
             <div className="flex items-center justify-between gap-2 mt-1 border p-2 rounded-md bg-muted/20">
@@ -33,17 +33,18 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
                 <User className="h-4 w-4 text-cbs" />
                 <p className="text-lg font-medium">{interviewerCode}</p>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={switchUser}
-                className="flex items-center gap-1 whitespace-nowrap"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Log Out</span>
-              </Button>
             </div>
           </div>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={switchUser}
+            className="flex items-center gap-1 w-full bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Log Out</span>
+          </Button>
         </div>
       ) : (
         <>
