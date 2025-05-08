@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useInterviewers } from "@/hooks/useInterviewers";
 import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
@@ -11,6 +10,8 @@ import { Interviewer } from "@/types";
 export const useInterviewerDashboard = () => {
   const navigate = useNavigate();
   const { interviewerId } = useParams<{ interviewerId: string }>();
+  const [searchParams] = useSearchParams();
+  const compareId = searchParams.get('compare');
 
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const { projects } = useProjects();
@@ -28,9 +29,12 @@ export const useInterviewerDashboard = () => {
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [compareInterviewer, setCompareInterviewer] = useState<Interviewer | null>(null);
+  const [compareSessions, setCompareSessions] = useState<any[]>([]);
 
   // Debug the interviewerId parameter
   console.log("InterviewerDashboard - interviewerId from params:", interviewerId);
+  console.log("CompareId from URL:", compareId);
 
   // Load interviewer data - only once when component mounts or interviewerId changes
   useEffect(() => {
@@ -101,6 +105,65 @@ export const useInterviewerDashboard = () => {
     fetchInterviewer();
   }, [interviewerId, interviewers, interviewersLoading, navigate]);
 
+  // If there's a compare parameter, fetch the comparison interviewer data
+  useEffect(() => {
+    if (!compareId) {
+      setCompareInterviewer(null);
+      setCompareSessions([]);
+      return;
+    }
+    
+    const fetchCompareData = async () => {
+      try {
+        // First try to find the interviewer in the already loaded interviewers
+        if (!interviewersLoading && interviewers.length > 0) {
+          const foundInterviewer = interviewers.find(i => i.id === compareId);
+          
+          if (foundInterviewer) {
+            setCompareInterviewer(foundInterviewer);
+            
+            // Now fetch sessions for this interviewer
+            const { data: compareSessions, error: sessionsError } = await supabase
+              .from('sessions')
+              .select('*')
+              .eq('interviewer_id', compareId);
+              
+            if (sessionsError) throw sessionsError;
+            setCompareSessions(compareSessions || []);
+            return;
+          }
+        }
+        
+        // If not found, fetch directly
+        const { data: interviewerData, error } = await supabase
+          .from('interviewers')
+          .select('*')
+          .eq('id', compareId)
+          .single();
+          
+        if (error) throw error;
+        
+        setCompareInterviewer(interviewerData);
+        
+        // Fetch sessions
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('interviewer_id', compareId);
+          
+        if (sessionsError) throw sessionsError;
+        setCompareSessions(sessionsData || []);
+        
+      } catch (error) {
+        console.error("Error fetching comparison data:", error);
+        setCompareInterviewer(null);
+        setCompareSessions([]);
+      }
+    };
+    
+    fetchCompareData();
+  }, [compareId, interviewers, interviewersLoading]);
+
   // Load interviews data based on sessions
   useEffect(() => {
     const fetchInterviews = async () => {
@@ -158,6 +221,8 @@ export const useInterviewerDashboard = () => {
     activeTab,
     setActiveTab,
     getProjectName,
-    projects
+    projects,
+    compareInterviewer,
+    compareSessions
   };
 };

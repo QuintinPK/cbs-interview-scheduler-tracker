@@ -13,7 +13,7 @@ import { usePerformanceMetrics } from "@/hooks/usePerformanceMetrics";
 interface PerformanceMetricsProps {
   sessions: Session[];
   interviews: Interview[];
-  interviewer?: Interviewer;
+  interviewer?: Interviewer | null;
   allInterviewersSessions?: Session[];
   onCompare?: (interviewerId: string) => void;
 }
@@ -95,7 +95,7 @@ export const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-4">
         <ProjectSelector 
           selectedProject={selectedProject}
           setSelectedProject={setSelectedProject}

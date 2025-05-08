@@ -1,7 +1,8 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { PerformanceMetrics } from "@/components/interviewer-dashboard/PerformanceMetrics";
 import { Session, Interviewer } from "@/types";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface PerformanceTabProps {
   sessions: Session[];
@@ -16,12 +17,23 @@ export const PerformanceTab: React.FC<PerformanceTabProps> = ({
   interviewer,
   getProjectName 
 }) => {
+  const navigate = useNavigate();
+  const { interviewerId } = useParams<{ interviewerId: string }>();
+  
+  const handleCompare = (compareId: string) => {
+    if (interviewerId) {
+      navigate(`/admin/interviewer/${compareId}?compare=${interviewerId}`);
+    }
+  };
+  
   return (
     <>
       <PerformanceMetrics
         sessions={sessions}
         interviews={interviews}
         interviewer={interviewer}
+        allInterviewersSessions={[]} // We'll add this data in useInterviewerDashboard later if needed
+        onCompare={handleCompare}
       />
     </>
   );
