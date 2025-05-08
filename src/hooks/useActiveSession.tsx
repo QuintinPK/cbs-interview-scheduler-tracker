@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,103 +107,101 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       localStorage.removeItem("active_session");
     }
   }, [activeSession, offlineSessionId]);
-
-  // Check if there's an active session for this interviewer on code change
-  useEffect(() => {
-    const checkActiveSession = async () => {
-      if (!interviewerCode.trim()) {
-        return;
+  
+  // Validate the interviewer code explicitly when requested (instead of on every change)
+  const validateInterviewerCode = async () => {
+    if (!interviewerCode.trim()) {
+      return false;
+    }
+    
+    try {
+      setLoading(true);
+      
+      // Validate interviewer code (online or offline)
+      const interviewer = await getInterviewerByCode(interviewerCode);
+      
+      if (!interviewer) {
+        // If we've previously validated this code, don't show an error
+        // This helps when going offline with a previously validated code
+        if (interviewerCode !== lastValidatedCode) {
+          toast({
+            title: "Error",
+            description: "Interviewer code not found",
+            variant: "destructive",
+          });
+        }
+        setLoading(false);
+        return false;
       }
       
-      try {
-        setLoading(true);
-        
-        // Validate interviewer code (online or offline)
-        const interviewer = await getInterviewerByCode(interviewerCode);
-        
-        if (!interviewer) {
-          // If we've previously validated this code, don't show an error
-          // This helps when going offline with a previously validated code
-          if (interviewerCode !== lastValidatedCode) {
-            toast({
-              title: "Error",
-              description: "Interviewer code not found",
-              variant: "destructive",
-            });
-          }
-          setLoading(false);
-          return;
-        }
-        
-        // Remember the last valid code and set as primary user
-        setLastValidatedCode(interviewerCode);
-        setIsPrimaryUser(true); // Explicitly set as primary user when code is valid
-        console.log("Valid interviewer code found, setting isPrimaryUser to true");
-        
-        // Save valid code to localStorage
-        localStorage.setItem("interviewerCode", interviewerCode);
-        
-        // Attempt to sync offline sessions when checking for active sessions
-        if (isOnline()) {
-          await syncOfflineSessions();
-        }
-        
-        // Don't fetch online sessions if we already have an active session in localStorage
-        if (activeSession) {
-          setLoading(false);
-          return;
-        }
-        
-        // Only check online sessions if we're online
-        if (isOnline()) {
-          // Get the interviewer by code
-          const { data: interviewers, error: interviewerError } = await supabase
-            .from('interviewers')
-            .select('id')
-            .eq('code', interviewerCode)
-            .limit(1);
-            
-          if (interviewerError) {
-            throw interviewerError;
-          }
-          
-          if (!interviewers || interviewers.length === 0) {
-            return;
-          }
-          
-          const interviewerId = interviewers[0].id;
-          
-          // Check for active sessions
-          const { data: sessions, error: sessionError } = await supabase
-            .from('sessions')
-            .select('*')
-            .eq('interviewer_id', interviewerId)
-            .eq('is_active', true)
-            .limit(1);
-            
-          if (sessionError) {
-            throw sessionError;
-          }
-          
-          if (sessions && sessions.length > 0) {
-            console.log("Found active session:", sessions[0]);
-            updateSessionState(sessions[0]);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking active session:", error);
-        toast({
-          title: "Error",
-          description: "Could not check active sessions",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
+      // Remember the last valid code and set as primary user
+      setLastValidatedCode(interviewerCode);
+      setIsPrimaryUser(true); // Explicitly set as primary user when code is valid
+      console.log("Valid interviewer code found, setting isPrimaryUser to true");
+      
+      // Save valid code to localStorage
+      localStorage.setItem("interviewerCode", interviewerCode);
+      
+      // Attempt to sync offline sessions when checking for active sessions
+      if (isOnline()) {
+        await syncOfflineSessions();
       }
-    };
-    
-    checkActiveSession();
-  }, [interviewerCode, toast, lastValidatedCode, activeSession]);
+      
+      // Don't fetch online sessions if we already have an active session in localStorage
+      if (activeSession) {
+        setLoading(false);
+        return true;
+      }
+      
+      // Only check online sessions if we're online
+      if (isOnline()) {
+        // Get the interviewer by code
+        const { data: interviewers, error: interviewerError } = await supabase
+          .from('interviewers')
+          .select('id')
+          .eq('code', interviewerCode)
+          .limit(1);
+          
+        if (interviewerError) {
+          throw interviewerError;
+        }
+        
+        if (!interviewers || interviewers.length === 0) {
+          return false;
+        }
+        
+        const interviewerId = interviewers[0].id;
+        
+        // Check for active sessions
+        const { data: sessions, error: sessionError } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('interviewer_id', interviewerId)
+          .eq('is_active', true)
+          .limit(1);
+          
+        if (sessionError) {
+          throw sessionError;
+        }
+        
+        if (sessions && sessions.length > 0) {
+          console.log("Found active session:", sessions[0]);
+          updateSessionState(sessions[0]);
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error("Error checking active session:", error);
+      toast({
+        title: "Error",
+        description: "Could not check active sessions",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Check online status changes
   useEffect(() => {
@@ -388,6 +387,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     endSession,
     startSession,
     offlineSessionId,
-    lastValidatedCode
+    lastValidatedCode,
+    validateInterviewerCode  // New function exposed
   };
 };

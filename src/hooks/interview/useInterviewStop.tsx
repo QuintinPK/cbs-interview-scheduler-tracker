@@ -7,7 +7,7 @@ import { getCurrentLocation } from "@/lib/utils";
 import { isOnline, updateOfflineInterview } from "@/lib/offlineDB";
 
 /**
- * Hook for stopping interviews
+ * Hook for stopping interviews - optimized for mobile performance
  */
 export const useInterviewStop = (
   activeInterview: Interview | null,
@@ -23,10 +23,17 @@ export const useInterviewStop = (
     try {
       setIsInterviewLoading(true);
       
-      const currentLocation = await getCurrentLocation();
+      // Get location in background while showing dialog
+      const currentLocationPromise = getCurrentLocation();
+      
+      // Show dialog immediately to improve perceived performance
+      setShowResultDialog(true);
       
       // Check if this is an offline interview
       if (activeOfflineInterviewId !== null) {
+        // Wait for location to complete
+        const currentLocation = await currentLocationPromise;
+        
         // Update the offline interview with end details
         await updateOfflineInterview(
           activeOfflineInterviewId,
@@ -34,8 +41,6 @@ export const useInterviewStop = (
           currentLocation
         );
         
-        // Show dialog to select interview result
-        setShowResultDialog(true);
         setIsInterviewLoading(false);
         return;
       }
@@ -47,6 +52,9 @@ export const useInterviewStop = (
       
       // If we're offline, store the stop intent in localStorage to be processed when back online
       if (!isOnline()) {
+        // Wait for location
+        const currentLocation = await currentLocationPromise;
+        
         const pendingStops = JSON.parse(localStorage.getItem("pending_interview_stops") || "[]");
         pendingStops.push({
           id: activeInterview.id,
@@ -57,26 +65,26 @@ export const useInterviewStop = (
         });
         localStorage.setItem("pending_interview_stops", JSON.stringify(pendingStops));
         
-        // Show dialog to select interview result
-        setShowResultDialog(true);
         setIsInterviewLoading(false);
         return;
       }
       
-      const { error } = await supabase
-        .from('interviews')
-        .update({
-          end_time: new Date().toISOString(),
-          end_latitude: currentLocation?.latitude || null,
-          end_longitude: currentLocation?.longitude || null,
-          end_address: currentLocation?.address || null,
-        })
-        .eq('id', activeInterview.id);
-        
-      if (error) throw error;
+      // For online mode, update in background
+      currentLocationPromise.then(currentLocation => {
+        supabase
+          .from('interviews')
+          .update({
+            end_time: new Date().toISOString(),
+            end_latitude: currentLocation?.latitude || null,
+            end_longitude: currentLocation?.longitude || null,
+            end_address: currentLocation?.address || null,
+          })
+          .eq('id', activeInterview.id)
+          .then(({ error }) => {
+            if (error) console.error("Error updating interview:", error);
+          });
+      });
       
-      // Show dialog to select interview result
-      setShowResultDialog(true);
     } catch (error) {
       console.error("Error stopping interview:", error);
       toast({

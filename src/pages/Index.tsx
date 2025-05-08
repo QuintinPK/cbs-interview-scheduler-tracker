@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -26,7 +27,8 @@ const Index = () => {
     switchUser,
     endSession,
     startSession,
-    offlineSessionId
+    offlineSessionId,
+    validateInterviewerCode // New function
   } = useActiveSession();
 
   // Debug logging to track state
@@ -190,6 +192,7 @@ const Index = () => {
           endSession={endSession}
           startSession={startSession}
           offlineSessionId={offlineSessionId}
+          validateInterviewerCode={validateInterviewerCode}
         />
         
         {interviewerCode && (

@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +6,7 @@ import { getCurrentLocation } from "@/lib/utils";
 import { isOnline, saveOfflineInterview } from "@/lib/offlineDB";
 
 /**
- * Hook for starting interviews
+ * Hook for starting interviews - optimized for mobile performance
  */
 export const useInterviewStart = (
   sessionId: string | null,
@@ -31,7 +30,8 @@ export const useInterviewStart = (
     try {
       setIsInterviewLoading(true);
       
-      const currentLocation = await getCurrentLocation();
+      // Defer getting location to improve performance - get it in background
+      let currentLocationPromise = getCurrentLocation();
       
       // Check if we're offline and have an offline session
       if (offlineSessionId !== null) {
@@ -82,18 +82,27 @@ export const useInterviewStart = (
         throw new Error("No session ID available");
       }
       
-      // Get the session's project_id if not provided
-      let interviewProjectId = projectId;
-      if (!interviewProjectId) {
-        const { data: session, error: sessionError } = await supabase
+      // Get the session's project_id if not provided - do this in parallel with location fetch
+      let interviewProjectIdPromise;
+      if (!projectId) {
+        interviewProjectIdPromise = supabase
           .from('sessions')
           .select('project_id')
           .eq('id', sessionId)
-          .single();
-        
-        if (sessionError) throw sessionError;
-        interviewProjectId = session?.project_id;
+          .single()
+          .then(({ data, error }) => {
+            if (error) throw error;
+            return data?.project_id;
+          });
+      } else {
+        interviewProjectIdPromise = Promise.resolve(projectId);
       }
+      
+      // Wait for both operations in parallel
+      const [currentLocation, interviewProjectId] = await Promise.all([
+        currentLocationPromise,
+        interviewProjectIdPromise
+      ]);
       
       const { data, error } = await supabase
         .from('interviews')

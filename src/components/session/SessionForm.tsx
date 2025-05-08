@@ -42,6 +42,7 @@ interface SessionFormProps {
   startSession?: (interviewerId: string, projectId: string | null, locationData?: Location) => Promise<Session | null>;
   offlineSessionId?: number | null;
   lastValidatedCode?: string;
+  validateInterviewerCode?: () => Promise<boolean>; // New prop
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -60,7 +61,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   endSession,
   startSession,
   offlineSessionId,
-  lastValidatedCode
+  lastValidatedCode,
+  validateInterviewerCode // New prop
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -312,6 +314,17 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   }, [isOffline, unsyncedCount, unsyncedInterviews]);
 
+  // New function to handle login
+  const handleLogin = async () => {
+    if (!validateInterviewerCode) return;
+    
+    const isValid = await validateInterviewerCode();
+    if (isValid) {
+      // Code is valid, fetch projects
+      await fetchProjects(interviewerId);
+    }
+  };
+
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
       toast({
@@ -548,6 +561,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
+        onLogin={handleLogin}
       />
       
       {isOffline && (
