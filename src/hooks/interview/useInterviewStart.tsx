@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,9 @@ export const useInterviewStart = (
       
       // Check if we're offline and have an offline session
       if (offlineSessionId !== null) {
+        // Wait for location data before continuing
+        const currentLocation = await currentLocationPromise;
+        
         // Save interview to offline storage
         const candidateName = "New interview";
         const now = new Date().toISOString();
