@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +30,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
     const loadSavedData = async () => {
+      console.log("Loading saved data in useActiveSession");
       // First check if there's an active session in localStorage
       const savedSession = localStorage.getItem("active_session");
       const savedCode = localStorage.getItem("interviewerCode");
@@ -62,8 +62,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       
       // If there's a saved interviewer code, use it and set as primary user
       if (savedCode) {
+        console.log("Found saved interviewer code:", savedCode);
         setInterviewerCode(savedCode);
-        setIsPrimaryUser(true);
+        setIsPrimaryUser(true); // Explicitly set as primary user when loading from localStorage
         setLastValidatedCode(savedCode);
         
         // Cache the interviewer for offline use
@@ -133,8 +134,13 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           return;
         }
         
-        // Remember the last valid code
+        // Remember the last valid code and set as primary user
         setLastValidatedCode(interviewerCode);
+        setIsPrimaryUser(true); // Explicitly set as primary user when code is valid
+        console.log("Valid interviewer code found, setting isPrimaryUser to true");
+        
+        // Save valid code to localStorage
+        localStorage.setItem("interviewerCode", interviewerCode);
         
         // Attempt to sync offline sessions when checking for active sessions
         if (isOnline()) {
@@ -252,6 +258,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Function to switch user
   const switchUser = () => {
+    console.log("switchUser called - logging out");
     // Clear the interviewer code and session from localStorage
     localStorage.removeItem("interviewerCode");
     localStorage.removeItem("active_session");

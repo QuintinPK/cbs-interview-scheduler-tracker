@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,12 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
   loading,
   switchUser
 }) => {
+  // Debug logging to check if isPrimaryUser is being set correctly
+  useEffect(() => {
+    console.log("InterviewerCodeInput - isPrimaryUser:", isPrimaryUser);
+    console.log("InterviewerCodeInput - interviewerCode:", interviewerCode);
+  }, [isPrimaryUser, interviewerCode]);
+
   return (
     <div className="space-y-2">
       {isPrimaryUser ? (

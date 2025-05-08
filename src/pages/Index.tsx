@@ -29,6 +29,12 @@ const Index = () => {
     offlineSessionId
   } = useActiveSession();
 
+  // Debug logging to track state
+  useEffect(() => {
+    console.log("Index - isPrimaryUser:", isPrimaryUser);
+    console.log("Index - interviewerCode:", interviewerCode);
+  }, [isPrimaryUser, interviewerCode]);
+
   const [totalHours, setTotalHours] = useState<number>(0);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
