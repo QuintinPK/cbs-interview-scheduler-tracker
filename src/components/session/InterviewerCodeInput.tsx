@@ -3,7 +3,7 @@ import React from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 
 interface InterviewerCodeInputProps {
   interviewerCode: string;
@@ -26,18 +26,21 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
     <div className="space-y-2">
       {isPrimaryUser && !isRunning ? (
         <div className="flex justify-between items-center">
-          <div>
+          <div className="w-full">
             <Label htmlFor="interviewer-code">Interviewer Code</Label>
-            <div className="flex items-center gap-2">
-              <p className="text-lg font-medium">{interviewerCode}</p>
+            <div className="flex items-center justify-between gap-2 mt-1 border p-2 rounded-md bg-muted/20">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-cbs" />
+                <p className="text-lg font-medium">{interviewerCode}</p>
+              </div>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={switchUser}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 whitespace-nowrap"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Switch User</span>
+                <span>Log Out</span>
               </Button>
             </div>
           </div>
@@ -53,6 +56,11 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             className="text-lg"
             disabled={loading || isRunning}
           />
+          {interviewerCode && !isPrimaryUser && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter your interviewer code to log in
+            </p>
+          )}
         </>
       )}
     </div>

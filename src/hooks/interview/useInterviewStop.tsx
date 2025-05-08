@@ -45,6 +45,24 @@ export const useInterviewStop = (
         throw new Error("Invalid interview ID");
       }
       
+      // If we're offline, store the stop intent in localStorage to be processed when back online
+      if (!isOnline()) {
+        const pendingStops = JSON.parse(localStorage.getItem("pending_interview_stops") || "[]");
+        pendingStops.push({
+          id: activeInterview.id,
+          end_time: new Date().toISOString(),
+          end_latitude: currentLocation?.latitude || null,
+          end_longitude: currentLocation?.longitude || null,
+          end_address: currentLocation?.address || null,
+        });
+        localStorage.setItem("pending_interview_stops", JSON.stringify(pendingStops));
+        
+        // Show dialog to select interview result
+        setShowResultDialog(true);
+        setIsInterviewLoading(false);
+        return;
+      }
+      
       const { error } = await supabase
         .from('interviews')
         .update({

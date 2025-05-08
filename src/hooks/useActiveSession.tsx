@@ -31,7 +31,35 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
     const loadSavedInterviewerCode = async () => {
+      // First check if there's an active session in localStorage
+      const savedSession = localStorage.getItem("active_session");
       const savedCode = localStorage.getItem("interviewerCode");
+      
+      if (savedSession) {
+        try {
+          const sessionData = JSON.parse(savedSession);
+          setActiveSession(sessionData);
+          setIsRunning(true);
+          setStartTime(sessionData.start_time);
+          
+          if (sessionData.start_latitude && sessionData.start_longitude) {
+            setStartLocation({
+              latitude: sessionData.start_latitude,
+              longitude: sessionData.start_longitude,
+              address: sessionData.start_address || undefined
+            });
+          }
+          
+          if (sessionData.offlineId) {
+            setOfflineSessionId(sessionData.offlineId);
+          }
+        } catch (error) {
+          console.error("Error parsing saved session:", error);
+          // Clear invalid session data
+          localStorage.removeItem("active_session");
+        }
+      }
+      
       if (savedCode && !interviewerCode) {
         setInterviewerCode(savedCode);
         setIsPrimaryUser(true);
@@ -59,6 +87,20 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     
     saveInterviewerCode();
   }, [interviewerCode, isPrimaryUser]);
+
+  // Save active session to localStorage whenever it changes
+  useEffect(() => {
+    if (activeSession) {
+      // Add offline session ID if available
+      const sessionToSave = {
+        ...activeSession,
+        offlineId: offlineSessionId
+      };
+      localStorage.setItem("active_session", JSON.stringify(sessionToSave));
+    } else {
+      localStorage.removeItem("active_session");
+    }
+  }, [activeSession, offlineSessionId]);
 
   // Check if there's an active session for this interviewer on code change
   useEffect(() => {
@@ -95,6 +137,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           await syncOfflineSessions();
         }
         
+        // Don't fetch online sessions if we already have an active session in localStorage
+        if (activeSession) {
+          setLoading(false);
+          return;
+        }
+        
         // Only check online sessions if we're online
         if (isOnline()) {
           // Get the interviewer by code
@@ -129,8 +177,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           if (sessions && sessions.length > 0) {
             console.log("Found active session:", sessions[0]);
             updateSessionState(sessions[0]);
-          } else {
-            resetSessionState();
           }
         }
       } catch (error) {
@@ -146,7 +192,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     checkActiveSession();
-  }, [interviewerCode, toast, lastValidatedCode]);
+  }, [interviewerCode, toast, lastValidatedCode, activeSession]);
 
   // Check online status changes
   useEffect(() => {
@@ -183,6 +229,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         address: session.start_address || undefined
       });
     }
+    
+    // Store session data in localStorage for persistence
+    localStorage.setItem("active_session", JSON.stringify(session));
   };
 
   // Helper function to reset session state
@@ -192,12 +241,16 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     setStartTime(null);
     setStartLocation(undefined);
     setOfflineSessionId(null);
+    
+    // Clear session data from localStorage
+    localStorage.removeItem("active_session");
   };
 
   // Function to switch user
   const switchUser = () => {
-    // Clear the interviewer code from localStorage
+    // Clear the interviewer code and session from localStorage
     localStorage.removeItem("interviewerCode");
+    localStorage.removeItem("active_session");
     
     // Reset all state
     setInterviewerCode("");
@@ -287,6 +340,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           offlineSession.start_longitude = locationData.longitude;
           offlineSession.start_address = locationData.address;
         }
+        
+        // Store the session in state and localStorage
+        updateSessionState(offlineSession);
         
         toast({
           title: "Offline Mode",
