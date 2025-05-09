@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { LoaderCircle, Wifi, WifiOff, CheckCircle, AlertCircle } from 'lucide-react';
@@ -133,7 +134,7 @@ const SyncStatus = () => {
           
           if (attempts >= maxAttempts) {
             // Timeout
-            toast.info('Sync is taking longer than expected and will continue in the background');
+            toast.success('Sync is taking longer than expected and will continue in the background');
             setIsSyncing(false);
             return;
           }
