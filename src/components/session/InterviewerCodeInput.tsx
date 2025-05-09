@@ -40,7 +40,8 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
 
   return (
     <div className="space-y-2">
-      {interviewerCode && isPrimaryUser && (
+      {/* LOGGED IN STATE - Always show when isPrimaryUser is true */}
+      {isPrimaryUser && (
         <div className="flex flex-col gap-3">
           <div className="w-full">
             <Label htmlFor="interviewer-code">Interviewer Code</Label>
@@ -52,6 +53,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             </div>
           </div>
           
+          {/* Always show logout button when logged in */}
           <Button 
             variant="outline" 
             size="sm"
@@ -64,6 +66,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
         </div>
       )}
       
+      {/* NOT LOGGED IN STATE - Always show when isPrimaryUser is false */}
       {!isPrimaryUser && (
         <form onSubmit={handleSubmit}>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
@@ -77,38 +80,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               disabled={loading || isRunning}
             />
             
-            {interviewerCode.trim() && (
-              <Button 
-                type="submit"
-                disabled={!interviewerCode.trim() || loading || !onLogin}
-                className="w-full"
-                variant="default"
-              >
-                <LogIn className="h-4 w-4 mr-1" />
-                <span>Log In</span>
-              </Button>
-            )}
-            
-            <p className="text-xs text-muted-foreground">
-              Enter your interviewer code to log in
-            </p>
-          </div>
-        </form>
-      )}
-      
-      {isPrimaryUser && !interviewerCode && (
-        <form onSubmit={handleSubmit}>
-          <Label htmlFor="interviewer-code">Interviewer Code</Label>
-          <div className="space-y-2">
-            <Input
-              id="interviewer-code"
-              placeholder="Enter your code"
-              value={interviewerCode}
-              onChange={(e) => setInterviewerCode(e.target.value)}
-              className="text-lg"
-              disabled={loading || isRunning}
-            />
-            
+            {/* Always show login button when code is entered */}
             {interviewerCode.trim() && (
               <Button 
                 type="submit"
