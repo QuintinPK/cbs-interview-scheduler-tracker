@@ -435,20 +435,40 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           .from('sessions')
           .select('id')
           .eq('interviewer_id', interviewerId)
-          .eq('start_time', session.startTime)
-          .is('project_id', session.projectId || null); // Handle null project_id
+          .eq('start_time', session.startTime);
+          
+        // Handle project_id separately since it could be null
+        const query = session.projectId === null 
+          ? await supabase
+              .from('sessions')
+              .select('id')
+              .eq('interviewer_id', interviewerId)
+              .eq('start_time', session.startTime)
+              .is('project_id', null)
+          : await supabase
+              .from('sessions')
+              .select('id')
+              .eq('interviewer_id', interviewerId)
+              .eq('start_time', session.startTime)
+              .eq('project_id', session.projectId);
         
-        if (checkError) {
-          console.error("Error checking for existing session:", checkError);
+        const existingSessionsWithProject = query.data;
+        const checkErrorWithProject = query.error;
+        
+        if (checkError || checkErrorWithProject) {
+          console.error("Error checking for existing session:", checkError || checkErrorWithProject);
           continue;
         }
         
         let supabaseSessionId = null;
         
         // If session already exists in Supabase, use that instead of creating a new one
-        if (existingSessions && existingSessions.length > 0) {
+        if ((existingSessions && existingSessions.length > 0) || 
+            (existingSessionsWithProject && existingSessionsWithProject.length > 0)) {
           console.log("Found existing session in Supabase, using that instead of creating a new one");
-          supabaseSessionId = existingSessions[0].id;
+          supabaseSessionId = (existingSessionsWithProject && existingSessionsWithProject.length > 0) 
+            ? existingSessionsWithProject[0].id 
+            : existingSessions[0].id;
           
           // Update the existing session with any end details if needed
           if (session.endTime) {
