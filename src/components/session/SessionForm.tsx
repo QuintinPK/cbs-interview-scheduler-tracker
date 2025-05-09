@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -22,7 +23,9 @@ import {
   cacheInterviewer,
   getInterviewerByCode,
   cacheProjects,
-  getCachedProjects
+  getCachedProjects,
+  acquireSyncLock,
+  releaseSyncLock
 } from "@/lib/offlineDB";
 
 interface SessionFormProps {
@@ -42,7 +45,7 @@ interface SessionFormProps {
   startSession?: (interviewerId: string, projectId: string | null, locationData?: Location) => Promise<Session | null>;
   offlineSessionId?: number | null;
   lastValidatedCode?: string;
-  validateInterviewerCode?: () => Promise<boolean>; // New prop
+  validateInterviewerCode?: () => Promise<boolean>;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -62,7 +65,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   startSession,
   offlineSessionId,
   lastValidatedCode,
-  validateInterviewerCode // New prop
+  validateInterviewerCode
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -264,11 +267,86 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [isOffline, setIsOffline] = useState(!isOnline());
   const [unsyncedCount, setUnsyncedCount] = useState(0);
   const [unsyncedInterviews, setUnsyncedInterviews] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Debounced sync function
+  const lastSyncAttempt = useRef(0);
+  const syncDebounceTime = 5000; // 5 seconds
+
+  const debouncedSync = useCallback(async () => {
+    const now = Date.now();
+    if (now - lastSyncAttempt.current < syncDebounceTime) {
+      console.log("Sync attempt too soon after last sync, debouncing...");
+      return;
+    }
+
+    lastSyncAttempt.current = now;
+    const syncId = `manual-${now}-${Math.random().toString(36).substring(2, 10)}`;
+
+    try {
+      // Try to acquire lock
+      setIsSyncing(true);
+      const lockAcquired = await acquireSyncLock(syncId);
+      
+      if (!lockAcquired) {
+        console.log("Could not acquire sync lock, another sync may be in progress");
+        return;
+      }
+      
+      console.log("Starting manual sync with ID:", syncId);
+      
+      const success = await syncOfflineSessions();
+      
+      if (success) {
+        // Update counts after sync
+        const newSessionCount = await getUnsyncedSessionsCount();
+        const newInterviewCount = await getUnsyncedInterviewsCount();
+        setUnsyncedCount(newSessionCount);
+        setUnsyncedInterviews(newInterviewCount);
+        
+        // Notify service worker that sync is complete
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          const activeWorker = registration.active;
+          
+          if (activeWorker) {
+            activeWorker.postMessage({
+              type: 'SYNC_COMPLETE',
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error during debounced sync:", error);
+    } finally {
+      // Always release the lock
+      await releaseSyncLock(syncId);
+      setIsSyncing(false);
+    }
+  }, []);
 
   // Update online status and check for unsyced sessions
   useEffect(() => {
     const checkOnlineStatus = () => {
-      setIsOffline(!isOnline());
+      const nowOnline = isOnline();
+      if (!isOffline && !nowOnline) {
+        // Just went offline
+        toast({
+          title: "You are offline",
+          description: "Your work will be saved locally and synchronized when you reconnect.",
+        });
+      } else if (isOffline && nowOnline) {
+        // Just went online
+        toast({
+          title: "You are back online",
+          description: "Your offline work will now be synchronized.",
+        });
+        // Trigger sync after connection is restored
+        debouncedSync();
+      }
+      
+      setIsOffline(!nowOnline);
     };
     
     const checkUnsyncedItems = async () => {
@@ -289,30 +367,33 @@ const SessionForm: React.FC<SessionFormProps> = ({
     // Setup interval to check unsync count
     const intervalId = setInterval(checkUnsyncedItems, 30000); // every 30 seconds
     
+    // Setup service worker message listener for sync requests
+    const setupServiceWorkerListener = async () => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'SYNC_SESSIONS') {
+            console.log("Received sync request from service worker:", event.data);
+            debouncedSync();
+          }
+        });
+      }
+    };
+    
+    setupServiceWorkerListener();
+    
     return () => {
       window.removeEventListener('online', checkOnlineStatus);
       window.removeEventListener('offline', checkOnlineStatus);
       clearInterval(intervalId);
     };
-  }, []);
+  }, [isOffline, debouncedSync]);
 
   // Attempt to sync when back online
   useEffect(() => {
-    const handleSync = async () => {
-      if (!isOffline && (unsyncedCount > 0 || unsyncedInterviews > 0)) {
-        await syncOfflineSessions();
-        // Update count after sync attempt
-        const newSessionCount = await getUnsyncedSessionsCount();
-        const newInterviewCount = await getUnsyncedInterviewsCount();
-        setUnsyncedCount(newSessionCount);
-        setUnsyncedInterviews(newInterviewCount);
-      }
-    };
-    
-    if (!isOffline) {
-      handleSync();
+    if (!isOffline && (unsyncedCount > 0 || unsyncedInterviews > 0) && !isSyncing) {
+      debouncedSync();
     }
-  }, [isOffline, unsyncedCount, unsyncedInterviews]);
+  }, [isOffline, unsyncedCount, unsyncedInterviews, isSyncing, debouncedSync]);
 
   // New state to track login in progress
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -619,6 +700,24 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   };
 
+  // Manual sync handler with debouncing
+  const handleManualSync = async () => {
+    if (isSyncing) {
+      toast({
+        title: "Sync In Progress",
+        description: "A synchronization is already in progress",
+      });
+      return;
+    }
+    
+    toast({
+      title: "Syncing",
+      description: "Synchronizing your data...",
+    });
+    
+    await debouncedSync();
+  };
+
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
       <InterviewerCodeInput
@@ -654,10 +753,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
               {' waiting to be synchronized'}
             </span>
             <button 
-              onClick={() => syncOfflineSessions()}
-              className="ml-2 px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className={`ml-2 px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              Sync Now
+              {isSyncing ? 'Syncing...' : 'Sync Now'}
             </button>
           </p>
         </div>

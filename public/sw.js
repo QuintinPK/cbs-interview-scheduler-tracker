@@ -1,8 +1,8 @@
 
 // Cache names
-const CACHE_NAME = 'cbs-interview-scheduler-v2';
-const DYNAMIC_CACHE = 'cbs-dynamic-cache-v2';
-const API_CACHE = 'cbs-api-cache-v2';
+const CACHE_NAME = 'cbs-interview-scheduler-v3';
+const DYNAMIC_CACHE = 'cbs-dynamic-cache-v3';
+const API_CACHE = 'cbs-api-cache-v3';
 
 // App shell files to cache on install
 const appShellFiles = [
@@ -140,26 +140,52 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Improved sync handling with more robust retries
+// Improved sync handling with debouncing
 self.addEventListener('sync', (event) => {
   console.log('[Service Worker] Background Syncing', event);
   
   if (event.tag === 'sync-sessions') {
     console.log('[Service Worker] Syncing Sessions and Interviews');
     
+    // Prevent multiple sync events from firing simultaneously
+    const syncInProgress = self.syncInProgress;
+    if (syncInProgress) {
+      console.log('[Service Worker] Sync already in progress, deferring');
+      return;
+    }
+    
+    // Set sync in progress flag with a timeout
+    self.syncInProgress = true;
+    setTimeout(() => {
+      self.syncInProgress = false;
+    }, 30000); // Reset after 30 seconds regardless
+    
     // Post a message to the client to initiate the sync
     self.clients.matchAll().then((clients) => {
       if (clients.length === 0) {
-        // No active clients, try again later
-        registration.sync.register('sync-sessions');
+        // No active clients, will try again later
+        console.log('[Service Worker] No active clients, will sync later');
+        self.syncInProgress = false;
         return;
       }
       
-      clients.forEach((client) => {
-        client.postMessage({
-          type: 'SYNC_SESSIONS'
-        });
+      // Find the most recently focused client
+      clients.sort((a, b) => {
+        return b.focused - a.focused;
       });
+      
+      // Send sync message to the focused client
+      const client = clients[0];
+      console.log('[Service Worker] Sending sync request to client');
+      client.postMessage({
+        type: 'SYNC_SESSIONS',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Set a timeout to clear the sync flag if we don't get a response
+      setTimeout(() => {
+        self.syncInProgress = false;
+      }, 10000);
     });
   }
 });
@@ -179,10 +205,14 @@ self.addEventListener('periodicsync', (event) => {
         return;
       }
       
-      clients.forEach((client) => {
-        client.postMessage({
-          type: 'SYNC_SESSIONS'
-        });
+      // Sort clients by focus state
+      clients.sort((a, b) => b.focused - a.focused);
+      
+      // Send to the most recently active client
+      clients[0].postMessage({
+        type: 'SYNC_SESSIONS',
+        timestamp: new Date().toISOString(),
+        source: 'periodic'
       });
     });
   }
@@ -192,13 +222,25 @@ self.addEventListener('periodicsync', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SYNC_NOW') {
     // Manual sync request from client
+    console.log('[Service Worker] Received manual sync request');
+    
     self.clients.matchAll().then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({
-          type: 'SYNC_SESSIONS'
+      if (clients.length > 0) {
+        // Sort clients by focus state
+        clients.sort((a, b) => b.focused - a.focused);
+        
+        // Send to the most recently active client
+        clients[0].postMessage({
+          type: 'SYNC_SESSIONS',
+          timestamp: new Date().toISOString(),
+          source: 'manual'
         });
-      });
+      }
     });
+  } else if (event.data && event.data.type === 'SYNC_COMPLETE') {
+    // Sync complete notification from client
+    console.log('[Service Worker] Sync complete notification received');
+    self.syncInProgress = false;
   } else if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
