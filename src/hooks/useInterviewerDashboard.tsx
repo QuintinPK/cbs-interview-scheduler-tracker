@@ -13,12 +13,13 @@ export const useInterviewerDashboard = () => {
   const { interviewerId } = useParams<{ interviewerId: string }>();
   const [searchParams] = useSearchParams();
   const compareId = searchParams.get('compare');
+  // Get the initial tab from the URL if present
+  const tabParam = searchParams.get('tab');
 
   const { interviewers, loading: interviewersLoading } = useInterviewers();
   const { projects } = useProjects();
   
   // Use the useSessions hook directly with the interviewerId parameter
-  // This will provide real-time updates just like on the Sessions page
   const { sessions, loading: sessionsLoading } = useSessions(interviewerId);
 
   const [dateRange, setDateRange] = useState<DateRange>({
@@ -29,7 +30,8 @@ export const useInterviewerDashboard = () => {
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  // Set the default tab based on URL param or defaulting to "overview"
+  const [activeTab, setActiveTab] = useState(tabParam || "overview");
   const [compareInterviewer, setCompareInterviewer] = useState<Interviewer | null>(null);
   const [compareSessions, setCompareSessions] = useState<any[]>([]);
   const [compareInterviews, setCompareInterviews] = useState<Interview[]>([]);

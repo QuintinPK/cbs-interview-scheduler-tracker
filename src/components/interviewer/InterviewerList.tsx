@@ -152,6 +152,11 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
     setShowEvaluationDialog(true);
   };
 
+  // Updated schedule handler to navigate to the scheduling tab
+  const handleScheduleClick = (interviewer: Interviewer) => {
+    navigate(`/admin/interviewer/${interviewer.id}?tab=scheduling`);
+  };
+
   // Create a stable rating component to prevent unnecessary re-renders
   const RatingDisplay = useCallback(({ interviewerId }: { interviewerId: string }) => {
     const rating = memoizedRatings[interviewerId];
@@ -292,7 +297,7 @@ const InterviewerList: React.FC<InterviewerListProps> = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => onSchedule(interviewer)}
+                          onClick={() => handleScheduleClick(interviewer)}
                           title="Schedule Interviewer"
                         >
                           <Calendar className="h-4 w-4" />

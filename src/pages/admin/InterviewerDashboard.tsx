@@ -8,6 +8,7 @@ import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { EvaluationsTab } from "@/components/interviewer-dashboard/EvaluationsTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
+import { InterviewerSchedulingTab } from "@/components/interviewer-dashboard/InterviewerSchedulingTab";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInterviewerDashboard } from "@/hooks/useInterviewerDashboard";
@@ -88,6 +89,12 @@ const InterviewerDashboard = () => {
               Overview
             </TabsTrigger>
             <TabsTrigger 
+              value="scheduling" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Scheduling
+            </TabsTrigger>
+            <TabsTrigger 
               value="sessions" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
@@ -122,6 +129,12 @@ const InterviewerDashboard = () => {
           
           <TabsContent value="overview" className="m-0 p-0">
             <OverviewTab sessions={sessions} activeSessions={activeSessions} />
+          </TabsContent>
+
+          <TabsContent value="scheduling" className="m-0 p-0">
+            <InterviewerSchedulingTab 
+              interviewer={interviewer}
+            />
           </TabsContent>
 
           <TabsContent value="sessions" className="m-0 p-0">
