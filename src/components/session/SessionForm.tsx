@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -15,6 +14,7 @@ import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
+import SyncStatus from "./SyncStatus";
 import { 
   isOnline, 
   syncOfflineSessions, 
@@ -25,7 +25,9 @@ import {
   cacheProjects,
   getCachedProjects,
   acquireSyncLock,
-  releaseSyncLock
+  releaseSyncLock,
+  getSyncStatus,
+  logSync
 } from "@/lib/offlineDB";
 
 interface SessionFormProps {
@@ -86,6 +88,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
     fetchActiveInterview,
     offlineInterviews
   } = useInterviewActions(activeSession?.id || null, offlineSessionId);
+
+  // Improved sync state tracking
+  const [syncState, setSyncState] = useState({
+    isOffline: !isOnline(),
+    unsyncedSessions: 0,
+    unsyncedInterviews: 0,
+    lastSyncAttempt: null as string | null,
+    isSyncInProgress: false
+  });
 
   // Set selected project ID when active session has a project ID
   useEffect(() => {
@@ -262,6 +273,34 @@ const SessionForm: React.FC<SessionFormProps> = ({
     
     fetchActiveProject();
   }, [selectedProjectId]);
+
+  // Update sync status periodically
+  useEffect(() => {
+    const updateSyncStatus = async () => {
+      try {
+        const status = await getSyncStatus();
+        const isCurrentlyOffline = !isOnline();
+        
+        setSyncState({
+          isOffline: isCurrentlyOffline,
+          unsyncedSessions: status.sessionsUnsynced,
+          unsyncedInterviews: status.interviewsUnsynced,
+          lastSyncAttempt: status.lastSync,
+          isSyncInProgress: status.currentLock?.isLocked === 1
+        });
+      } catch (err) {
+        console.error("Error updating sync status:", err);
+      }
+    };
+    
+    // Update immediately
+    updateSyncStatus();
+    
+    // Then update periodically
+    const intervalId = setInterval(updateSyncStatus, 10000); // Every 10 seconds
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Add state for offline status and unsync count
   const [isOffline, setIsOffline] = useState(!isOnline());
@@ -720,6 +759,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
 
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
+      {/* SyncStatus component */}
+      <SyncStatus />
+      
+      {/* Keep existing InterviewerCodeInput component */}
       <InterviewerCodeInput
         interviewerCode={interviewerCode}
         setInterviewerCode={setInterviewerCode}
@@ -727,7 +770,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
-        onLogin={handleLogin} // Pass the login handler
+        onLogin={validateInterviewerCode ? () => validateInterviewerCode() : undefined}
       />
       
       {/* Offline indicator */}
@@ -810,8 +853,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
           interviewerCode={interviewerCode}
           onClick={handleStartStop}
           disabled={isRunning && !!activeInterview}
-          isOffline={!isOnline()}
-          unsyncedCount={unsyncedCount + unsyncedInterviews}
+          isOffline={syncState.isOffline}
+          unsyncedCount={syncState.unsyncedSessions + syncState.unsyncedInterviews}
         />
       </div>
       

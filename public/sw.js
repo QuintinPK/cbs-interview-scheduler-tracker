@@ -140,32 +140,53 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Improved sync handling with debouncing
+// Improved sync handling with limits on concurrent operations
 self.addEventListener('sync', (event) => {
   console.log('[Service Worker] Background Syncing', event);
   
   if (event.tag === 'sync-sessions') {
     console.log('[Service Worker] Syncing Sessions and Interviews');
     
-    // Prevent multiple sync events from firing simultaneously
+    // Check if sync is currently in progress from another source
     const syncInProgress = self.syncInProgress;
     if (syncInProgress) {
       console.log('[Service Worker] Sync already in progress, deferring');
+      // Schedule a retry after a delay
+      setTimeout(() => {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(registration => {
+            if (registration.sync) {
+              registration.sync.register('sync-sessions-retry');
+            }
+          });
+        }
+      }, 60000); // Try again in 1 minute
       return;
     }
     
     // Set sync in progress flag with a timeout
     self.syncInProgress = true;
-    setTimeout(() => {
-      self.syncInProgress = false;
-    }, 30000); // Reset after 30 seconds regardless
+    self.syncStartTime = Date.now();
     
-    // Post a message to the client to initiate the sync
+    // Set a timeout to auto-clear the flag if sync gets stuck
+    self.syncTimeout = setTimeout(() => {
+      console.log('[Service Worker] Sync operation timed out after 5 minutes');
+      self.syncInProgress = false;
+      delete self.syncStartTime;
+      delete self.syncTimeout;
+    }, 5 * 60 * 1000); // 5 minutes maximum sync time
+    
+    // Post a message to clients with a unique sync ID to prevent duplicate processing
+    const syncId = `sw-sync-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
     self.clients.matchAll().then((clients) => {
       if (clients.length === 0) {
         // No active clients, will try again later
         console.log('[Service Worker] No active clients, will sync later');
         self.syncInProgress = false;
+        clearTimeout(self.syncTimeout);
+        delete self.syncStartTime;
+        delete self.syncTimeout;
         return;
       }
       
@@ -179,50 +200,146 @@ self.addEventListener('sync', (event) => {
       console.log('[Service Worker] Sending sync request to client');
       client.postMessage({
         type: 'SYNC_SESSIONS',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        syncId: syncId
       });
-      
-      // Set a timeout to clear the sync flag if we don't get a response
-      setTimeout(() => {
-        self.syncInProgress = false;
-      }, 10000);
     });
+  }
+  
+  // Handle retry sync events
+  if (event.tag === 'sync-sessions-retry') {
+    // Only try if the previous sync has completed or timed out
+    if (!self.syncInProgress || (Date.now() - self.syncStartTime > 5 * 60 * 1000)) {
+      console.log('[Service Worker] Retrying sync');
+      // Clear any stale flags
+      self.syncInProgress = false;
+      if (self.syncTimeout) {
+        clearTimeout(self.syncTimeout);
+        delete self.syncTimeout;
+      }
+      delete self.syncStartTime;
+      
+      // Re-register the main sync task
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          if (registration.sync) {
+            registration.sync.register('sync-sessions');
+          }
+        });
+      }
+    }
   }
 });
 
-// Handle periodic sync events with better reliability
+// Handle periodic sync events with smart scheduling based on device state
 self.addEventListener('periodicsync', (event) => {
   if (event.tag === 'sync-sessions') {
     console.log('[Service Worker] Periodic Sync: Syncing sessions and interviews');
     
-    self.clients.matchAll().then((clients) => {
-      if (clients.length === 0) {
-        // Store sync request for when app is opened next
-        self.registration.showNotification('Sync Pending', {
-          body: 'Data sync pending. Please open the app to complete.',
-          icon: '/icons/icon-192x192.png'
-        });
-        return;
-      }
-      
-      // Sort clients by focus state
-      clients.sort((a, b) => b.focused - a.focused);
-      
-      // Send to the most recently active client
-      clients[0].postMessage({
-        type: 'SYNC_SESSIONS',
-        timestamp: new Date().toISOString(),
-        source: 'periodic'
+    // Check if sync is already in progress
+    if (self.syncInProgress) {
+      console.log('[Service Worker] Periodic sync skipped - sync already in progress');
+      return;
+    }
+    
+    // Smart device state detection - check battery if available
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        // Don't sync if battery is low and not charging
+        if (battery.level < 0.15 && !battery.charging) {
+          console.log('[Service Worker] Skipping sync due to low battery');
+          return;
+        }
+        
+        initiatePeriodicSync();
+      }).catch(() => {
+        // If we can't check battery, just proceed
+        initiatePeriodicSync();
       });
-    });
+    } else {
+      initiatePeriodicSync();
+    }
   }
 });
 
-// Improved message handler
+// Helper function for periodic sync
+function initiatePeriodicSync() {
+  self.clients.matchAll().then((clients) => {
+    if (clients.length === 0) {
+      // Store sync request for when app is opened next
+      self.registration.showNotification('Sync Pending', {
+        body: 'Data sync pending. Please open the app to complete.',
+        icon: '/icons/icon-192x192.png',
+        tag: 'sync-notification',
+        requireInteraction: false
+      });
+      return;
+    }
+    
+    // Set sync in progress flag
+    self.syncInProgress = true;
+    self.syncStartTime = Date.now();
+    
+    // Set a timeout to auto-clear the flag if sync gets stuck
+    self.syncTimeout = setTimeout(() => {
+      self.syncInProgress = false;
+      delete self.syncStartTime;
+      delete self.syncTimeout;
+    }, 5 * 60 * 1000); // 5 minutes maximum sync time
+    
+    // Generate unique sync ID
+    const syncId = `periodic-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Sort clients by focus state
+    clients.sort((a, b) => b.focused - a.focused);
+    
+    // Send to the most recently active client
+    clients[0].postMessage({
+      type: 'SYNC_SESSIONS',
+      timestamp: new Date().toISOString(),
+      source: 'periodic',
+      syncId: syncId
+    });
+  });
+}
+
+// Improved message handler with sync ID tracking
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SYNC_NOW') {
     // Manual sync request from client
     console.log('[Service Worker] Received manual sync request');
+    
+    // Don't start a new sync if one is already in progress
+    if (self.syncInProgress) {
+      console.log('[Service Worker] Manual sync request denied - sync already in progress');
+      
+      // If the sync has been running too long, force reset
+      if (Date.now() - self.syncStartTime > 5 * 60 * 1000) {
+        console.log('[Service Worker] Forcing reset of stale sync lock');
+        self.syncInProgress = false;
+        if (self.syncTimeout) {
+          clearTimeout(self.syncTimeout);
+          delete self.syncTimeout;
+        }
+        delete self.syncStartTime;
+      } else {
+        return;
+      }
+    }
+    
+    // Set sync in progress flag
+    self.syncInProgress = true;
+    self.syncStartTime = Date.now();
+    
+    // Set a timeout to auto-clear the flag if sync gets stuck
+    self.syncTimeout = setTimeout(() => {
+      self.syncInProgress = false;
+      delete self.syncStartTime;
+      delete self.syncTimeout;
+    }, 5 * 60 * 1000); // 5 minutes maximum sync time
+    
+    // Generate unique sync ID
+    const syncId = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     
     self.clients.matchAll().then((clients) => {
       if (clients.length > 0) {
@@ -233,14 +350,36 @@ self.addEventListener('message', (event) => {
         clients[0].postMessage({
           type: 'SYNC_SESSIONS',
           timestamp: new Date().toISOString(),
-          source: 'manual'
+          source: 'manual',
+          syncId: syncId
         });
+      } else {
+        // No clients available to handle sync
+        self.syncInProgress = false;
+        if (self.syncTimeout) {
+          clearTimeout(self.syncTimeout);
+          delete self.syncTimeout;
+        }
+        delete self.syncStartTime;
       }
     });
   } else if (event.data && event.data.type === 'SYNC_COMPLETE') {
     // Sync complete notification from client
     console.log('[Service Worker] Sync complete notification received');
+    
+    // Clear sync in progress flag
     self.syncInProgress = false;
+    if (self.syncTimeout) {
+      clearTimeout(self.syncTimeout);
+      delete self.syncTimeout;
+    }
+    delete self.syncStartTime;
+    
+    // Clear any pending sync notifications
+    self.registration.getNotifications({ tag: 'sync-notification' })
+      .then(notifications => {
+        notifications.forEach(notification => notification.close());
+      });
   } else if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
@@ -254,7 +393,9 @@ self.addEventListener('push', function(event) {
   const options = {
     body: 'You have offline data that needs to be synchronized.',
     icon: '/icons/icon-192x192.png',
-    badge: '/icons/badge-72x72.png'
+    badge: '/icons/badge-72x72.png',
+    tag: 'sync-notification',
+    requireInteraction: true
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -270,3 +411,26 @@ self.addEventListener('notificationclick', function(event) {
     clients.openWindow('/')
   );
 });
+
+// Helper function to determine network conditions
+async function getNetworkConditions() {
+  // Check if Network Information API is available
+  if ('connection' in navigator) {
+    const connection = navigator.connection;
+    return {
+      type: connection.type,
+      effectiveType: connection.effectiveType,
+      downlinkMax: connection.downlinkMax,
+      downlink: connection.downlink,
+      rtt: connection.rtt,
+      saveData: connection.saveData
+    };
+  }
+  
+  // Fallback when API not available
+  return {
+    type: 'unknown',
+    effectiveType: 'unknown',
+    saveData: false
+  };
+}

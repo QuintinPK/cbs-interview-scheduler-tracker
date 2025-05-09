@@ -41,19 +41,55 @@ export function registerServiceWorker() {
   }
 }
 
-// Enhanced listener for service worker messages with timeouts
+// Track sync operations to prevent duplicate processing
+const processedSyncIds = new Set();
+
+// Enhanced listener for service worker messages with timeouts and deduplication
 export function listenForSWMessages() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', async (event) => {
       if (event.data && event.data.type === 'SYNC_SESSIONS') {
+        // Check if we've already processed this sync ID
+        const syncId = event.data.syncId || 'unknown';
+        if (processedSyncIds.has(syncId)) {
+          console.log(`Already processed sync request with ID: ${syncId}, skipping`);
+          return;
+        }
+        
+        // Add to processed IDs set with expiration (clear after 5 minutes)
+        processedSyncIds.add(syncId);
+        setTimeout(() => {
+          processedSyncIds.delete(syncId);
+        }, 5 * 60 * 1000);
+        
         try {
-          console.log('Received sync request from service worker');
+          console.log('Received sync request from service worker:', event.data);
           // Import dynamically to avoid circular dependencies
-          const { syncOfflineSessions } = await import('./lib/offlineDB');
+          const { syncOfflineSessions, getSyncStatus } = await import('./lib/offlineDB');
+          
+          // Check if there's anything to sync
+          const status = await getSyncStatus();
+          if (status.sessionsUnsynced === 0 && status.interviewsUnsynced === 0) {
+            console.log('No unsynced items found, skipping sync operation');
+            
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(registration => {
+                const activeWorker = registration.active;
+                if (activeWorker) {
+                  activeWorker.postMessage({
+                    type: 'SYNC_COMPLETE',
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              });
+            }
+            
+            return;
+          }
           
           // Use AbortController to allow timeout
           const abortController = new AbortController();
-          const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 second timeout
+          const timeoutId = setTimeout(() => abortController.abort(), 4 * 60 * 1000); // 4 minute timeout
           
           try {
             // Wrap in timeout to prevent long-running sync
@@ -66,6 +102,20 @@ export function listenForSWMessages() {
               })
             ]);
             console.log('Background sync completed successfully');
+            
+            // Notify service worker that sync is complete
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(registration => {
+                const activeWorker = registration.active;
+                if (activeWorker) {
+                  activeWorker.postMessage({
+                    type: 'SYNC_COMPLETE',
+                    timestamp: new Date().toISOString(),
+                    syncId: syncId
+                  });
+                }
+              });
+            }
           } catch (error) {
             if (error.name === 'AbortError') {
               console.warn('Sync operation took too long and was aborted');
@@ -83,16 +133,24 @@ export function listenForSWMessages() {
   }
 }
 
-// Request sync immediately
+// Request sync immediately with unique ID
 export function requestSync() {
   if ('serviceWorker' in navigator) {
+    const syncId = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    
     navigator.serviceWorker.ready.then(registration => {
-      registration.active?.postMessage({ type: 'SYNC_NOW' });
+      registration.active?.postMessage({ 
+        type: 'SYNC_NOW',
+        syncId: syncId
+      });
     });
+    
+    return syncId;
   }
+  return null;
 }
 
-// Enhanced background sync registration
+// Enhanced background sync registration with retry logic
 export function registerBackgroundSync() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready.then(registration => {
@@ -101,6 +159,7 @@ export function registerBackgroundSync() {
         const periodicSync = registration.periodicSync as unknown as {
           register: (options: { tag: string; minInterval: number }) => Promise<void>;
           getTags: () => Promise<string[]>;
+          unregister: (tag: string) => Promise<void>;
         };
         
         if (periodicSync) {
@@ -126,22 +185,47 @@ export function registerBackgroundSync() {
         
         sync.register('sync-sessions').catch(error => {
           console.log('Background sync failed to register:', error);
+          
+          // Try to register a retry sync
+          setTimeout(() => {
+            if ('sync' in registration) {
+              const sync = registration.sync as unknown as {
+                register: (tag: string) => Promise<void>;
+              };
+              sync.register('sync-sessions-retry').catch(error => {
+                console.log('Background sync retry failed to register:', error);
+              });
+            }
+          }, 60000);
         });
       }
     });
   }
 }
 
-// Trigger manual sync when online with debounce
+// Trigger manual sync when online with debounce and backoff
 let syncTimeout: number | null = null;
+let syncAttempts = 0;
+const MAX_SYNC_ATTEMPTS = 5;
+
 export function setupOnlineListener() {
   window.addEventListener('online', () => {
+    // Reset attempts counter when we come back online
+    syncAttempts = 0;
+    
     // Debounce to prevent multiple syncs when the connection is unstable
     if (syncTimeout) {
       window.clearTimeout(syncTimeout);
     }
     
-    syncTimeout = window.setTimeout(() => {
+    const attemptSync = () => {
+      if (syncAttempts >= MAX_SYNC_ATTEMPTS) {
+        console.log(`Maximum sync attempts (${MAX_SYNC_ATTEMPTS}) reached, stopping automatic retries`);
+        return;
+      }
+      
+      syncAttempts++;
+      
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
           // First try using background sync API
@@ -155,21 +239,48 @@ export function setupOnlineListener() {
               
               // Fall back to manual sync if background sync fails
               try {
-                const { syncOfflineSessions } = await import('./lib/offlineDB');
-                await syncOfflineSessions();
+                const { syncOfflineSessions, getSyncStatus } = await import('./lib/offlineDB');
+                const status = await getSyncStatus();
+                
+                if (status.sessionsUnsynced > 0 || status.interviewsUnsynced > 0) {
+                  await syncOfflineSessions();
+                }
               } catch (err) {
                 console.error('Manual sync fallback failed:', err);
+                
+                // If we still have unsynced items, try again with exponential backoff
+                const { getUnsyncedSessionsCount, getUnsyncedInterviewsCount } = await import('./lib/offlineDB');
+                const unsyncedSessions = await getUnsyncedSessionsCount();
+                const unsyncedInterviews = await getUnsyncedInterviewsCount();
+                
+                if (unsyncedSessions > 0 || unsyncedInterviews > 0) {
+                  const backoffDelay = Math.min(30000, Math.pow(2, syncAttempts) * 1000);
+                  console.log(`Scheduling retry #${syncAttempts+1} in ${backoffDelay/1000} seconds`);
+                  
+                  syncTimeout = window.setTimeout(() => {
+                    attemptSync();
+                  }, backoffDelay);
+                }
               }
             });
           } else {
             // Fall back to manual sync if background sync is not supported
-            import('./lib/offlineDB').then(({ syncOfflineSessions }) => {
-              syncOfflineSessions();
+            import('./lib/offlineDB').then(async ({ syncOfflineSessions, getSyncStatus }) => {
+              const status = await getSyncStatus();
+              if (status.sessionsUnsynced > 0 || status.interviewsUnsynced > 0) {
+                await syncOfflineSessions();
+              }
+            }).catch(err => {
+              console.error('Manual sync failed:', err);
             });
           }
         });
       }
-    }, 1000); // Wait 1 second after coming online before syncing
+    };
+    
+    syncTimeout = window.setTimeout(() => {
+      attemptSync();
+    }, 2000); // Wait 2 seconds after coming online before syncing
   });
 }
 
