@@ -461,7 +461,8 @@ export async function getInterviewsForOfflineSession(sessionId: number) {
 // Count unsynced sessions
 export async function getUnsyncedSessionsCount() {
   try {
-    return await db.sessions.where('synced').equals(false).count();
+    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
+    return await db.sessions.where('synced').equals(0).count();
   } catch (error) {
     console.error("Error counting unsynced sessions:", error);
     return 0;
@@ -471,7 +472,8 @@ export async function getUnsyncedSessionsCount() {
 // Count unsynced interviews
 export async function getUnsyncedInterviewsCount() {
   try {
-    return await db.interviews.where('synced').equals(false).count();
+    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
+    return await db.interviews.where('synced').equals(0).count();
   } catch (error) {
     console.error("Error counting unsynced interviews:", error);
     return 0;
@@ -602,12 +604,16 @@ export async function getSyncStatus() {
   try {
     // Get counts
     const sessionsTotal = await db.sessions.count();
-    const sessionsUnsynced = await db.sessions.where('synced').equals(false).count();
-    const sessionsInProgress = await db.sessions.where('syncInProgress').equals(true).count();
+    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
+    const sessionsUnsynced = await db.sessions.where('synced').equals(0).count();
+    // Fix: Use the equals() method with 1 (as number) instead of true (boolean)
+    const sessionsInProgress = await db.sessions.where('syncInProgress').equals(1).count();
     
     const interviewsTotal = await db.interviews.count();
-    const interviewsUnsynced = await db.interviews.where('synced').equals(false).count();
-    const interviewsInProgress = await db.interviews.where('syncInProgress').equals(true).count();
+    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
+    const interviewsUnsynced = await db.interviews.where('synced').equals(0).count();
+    // Fix: Use the equals() method with 1 (as number) instead of true (boolean) 
+    const interviewsInProgress = await db.interviews.where('syncInProgress').equals(1).count();
     
     // Get last sync log
     const lastSyncLogs = await db.syncLog
@@ -680,24 +686,28 @@ export async function syncOfflineSessions(): Promise<boolean> {
 async function syncSessions(): Promise<boolean> {
   try {
     // Get unsynced sessions that are not in progress
+    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
+    // and filter in memory for the syncInProgress check
     const unsyncedSessions = await db.sessions
       .where('synced')
-      .equals(false)
-      .and(session => !session.syncInProgress)
+      .equals(0)
       .toArray();
     
-    if (unsyncedSessions.length === 0) {
+    // Filter in memory for sessions not in progress
+    const sessionsToSync = unsyncedSessions.filter(session => !session.syncInProgress);
+    
+    if (sessionsToSync.length === 0) {
       console.log("No unsynced sessions to sync");
       return true;
     }
     
-    console.log(`Found ${unsyncedSessions.length} unsynced sessions`);
+    console.log(`Found ${sessionsToSync.length} unsynced sessions`);
     
     // Sort by created time (oldest first) - this helps maintain order
-    unsyncedSessions.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+    sessionsToSync.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
     
     // Process them one by one to avoid race conditions
-    for (const session of unsyncedSessions) {
+    for (const session of sessionsToSync) {
       await syncSingleSession(session);
     }
     
@@ -832,11 +842,19 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       console.warn(`Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       await logSync('SyncSession', 'Error', 'warning', `Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       
-      toast({
-        description: `Could not sync session ${session.id} after multiple attempts.`
-      });
+      // Fix: Use correct toast structure
+      toast(`Could not sync session ${session.id} after multiple attempts.`);
     }
     
+    return false;
+  } catch (error) {
+    console.error(`Unexpected error in syncSingleSession for session ${session.id}:`, error);
+    await logSync('SyncSession', 'Error', 'error', `Unexpected error syncing session ${session.id}: ${error}`);
+
+    // Ensure syncInProgress is set to false to allow retries
+    await db.sessions.update(session.id!, {
+      syncInProgress: false,
+    });
     return false;
   }
 }
@@ -845,25 +863,27 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
 async function syncInterviews(): Promise<boolean> {
   try {
     // Get unsynced interviews that are not in progress
-    // Only sync interviews for synced sessions
+    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
     const unsyncedInterviews = await db.interviews
       .where('synced')
-      .equals(false)
-      .and(interview => interview.syncInProgress === false)
+      .equals(0)
       .toArray();
     
-    if (unsyncedInterviews.length === 0) {
+    // Filter in memory for interviews not in progress
+    const interviewsToSync = unsyncedInterviews.filter(interview => interview.syncInProgress === false);
+    
+    if (interviewsToSync.length === 0) {
       console.log("No unsynced interviews to sync");
       return true;
     }
     
-    console.log(`Found ${unsyncedInterviews.length} unsynced interviews`);
+    console.log(`Found ${interviewsToSync.length} unsynced interviews`);
     
     // Sort by created time (oldest first)
-    unsyncedInterviews.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+    interviewsToSync.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
     
     // Process them one by one to avoid race conditions
-    for (const interview of unsyncedInterviews) {
+    for (const interview of interviewsToSync) {
       // Get the associated session
       const session = await db.sessions.get(interview.sessionId);
       
@@ -966,99 +986,3 @@ async function syncSingleInterview(interview: OfflineInterview, session: Offline
       start_time: interview.startTime,
       end_time: interview.endTime,
       start_latitude: interview.startLatitude,
-      start_longitude: interview.startLongitude,
-      start_address: interview.startAddress,
-      end_latitude: interview.endLatitude,
-      end_longitude: interview.endLongitude,
-      end_address: interview.endAddress,
-      result: interview.result,
-      is_active: interview.endTime === null && interview.result === null
-    };
-    
-    // Insert interview into Supabase
-    const { data, error } = await supabase
-      .from('interviews')
-      .upsert([interviewData], {
-        onConflict: 'id',
-        ignoreDuplicates: false
-      });
-    
-    if (error) {
-      throw error;
-    }
-    
-    console.log(`Interview ${interview.id} (UUID: ${interview.uuid}) synced successfully`);
-    await logSync('SyncInterview', 'Completed', 'success', `Interview ${interview.id} synced successfully`);
-    
-    // Mark as synced
-    await db.interviews.update(interview.id!, {
-      synced: true,
-      syncInProgress: false,
-      syncAttempts: interview.syncAttempts + 1,
-      lastSyncAttempt: new Date().toISOString()
-    });
-    
-    return true;
-  } catch (error) {
-    console.error(`Error syncing interview ${interview.id}:`, error);
-    await logSync('SyncInterview', 'Error', 'error', `Error syncing interview ${interview.id}: ${error}`);
-    
-    // Mark as failed but not in progress
-    await db.interviews.update(interview.id!, {
-      synced: false,
-      syncInProgress: false,
-      syncAttempts: interview.syncAttempts + 1,
-      lastSyncAttempt: new Date().toISOString()
-    });
-    
-    // If we've tried too many times, give up
-    if (interview.syncAttempts >= 5) {
-      console.warn(`Giving up on syncing interview ${interview.id} after ${interview.syncAttempts} attempts`);
-      await logSync('SyncInterview', 'Error', 'warning', `Giving up on syncing interview ${interview.id} after ${interview.syncAttempts} attempts`);
-      
-      toast({
-        description: `Could not sync interview ${interview.id} after multiple attempts.`
-      });
-    }
-    
-    return false;
-  }
-}
-
-// Clear sync lock on page unload
-if (typeof window !== 'undefined') {
-  window.addEventListener('unload', () => {
-    // We can't use async here, but we can try to release the lock synchronously
-    try {
-      const lockId = 'unload-' + Date.now();
-      db.syncLock.update(1, {
-        isLocked: 0,
-        lockedBy: '',
-        timestamp: new Date().toISOString(),
-        expiresAt: new Date().toISOString()
-      });
-      console.log("Lock released on page unload");
-    } catch (e) {
-      console.error("Error releasing lock on unload:", e);
-    }
-  });
-}
-
-// Initialize any pending data
-if (typeof window !== 'undefined') {
-  // Clear any stuck sync in progress flags
-  setTimeout(async () => {
-    try {
-      await db.sessions.where('syncInProgress').equals(true).modify({ syncInProgress: false });
-      await db.interviews.where('syncInProgress').equals(true).modify({ syncInProgress: false });
-      console.log("Reset stuck sync in progress flags");
-    } catch (e) {
-      console.error("Error resetting sync flags:", e);
-    }
-  }, 2000);
-}
-
-// Export all functions
-export {
-  db,
-}
