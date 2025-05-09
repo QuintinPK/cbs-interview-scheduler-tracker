@@ -31,6 +31,13 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
     console.log("InterviewerCodeInput - onLogin prop available:", !!onLogin);
   }, [isPrimaryUser, interviewerCode, onLogin]);
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onLogin && interviewerCode.trim()) {
+      onLogin();
+    }
+  };
+
   return (
     <div className="space-y-2">
       {interviewerCode && isPrimaryUser && (
@@ -58,7 +65,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
       )}
       
       {!isPrimaryUser && (
-        <>
+        <form onSubmit={handleSubmit}>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
           <div className="space-y-2">
             <Input
@@ -70,10 +77,9 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               disabled={loading || isRunning}
             />
             
-            {/* Always show the login button when code is entered, regardless of other conditions */}
             {interviewerCode.trim() && (
               <Button 
-                onClick={onLogin}
+                type="submit"
                 disabled={!interviewerCode.trim() || loading || !onLogin}
                 className="w-full"
                 variant="default"
@@ -87,11 +93,11 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               Enter your interviewer code to log in
             </p>
           </div>
-        </>
+        </form>
       )}
       
       {isPrimaryUser && !interviewerCode && (
-        <>
+        <form onSubmit={handleSubmit}>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
           <div className="space-y-2">
             <Input
@@ -105,7 +111,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             
             {interviewerCode.trim() && (
               <Button 
-                onClick={onLogin}
+                type="submit"
                 disabled={!interviewerCode.trim() || loading || !onLogin}
                 className="w-full"
                 variant="default"
@@ -119,7 +125,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               Enter your interviewer code to log in
             </p>
           </div>
-        </>
+        </form>
       )}
     </div>
   );

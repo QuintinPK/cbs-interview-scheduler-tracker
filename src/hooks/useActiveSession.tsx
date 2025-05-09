@@ -76,7 +76,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     loadSavedData();
   }, []); // Remove dependency on interviewerCode to avoid loops
 
-  // Effect for handling changes to interviewerCode
+  // Effect for handling changes to interviewerCode and isPrimaryUser
   useEffect(() => {
     const saveInterviewerCode = async () => {
       if (interviewerCode && isPrimaryUser) {

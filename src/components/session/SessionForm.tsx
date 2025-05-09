@@ -576,7 +576,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
-        onLogin={handleLogin} // Make sure this is passed correctly
+        onLogin={handleLogin} // Pass the new login handler
       />
       
       {isOffline && (
