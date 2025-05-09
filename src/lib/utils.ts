@@ -151,6 +151,46 @@ export const getCurrentLocation = async (
   }
 };
 
+export const getAddressFromCoordinates = async (
+  latitude: number,
+  longitude: number
+): Promise<string | undefined> => {
+  try {
+    // Check if browser has the Geocoder API
+    if (!window.navigator || !('geolocation' in navigator)) {
+      return undefined;
+    }
+    
+    // Try to use the browser's built-in reverse geocoding if available
+    if (window.google && window.google.maps && window.google.maps.Geocoder) {
+      const geocoder = new window.google.maps.Geocoder();
+      const response = await new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
+        geocoder.geocode(
+          { location: { lat: latitude, lng: longitude } },
+          (results, status) => {
+            if (status === "OK" && results && results.length > 0) {
+              resolve(results);
+            } else {
+              reject(new Error(`Geocoding failed: ${status}`));
+            }
+          }
+        );
+      });
+      
+      if (response && response.length > 0) {
+        return response[0].formatted_address;
+      }
+    }
+    
+    // Fallback to simple coordinate representation if geocoding not available
+    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+  } catch (error) {
+    console.error("Error in reverse geocoding:", error);
+    // Return simple coordinate string as fallback
+    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+  }
+};
+
 interface ExportSession {
   InterviewerCode: string;
   StartTime: string;
