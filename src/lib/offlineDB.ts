@@ -263,14 +263,32 @@ export const updateOfflineSession = async (
   endLocation?: Location
 ): Promise<void> => {
   try {
-    await offlineDB.sessions.update(id, {
-      endTime,
-      endLatitude: endLocation?.latitude || null,
-      endLongitude: endLocation?.longitude || null,
-      endAddress: endLocation?.address || null
-    });
+    console.log("Updating offline session with end location:", endLocation);
     
-    console.log("Offline session updated:", id);
+    // If no location provided, try to get it
+    if (!endLocation) {
+      try {
+        endLocation = await getCurrentLocation({ highAccuracy: true, timeout: 5000 });
+        console.log("Got location for offline session end:", endLocation);
+      } catch (err) {
+        console.error("Could not get location for session end:", err);
+      }
+    }
+    
+    const updateData: Partial<OfflineSession> = {
+      endTime
+    };
+    
+    // Only add location data if we have it
+    if (endLocation) {
+      updateData.endLatitude = endLocation.latitude;
+      updateData.endLongitude = endLocation.longitude;
+      updateData.endAddress = endLocation.address || null;
+    }
+    
+    await offlineDB.sessions.update(id, updateData);
+    
+    console.log("Offline session updated with end details:", id, updateData);
     
     // Try to register background sync
     if ('serviceWorker' in navigator && 'SyncManager' in window) {
@@ -364,7 +382,7 @@ export const setOfflineInterviewResult = async (
   }
 };
 
-// Synchronize offline sessions with the server
+// Synchronize offline sessions with the server - now with duplicate prevention
 export const syncOfflineSessions = async (): Promise<boolean> => {
   if (!isOnline()) {
     return false;
@@ -385,8 +403,23 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
     
     let syncedCount = 0;
     
+    // Create a set to track already synced sessions by their unique identifiers
+    // Use a composite key of interviewerCode + startTime to detect duplicates
+    const syncedSessionIdentifiers = new Set();
+    
     for (const session of unsyncedSessions) {
       try {
+        // Create a unique identifier for this session
+        const sessionUniqueKey = `${session.interviewerCode}_${session.startTime}`;
+        
+        // Skip if we've already synced a session with this key in the current batch
+        if (syncedSessionIdentifiers.has(sessionUniqueKey)) {
+          console.log(`Skipping duplicate session: ${sessionUniqueKey}`);
+          // Mark as synced to avoid future sync attempts
+          await offlineDB.sessions.update(session.id!, { synced: 1 });
+          continue;
+        }
+        
         // First get the interviewer ID from the code
         const cachedInterviewer = await getInterviewerByCode(session.interviewerCode);
         
@@ -397,45 +430,85 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         
         const interviewerId = cachedInterviewer.id;
         
-        // Create session in Supabase
-        const sessionData = {
-          interviewer_id: interviewerId,
-          project_id: session.projectId,
-          start_time: session.startTime,
-          start_latitude: session.startLatitude,
-          start_longitude: session.startLongitude,
-          start_address: session.startAddress,
-          is_active: !session.endTime,
-        };
+        // Check if this session already exists in Supabase by querying with the natural key
+        const { data: existingSessions, error: checkError } = await supabase
+          .from('sessions')
+          .select('id')
+          .eq('interviewer_id', interviewerId)
+          .eq('start_time', session.startTime)
+          .is('project_id', session.projectId || null); // Handle null project_id
         
-        if (session.endTime) {
-          Object.assign(sessionData, {
-            end_time: session.endTime,
-            end_latitude: session.endLatitude,
-            end_longitude: session.endLongitude,
-            end_address: session.endAddress
-          });
+        if (checkError) {
+          console.error("Error checking for existing session:", checkError);
+          continue;
         }
         
-        const { data: supabaseSession, error: insertError } = await supabase
-          .from('sessions')
-          .insert([sessionData])
-          .select()
-          .single();
+        let supabaseSessionId = null;
+        
+        // If session already exists in Supabase, use that instead of creating a new one
+        if (existingSessions && existingSessions.length > 0) {
+          console.log("Found existing session in Supabase, using that instead of creating a new one");
+          supabaseSessionId = existingSessions[0].id;
           
-        if (insertError) {
-          console.error("Error syncing session to server:", insertError);
-          continue;
+          // Update the existing session with any end details if needed
+          if (session.endTime) {
+            await supabase
+              .from('sessions')
+              .update({
+                end_time: session.endTime,
+                end_latitude: session.endLatitude,
+                end_longitude: session.endLongitude,
+                end_address: session.endAddress,
+                is_active: false
+              })
+              .eq('id', supabaseSessionId);
+          }
+        } else {
+          // Create session in Supabase
+          const sessionData = {
+            interviewer_id: interviewerId,
+            project_id: session.projectId,
+            start_time: session.startTime,
+            start_latitude: session.startLatitude,
+            start_longitude: session.startLongitude,
+            start_address: session.startAddress,
+            is_active: !session.endTime,
+          };
+          
+          if (session.endTime) {
+            Object.assign(sessionData, {
+              end_time: session.endTime,
+              end_latitude: session.endLatitude,
+              end_longitude: session.endLongitude,
+              end_address: session.endAddress
+            });
+          }
+          
+          const { data: supabaseSession, error: insertError } = await supabase
+            .from('sessions')
+            .insert([sessionData])
+            .select()
+            .single();
+            
+          if (insertError) {
+            console.error("Error syncing session to server:", insertError);
+            continue;
+          }
+          
+          supabaseSessionId = supabaseSession.id;
         }
         
         // Store the Supabase session ID in the local session
         await offlineDB.sessions.update(session.id!, { 
           synced: 1, 
-          supabaseId: supabaseSession.id 
+          supabaseId: supabaseSessionId 
         });
         
         // Now sync any interviews associated with this session
-        await syncInterviewsForSession(session.id!, supabaseSession.id);
+        await syncInterviewsForSession(session.id!, supabaseSessionId);
+        
+        // Add to our set of synced sessions
+        syncedSessionIdentifiers.add(sessionUniqueKey);
         
         syncedCount++;
         

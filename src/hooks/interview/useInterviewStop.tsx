@@ -1,3 +1,4 @@
+
 import { useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,9 +31,6 @@ export const useInterviewStop = (
     try {
       // Update UI immediately for better perceived performance
       setIsInterviewLoading(true);
-      
-      // Show dialog immediately to improve perceived performance
-      setShowResultDialog(true);
       
       // Get location in background - fire and forget
       const locationPromise = getCurrentLocation({ timeout: 2000 }); // Short timeout for speed
@@ -87,6 +85,11 @@ export const useInterviewStop = (
         localStorage.setItem("pending_interview_stops", JSON.stringify(pendingStops));
       }
       
+      // Show dialog - IMPORTANT: Set loading to false before showing the dialog
+      // This fix allows the buttons in the dialog to be clickable
+      setIsInterviewLoading(false);
+      setShowResultDialog(true);
+      
     } catch (error) {
       console.error("Error stopping interview:", error);
       toast({
@@ -98,8 +101,6 @@ export const useInterviewStop = (
       operationInProgressRef.current = false;
     }
     
-    // Don't set loading to false here - we want to keep it loading until the result is set
-    // setIsInterviewLoading is called in useInterviewResult after result is set
     operationInProgressRef.current = false;
   }, [activeInterview, activeOfflineInterviewId, setShowResultDialog, setIsInterviewLoading, toast]);
 

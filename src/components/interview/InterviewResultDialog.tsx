@@ -23,6 +23,9 @@ const InterviewResultDialog: React.FC<InterviewResultDialogProps> = ({
   onSelectResult,
   isSubmitting
 }) => {
+  // Debug logging to help identify if the dialog is being rendered correctly
+  console.log("Rendering InterviewResultDialog - isOpen:", isOpen, "isSubmitting:", isSubmitting);
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -36,8 +39,12 @@ const InterviewResultDialog: React.FC<InterviewResultDialogProps> = ({
               variant="outline"
               size="lg"
               className="flex items-center justify-center gap-2 p-6 hover:bg-green-50"
-              onClick={() => onSelectResult('response')}
+              onClick={() => {
+                console.log("Response button clicked");
+                onSelectResult('response');
+              }}
               disabled={isSubmitting}
+              type="button"
             >
               <CheckCircle className="h-6 w-6 text-green-500" />
               <span className="font-medium">Response</span>
@@ -47,8 +54,12 @@ const InterviewResultDialog: React.FC<InterviewResultDialogProps> = ({
               variant="outline"
               size="lg"
               className="flex items-center justify-center gap-2 p-6 hover:bg-red-50"
-              onClick={() => onSelectResult('non-response')}
+              onClick={() => {
+                console.log("Non-response button clicked");
+                onSelectResult('non-response');
+              }}
               disabled={isSubmitting}
+              type="button"
             >
               <XCircle className="h-6 w-6 text-red-500" />
               <span className="font-medium">Non-response</span>
@@ -58,8 +69,12 @@ const InterviewResultDialog: React.FC<InterviewResultDialogProps> = ({
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={() => {
+              console.log("Cancel button clicked");
+              onClose();
+            }}
             disabled={isSubmitting}
+            type="button"
           >
             Cancel
           </Button>
