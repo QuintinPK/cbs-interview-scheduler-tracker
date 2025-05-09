@@ -28,7 +28,8 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
   useEffect(() => {
     console.log("InterviewerCodeInput - isPrimaryUser:", isPrimaryUser);
     console.log("InterviewerCodeInput - interviewerCode:", interviewerCode);
-  }, [isPrimaryUser, interviewerCode]);
+    console.log("InterviewerCodeInput - onLogin prop available:", !!onLogin);
+  }, [isPrimaryUser, interviewerCode, onLogin]);
 
   return (
     <div className="space-y-2">

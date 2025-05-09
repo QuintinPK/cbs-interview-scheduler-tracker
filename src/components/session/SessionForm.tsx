@@ -324,9 +324,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
     
     setLoading(true);
     try {
+      console.log("Validating interviewer code...");
       const isValid = await validateInterviewerCode();
+      console.log("Validation result:", isValid);
+      
       if (isValid) {
         // Code is valid, fetch projects
+        console.log("Fetching projects for interviewer ID:", interviewerId);
         await fetchProjects(interviewerId);
       }
     } catch (error) {

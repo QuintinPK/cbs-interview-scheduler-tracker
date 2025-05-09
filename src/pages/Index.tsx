@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -28,14 +27,15 @@ const Index = () => {
     endSession,
     startSession,
     offlineSessionId,
-    validateInterviewerCode // New function
+    validateInterviewerCode // Make sure this is imported
   } = useActiveSession();
 
   // Debug logging to track state
   useEffect(() => {
     console.log("Index - isPrimaryUser:", isPrimaryUser);
     console.log("Index - interviewerCode:", interviewerCode);
-  }, [isPrimaryUser, interviewerCode]);
+    console.log("Index - validateInterviewerCode available:", !!validateInterviewerCode);
+  }, [isPrimaryUser, interviewerCode, validateInterviewerCode]);
 
   const [totalHours, setTotalHours] = useState<number>(0);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
@@ -192,7 +192,7 @@ const Index = () => {
           endSession={endSession}
           startSession={startSession}
           offlineSessionId={offlineSessionId}
-          validateInterviewerCode={validateInterviewerCode}
+          validateInterviewerCode={validateInterviewerCode} // Explicitly pass this function
         />
         
         {interviewerCode && (
