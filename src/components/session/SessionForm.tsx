@@ -234,7 +234,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           setActiveProject({
             id: project.id,
             name: project.name,
-            excluded_islands: project.excluded_islands || [],
+            excluded_islands: project.excluded_islands as ('Bonaire' | 'Saba' | 'Sint Eustatius')[] || [],
             // Add required fields for Project type that might not exist in OfflineProject
             start_date: project.start_date || new Date().toISOString().split('T')[0],
             end_date: project.end_date || new Date().toISOString().split('T')[0]

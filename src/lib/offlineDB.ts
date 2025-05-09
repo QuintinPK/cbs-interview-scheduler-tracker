@@ -1,7 +1,6 @@
-
 import Dexie, { Table } from 'dexie';
 import { supabase } from "@/integrations/supabase/client";
-import { getCurrentLocation, formatTimeDifference } from "@/lib/utils";
+import { getCurrentLocation } from "@/lib/utils";
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 
@@ -684,7 +683,7 @@ async function syncSessions(): Promise<boolean> {
     const unsyncedSessions = await db.sessions
       .where('synced')
       .equals(false)
-      .and(session => session.syncInProgress === false)
+      .and(session => !session.syncInProgress)
       .toArray();
     
     if (unsyncedSessions.length === 0) {
@@ -834,9 +833,7 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       await logSync('SyncSession', 'Error', 'warning', `Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       
       toast({
-        title: "Sync Warning",
-        description: `Could not sync session ${session.id} after multiple attempts.`,
-        duration: 5000,
+        description: `Could not sync session ${session.id} after multiple attempts.`
       });
     }
     
@@ -1020,9 +1017,7 @@ async function syncSingleInterview(interview: OfflineInterview, session: Offline
       await logSync('SyncInterview', 'Error', 'warning', `Giving up on syncing interview ${interview.id} after ${interview.syncAttempts} attempts`);
       
       toast({
-        title: "Sync Warning",
-        description: `Could not sync interview ${interview.id} after multiple attempts.`,
-        duration: 5000,
+        description: `Could not sync interview ${interview.id} after multiple attempts.`
       });
     }
     
@@ -1067,4 +1062,3 @@ if (typeof window !== 'undefined') {
 export {
   db,
 }
-
