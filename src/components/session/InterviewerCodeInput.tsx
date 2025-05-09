@@ -32,7 +32,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
 
   return (
     <div className="space-y-2">
-      {interviewerCode && (
+      {interviewerCode && isPrimaryUser && (
         <div className="flex flex-col gap-3">
           <div className="w-full">
             <Label htmlFor="interviewer-code">Interviewer Code</Label>
@@ -56,7 +56,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
         </div>
       )}
       
-      {!interviewerCode && (
+      {(!interviewerCode || !isPrimaryUser) && (
         <>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
           <div className="space-y-2">

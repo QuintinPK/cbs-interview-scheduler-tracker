@@ -316,12 +316,23 @@ const SessionForm: React.FC<SessionFormProps> = ({
 
   // New function to handle login
   const handleLogin = async () => {
-    if (!validateInterviewerCode) return;
+    console.log("Login button clicked");
+    if (!validateInterviewerCode) {
+      console.error("validateInterviewerCode function is not provided");
+      return;
+    }
     
-    const isValid = await validateInterviewerCode();
-    if (isValid) {
-      // Code is valid, fetch projects
-      await fetchProjects(interviewerId);
+    setLoading(true);
+    try {
+      const isValid = await validateInterviewerCode();
+      if (isValid) {
+        // Code is valid, fetch projects
+        await fetchProjects(interviewerId);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -561,7 +572,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
-        onLogin={handleLogin}
+        onLogin={handleLogin} // Make sure this is passed correctly
       />
       
       {isOffline && (

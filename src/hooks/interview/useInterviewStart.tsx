@@ -32,7 +32,7 @@ export const useInterviewStart = (
       setIsInterviewLoading(true);
       
       // Defer getting location to improve performance - get it in background
-      let currentLocationPromise = getCurrentLocation();
+      const currentLocationPromise = getCurrentLocation();
       
       // Check if we're offline and have an offline session
       if (offlineSessionId !== null) {
