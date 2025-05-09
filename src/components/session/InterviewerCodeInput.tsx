@@ -70,10 +70,11 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               disabled={loading || isRunning}
             />
             
-            {interviewerCode.trim() && onLogin && (
+            {/* Always show the login button when code is entered, regardless of other conditions */}
+            {interviewerCode.trim() && (
               <Button 
                 onClick={onLogin}
-                disabled={!interviewerCode.trim() || loading}
+                disabled={!interviewerCode.trim() || loading || !onLogin}
                 className="w-full"
                 variant="default"
               >
@@ -102,10 +103,10 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               disabled={loading || isRunning}
             />
             
-            {interviewerCode.trim() && onLogin && (
+            {interviewerCode.trim() && (
               <Button 
                 onClick={onLogin}
-                disabled={!interviewerCode.trim() || loading}
+                disabled={!interviewerCode.trim() || loading || !onLogin}
                 className="w-full"
                 variant="default"
               >

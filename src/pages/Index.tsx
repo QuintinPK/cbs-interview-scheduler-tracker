@@ -27,7 +27,7 @@ const Index = () => {
     endSession,
     startSession,
     offlineSessionId,
-    validateInterviewerCode // Make sure this is imported
+    validateInterviewerCode
   } = useActiveSession();
 
   // Debug logging to track state
@@ -36,6 +36,11 @@ const Index = () => {
     console.log("Index - interviewerCode:", interviewerCode);
     console.log("Index - validateInterviewerCode available:", !!validateInterviewerCode);
   }, [isPrimaryUser, interviewerCode, validateInterviewerCode]);
+
+  // Additional debug logging for the login function
+  useEffect(() => {
+    console.log("Index - validateInterviewerCode function exists:", typeof validateInterviewerCode === 'function');
+  }, [validateInterviewerCode]);
 
   const [totalHours, setTotalHours] = useState<number>(0);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
@@ -192,7 +197,7 @@ const Index = () => {
           endSession={endSession}
           startSession={startSession}
           offlineSessionId={offlineSessionId}
-          validateInterviewerCode={validateInterviewerCode} // Explicitly pass this function
+          validateInterviewerCode={validateInterviewerCode}
         />
         
         {interviewerCode && (
