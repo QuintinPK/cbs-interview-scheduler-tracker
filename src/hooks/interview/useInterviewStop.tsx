@@ -1,5 +1,4 @@
-
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
@@ -16,74 +15,77 @@ export const useInterviewStop = (
   activeOfflineInterviewId: number | null = null
 ) => {
   const { toast } = useToast();
+  const operationInProgressRef = useRef(false);
 
   const stopInterview = useCallback(async () => {
     if (!activeInterview) return;
     
+    // Prevent multiple simultaneous calls
+    if (operationInProgressRef.current) {
+      return;
+    }
+    
+    operationInProgressRef.current = true;
+    
     try {
+      // Update UI immediately for better perceived performance
       setIsInterviewLoading(true);
-      
-      // Get location in background while showing dialog
-      const currentLocationPromise = getCurrentLocation();
       
       // Show dialog immediately to improve perceived performance
       setShowResultDialog(true);
       
-      // Check if this is an offline interview
-      if (activeOfflineInterviewId !== null) {
-        // Wait for location to complete
-        const currentLocation = await currentLocationPromise;
-        
-        // Update the offline interview with end details
-        await updateOfflineInterview(
-          activeOfflineInterviewId,
-          new Date().toISOString(),
-          currentLocation
-        );
-        
-        setIsInterviewLoading(false);
-        return;
-      }
+      // Get location in background - fire and forget
+      const locationPromise = getCurrentLocation({ timeout: 2000 }); // Short timeout for speed
       
-      // For online interviews, proceed as usual
-      if (!activeInterview.id) {
-        throw new Error("Invalid interview ID");
-      }
-      
-      // If we're offline, store the stop intent in localStorage to be processed when back online
-      if (!isOnline()) {
-        // Wait for location
-        const currentLocation = await currentLocationPromise;
+      // Process location asynchronously - don't block UI
+      locationPromise.then(async (currentLocation) => {
+        // Check if this is an offline interview
+        if (activeOfflineInterviewId !== null) {
+          try {
+            // Update the offline interview with end details
+            await updateOfflineInterview(
+              activeOfflineInterviewId,
+              new Date().toISOString(),
+              currentLocation
+            );
+          } catch (err) {
+            console.error("Background error updating offline interview:", err);
+          }
+          return;
+        }
         
+        // For online interviews, proceed as usual
+        if (!activeInterview.id || !isOnline()) {
+          return;
+        }
+        
+        // For online mode, update in background
+        try {
+          await supabase
+            .from('interviews')
+            .update({
+              end_time: new Date().toISOString(),
+              end_latitude: currentLocation?.latitude || null,
+              end_longitude: currentLocation?.longitude || null,
+              end_address: currentLocation?.address || null,
+            })
+            .eq('id', activeInterview.id);
+        } catch (err) {
+          console.error("Background error updating interview:", err);
+        }
+      }).catch(error => {
+        console.error("Error in background location processing:", error);
+      });
+      
+      // If offline, store the stop intent in localStorage
+      if (!isOnline() && activeInterview.id && !activeOfflineInterviewId) {
         const pendingStops = JSON.parse(localStorage.getItem("pending_interview_stops") || "[]");
         pendingStops.push({
           id: activeInterview.id,
           end_time: new Date().toISOString(),
-          end_latitude: currentLocation?.latitude || null,
-          end_longitude: currentLocation?.longitude || null,
-          end_address: currentLocation?.address || null,
         });
         localStorage.setItem("pending_interview_stops", JSON.stringify(pendingStops));
-        
-        setIsInterviewLoading(false);
-        return;
       }
-      
-      // For online mode, update in background
-      currentLocationPromise.then(currentLocation => {
-        supabase
-          .from('interviews')
-          .update({
-            end_time: new Date().toISOString(),
-            end_latitude: currentLocation?.latitude || null,
-            end_longitude: currentLocation?.longitude || null,
-            end_address: currentLocation?.address || null,
-          })
-          .eq('id', activeInterview.id)
-          .then(({ error }) => {
-            if (error) console.error("Error updating interview:", error);
-          });
-      });
       
     } catch (error) {
       console.error("Error stopping interview:", error);
@@ -92,9 +94,13 @@ export const useInterviewStop = (
         description: "Could not stop interview",
         variant: "destructive",
       });
-    } finally {
       setIsInterviewLoading(false);
+      operationInProgressRef.current = false;
     }
+    
+    // Don't set loading to false here - we want to keep it loading until the result is set
+    // setIsInterviewLoading is called in useInterviewResult after result is set
+    operationInProgressRef.current = false;
   }, [activeInterview, activeOfflineInterviewId, setShowResultDialog, setIsInterviewLoading, toast]);
 
   return { stopInterview };

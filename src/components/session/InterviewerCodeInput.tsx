@@ -34,13 +34,14 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (onLogin && interviewerCode.trim()) {
+      console.log("Login form submitted, calling onLogin");
       onLogin();
     }
   };
 
   return (
     <div className="space-y-2">
-      {/* LOGGED IN STATE */}
+      {/* LOGGED IN STATE - Show when isPrimaryUser is true */}
       {isPrimaryUser && (
         <div className="flex flex-col gap-3">
           <div className="w-full">
@@ -53,11 +54,12 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             </div>
           </div>
           
-          {/* Logout button */}
+          {/* Logout button - Always show when logged in */}
           <Button 
             variant="outline" 
             size="sm"
             onClick={switchUser}
+            disabled={loading}
             className="flex items-center gap-1 w-full bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
           >
             <LogOut className="h-4 w-4" />
@@ -66,7 +68,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
         </div>
       )}
       
-      {/* NOT LOGGED IN STATE */}
+      {/* NOT LOGGED IN STATE - Show when isPrimaryUser is false */}
       {!isPrimaryUser && (
         <form onSubmit={handleSubmit}>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
@@ -88,8 +90,17 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
                 className="w-full"
                 variant="default"
               >
-                <LogIn className="h-4 w-4 mr-1" />
-                <span>Log In</span>
+                {loading ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-b-transparent border-white"></div>
+                    <span>Logging In...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="h-4 w-4 mr-1" />
+                    <span>Log In</span>
+                  </>
+                )}
               </Button>
             )}
             

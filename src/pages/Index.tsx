@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
 import { useActiveSession } from "@/hooks/useActiveSession";
@@ -9,6 +10,10 @@ import { isOnline, getUnsyncedSessionsCount, syncOfflineSessions } from "@/lib/o
 import { WifiOff } from "lucide-react";
 
 const Index = () => {
+  // Performance monitoring
+  const pageLoadTime = performance.now();
+  console.log("Index page initial render started at:", pageLoadTime);
+  
   // Load the active session hook with all authentication and session state
   const {
     interviewerCode,
@@ -29,6 +34,11 @@ const Index = () => {
     offlineSessionId,
     validateInterviewerCode
   } = useActiveSession();
+  
+  useEffect(() => {
+    const renderTime = performance.now() - pageLoadTime;
+    console.log("Index - Initial render completed in:", renderTime + "ms");
+  }, []);
 
   // Debug logging to track state
   useEffect(() => {
@@ -49,20 +59,44 @@ const Index = () => {
   const [unsyncedCount, setUnsyncedCount] = useState<number>(0);
   
   // Check for unsynced sessions periodically
-  useEffect(() => {
-    const checkUnsyncedSessions = async () => {
+  const checkUnsyncedSessions = useCallback(async () => {
+    try {
       const count = await getUnsyncedSessionsCount();
       setUnsyncedCount(count);
-    };
-    
+    } catch (err) {
+      console.error("Error checking unsynced sessions:", err);
+    }
+  }, []);
+  
+  useEffect(() => {
     checkUnsyncedSessions();
     
     const intervalId = setInterval(checkUnsyncedSessions, 60000); // Every minute
     
     return () => clearInterval(intervalId);
-  }, []);
+  }, [checkUnsyncedSessions]);
   
-  // Fetch total hours and interviews for the current interviewer
+  // Improved function to sync all data with visual feedback
+  const performSync = async () => {
+    // Don't sync if already offline
+    if (!isOnline()) {
+      return;
+    }
+    
+    try {
+      const result = await syncOfflineSessions();
+      
+      // Update the count after sync attempt
+      await checkUnsyncedSessions();
+      
+      return result;
+    } catch (err) {
+      console.error("Error during sync:", err);
+      return false;
+    }
+  };
+  
+  // Fetch total hours and interviews for the current interviewer with better error handling
   useEffect(() => {
     const fetchInterviewerData = async () => {
       if (!interviewerCode || !isOnline()) return;
@@ -165,7 +199,7 @@ const Index = () => {
               </span>
               {isOnline() && (
                 <button 
-                  onClick={() => syncOfflineSessions()}
+                  onClick={performSync}
                   className="px-2 py-1 bg-blue-100 hover:bg-blue-200 rounded text-xs"
                 >
                   Sync Now

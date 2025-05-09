@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
@@ -16,6 +15,7 @@ import {
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
+  const validationInProgressRef = useRef(false);
   
   // State variables
   const [interviewerCode, setInterviewerCode] = useState<string>(initialInterviewerCode);
@@ -74,7 +74,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     };
     
     loadSavedData();
-  }, []); // Remove dependency on interviewerCode to avoid loops
+  }, []); 
 
   // Effect for handling changes to interviewerCode and isPrimaryUser
   useEffect(() => {
@@ -109,8 +109,16 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   }, [activeSession, offlineSessionId]);
   
   // Validate the interviewer code explicitly when requested (instead of on every change)
-  const validateInterviewerCode = async () => {
+  const validateInterviewerCode = useCallback(async () => {
+    // Prevent multiple simultaneous validations
+    if (validationInProgressRef.current) {
+      return false;
+    }
+    
+    validationInProgressRef.current = true;
+    
     if (!interviewerCode.trim()) {
+      validationInProgressRef.current = false;
       return false;
     }
     
@@ -130,7 +138,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
             variant: "destructive",
           });
         }
-        setLoading(false);
         return false;
       }
       
@@ -144,12 +151,13 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       
       // Attempt to sync offline sessions when checking for active sessions
       if (isOnline()) {
-        await syncOfflineSessions();
+        syncOfflineSessions().catch(err => {
+          console.error("Error syncing sessions during validation:", err);
+        });
       }
       
       // Don't fetch online sessions if we already have an active session in localStorage
       if (activeSession) {
-        setLoading(false);
         return true;
       }
       
@@ -200,15 +208,16 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       return false;
     } finally {
       setLoading(false);
+      validationInProgressRef.current = false;
     }
-  };
+  }, [interviewerCode, lastValidatedCode, activeSession, toast]);
 
   // Check online status changes
   useEffect(() => {
     const handleOnline = async () => {
       toast({
         title: "You are back online",
-        description: "Syncing offline sessions...",
+        description: "Syncing offline data...",
       });
       
       try {
@@ -296,7 +305,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         
         // Try to sync if we're online
         if (isOnline()) {
-          await syncOfflineSessions();
+          syncOfflineSessions().catch(err => {
+            console.error("Error syncing during session end:", err);
+          });
         }
         
         // Reset session state
@@ -316,7 +327,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     // We keep the interviewer code and primary user status
   };
 
-  // Function to start a new session
+  // Function to start a new session with improved performance
   const startSession = async (
     interviewerId: string,
     projectId: string | null,
@@ -388,6 +399,6 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     startSession,
     offlineSessionId,
     lastValidatedCode,
-    validateInterviewerCode  // New function exposed
+    validateInterviewerCode
   };
 };

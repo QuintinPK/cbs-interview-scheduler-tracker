@@ -1,5 +1,5 @@
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
@@ -17,38 +17,61 @@ export const useInterviewStart = (
   setActiveOfflineInterviewId?: (id: number | null) => void
 ) => {
   const { toast } = useToast();
+  const operationInProgressRef = useRef(false);
 
   const startInterview = useCallback(async (projectId?: string) => {
+    // Prevent multiple simultaneous calls
+    if (operationInProgressRef.current) {
+      return;
+    }
+    
+    operationInProgressRef.current = true;
+    
     if (!sessionId && offlineSessionId === null) {
       toast({
         title: "Error",
         description: "No active session to attach an interview to",
         variant: "destructive",
       });
+      operationInProgressRef.current = false;
       return;
     }
     
+    // Immediately update UI to show activity
+    setIsInterviewLoading(true);
+    
     try {
-      setIsInterviewLoading(true);
+      // Start optimistic UI update for better perceived performance
+      const optimisticId = `temp-${Date.now()}`;
+      const now = new Date().toISOString();
+      const candidateName = "New interview";
+      
+      // Create optimistic interview object to show immediately
+      const optimisticInterview: Interview = {
+        id: optimisticId,
+        session_id: sessionId || `offline-${offlineSessionId}`,
+        start_time: now,
+        candidate_name: candidateName,
+        is_active: true
+      };
+      
+      // Update UI immediately while fetching location in background
+      setActiveInterview(optimisticInterview);
       
       // Defer getting location to improve performance - get it in background
       const currentLocationPromise = getCurrentLocation();
       
       // Check if we're offline and have an offline session
       if (offlineSessionId !== null) {
-        // Wait for location data before continuing
-        const currentLocation = await currentLocationPromise;
-        
-        // Save interview to offline storage
-        const candidateName = "New interview";
-        const now = new Date().toISOString();
+        // Save interview to offline storage with low-precision location first
+        const initialLocation = await currentLocationPromise;
         
         const id = await saveOfflineInterview(
           offlineSessionId,
           candidateName,
           projectId || null,
           now,
-          currentLocation
+          initialLocation
         );
         
         if (setActiveOfflineInterviewId) {
@@ -64,20 +87,19 @@ export const useInterviewStart = (
           is_active: true
         };
         
-        if (currentLocation) {
-          offlineInterview.start_latitude = currentLocation.latitude;
-          offlineInterview.start_longitude = currentLocation.longitude;
-          offlineInterview.start_address = currentLocation.address;
+        if (initialLocation) {
+          offlineInterview.start_latitude = initialLocation.latitude;
+          offlineInterview.start_longitude = initialLocation.longitude;
+          offlineInterview.start_address = initialLocation.address;
         }
         
         setActiveInterview(offlineInterview);
         
         toast({
           title: "Interview Started",
-          description: isOnline() ? "" : "Interview has been saved locally and will sync when you're online",
+          description: isOnline() ? "" : "Interview has been saved locally",
         });
         
-        setIsInterviewLoading(false);
         return;
       }
       
@@ -146,6 +168,7 @@ export const useInterviewStart = (
       });
     } finally {
       setIsInterviewLoading(false);
+      operationInProgressRef.current = false;
     }
   }, [sessionId, offlineSessionId, setActiveInterview, setIsInterviewLoading, toast, setActiveOfflineInterviewId]);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -314,7 +314,18 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
   }, [isOffline, unsyncedCount, unsyncedInterviews]);
 
-  // New function to handle login
+  // New state to track login in progress
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const sessionStartTimeRef = useRef<number | null>(null);
+
+  // Better debug logging
+  useEffect(() => {
+    console.log("SessionForm - isLoggingIn:", isLoggingIn);
+    console.log("SessionForm - isPrimaryUser:", isPrimaryUser);
+    console.log("SessionForm - validateInterviewerCode available:", !!validateInterviewerCode);
+  }, [isLoggingIn, isPrimaryUser, validateInterviewerCode]);
+
+  // New optimized login handler
   const handleLogin = async () => {
     console.log("Login button clicked");
     if (!validateInterviewerCode) {
@@ -322,24 +333,33 @@ const SessionForm: React.FC<SessionFormProps> = ({
       return;
     }
     
+    setIsLoggingIn(true);
     setLoading(true);
+    
     try {
       console.log("Validating interviewer code...");
       const isValid = await validateInterviewerCode();
       console.log("Validation result:", isValid);
       
       if (isValid) {
-        // Code is valid, fetch projects
+        // Code is valid, fetch projects immediately without waiting for another re-render
         console.log("Fetching projects for interviewer ID:", interviewerId);
         await fetchProjects(interviewerId);
+        
+        toast({
+          title: "Logged In",
+          description: `Welcome, ${interviewerCode}`,
+        });
       }
     } catch (error) {
       console.error("Login error:", error);
     } finally {
       setLoading(false);
+      setIsLoggingIn(false);
     }
   };
 
+  // Improved session start/stop with performance tracking
   const handleStartStop = async () => {
     if (!interviewerCode.trim()) {
       toast({
@@ -351,9 +371,10 @@ const SessionForm: React.FC<SessionFormProps> = ({
     }
     
     if (!isRunning) {
-      // Start session flow
+      // Session start flow
       try {
         setLoading(true);
+        sessionStartTimeRef.current = performance.now(); // Track when operation starts
         
         if (!interviewerId) {
           toast({
@@ -396,10 +417,13 @@ const SessionForm: React.FC<SessionFormProps> = ({
         });
       } finally {
         setLoading(false);
+        sessionStartTimeRef.current = null;
       }
     } else {
       // End session flow
+      sessionStartTimeRef.current = performance.now(); // Track when operation starts
       await handleSessionEnd();
+      sessionStartTimeRef.current = null;
     }
   };
 
@@ -413,6 +437,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const handleSessionStart = async (projectId: string) => {
+    const startTime = performance.now(); // Track performance
+    
     try {
       setLoading(true);
       
@@ -437,7 +463,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       console.log("Starting session with project ID:", projectId);
       
-      const currentLocation = await getCurrentLocation();
+      // Use low accuracy location first for speed (will be improved in background)
+      const currentLocation = await getCurrentLocation({ highAccuracy: false, timeout: 2000 });
 
       let session: Session | null = null;
       
@@ -450,10 +477,32 @@ const SessionForm: React.FC<SessionFormProps> = ({
           setStartTime(session.start_time);
           setStartLocation(currentLocation);
           
+          // Get higher accuracy location in background
+          getCurrentLocation({ highAccuracy: true, timeout: 10000 })
+            .then(betterLocation => {
+              if (betterLocation && session) {
+                // Update the session with better location
+                session.start_latitude = betterLocation.latitude;
+                session.start_longitude = betterLocation.longitude;
+                session.start_address = betterLocation.address;
+                setStartLocation(betterLocation);
+                
+                // Update localStorage
+                localStorage.setItem("active_session", JSON.stringify({
+                  ...session,
+                  offlineId: offlineSessionId
+                }));
+              }
+            })
+            .catch(err => console.error("Error getting better location:", err));
+            
           toast({
-            title: "Offline Session Started",
+            title: "Session Started",
             description: `Started at ${new Date().toLocaleTimeString()}`,
           });
+          
+          const endTime = performance.now();
+          console.log(`Session start completed in ${endTime - startTime}ms`);
           return;
         }
       }
@@ -488,6 +537,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
         title: "Session Started",
         description: `Started at ${new Date().toLocaleTimeString()}`,
       });
+      
+      const endTime = performance.now();
+      console.log(`Online session start completed in ${endTime - startTime}ms`);
     } catch (error) {
       console.error("Error starting session:", error);
       toast({
@@ -576,10 +628,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
         isRunning={isRunning}
         loading={loading}
         switchUser={switchUser}
-        onLogin={handleLogin} // Pass the new login handler
+        onLogin={handleLogin} // Pass the login handler
       />
       
-      {isOffline && (
+      {/* Offline indicator */}
+      {!isOnline() && (
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
           <p className="flex items-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -590,6 +643,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         </div>
       )}
       
+      {/* Unsynced data indicator */}
       {!isOffline && (unsyncedCount > 0 || unsyncedInterviews > 0) && (
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 text-sm">
           <p className="flex items-center justify-between">
@@ -609,6 +663,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         </div>
       )}
       
+      {/* Active project indicator */}
       {activeProject && isRunning && (
         <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
           <p className="text-sm text-gray-500">Current Project</p>
@@ -655,7 +710,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           interviewerCode={interviewerCode}
           onClick={handleStartStop}
           disabled={isRunning && !!activeInterview}
-          isOffline={isOffline}
+          isOffline={!isOnline()}
           unsyncedCount={unsyncedCount + unsyncedInterviews}
         />
       </div>

@@ -1,4 +1,3 @@
-
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Location } from "@/types";
@@ -72,25 +71,85 @@ export function calculateDuration(startTime: string, endTime: string | null): st
   return result.trim();
 }
 
-export async function getCurrentLocation(): Promise<Location | undefined> {
-  return new Promise((resolve) => {
-    if (navigator.geolocation) {
+// Optimized location retrieval with caching and timeouts
+let cachedLocation: { location: Location, timestamp: number } | null = null;
+const LOCATION_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+export const getCurrentLocation = async (
+  options: { highAccuracy?: boolean, timeout?: number } = {}
+): Promise<Location | undefined> => {
+  const now = Date.now();
+  
+  // Return cached location if available and recent
+  if (cachedLocation && (now - cachedLocation.timestamp < LOCATION_CACHE_DURATION)) {
+    return cachedLocation.location;
+  }
+  
+  // Use low accuracy by default for speed, with short timeout
+  const defaultOptions = {
+    highAccuracy: false,
+    timeout: 3000 // 3 seconds timeout
+  };
+  
+  const { highAccuracy, timeout } = { ...defaultOptions, ...options };
+  
+  try {
+    // Fast but low accuracy location first
+    if (!navigator.geolocation) {
+      return undefined;
+    }
+    
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        },
-        () => {
-          resolve(undefined);
+        resolve,
+        reject,
+        { 
+          enableHighAccuracy: highAccuracy, 
+          timeout: timeout,
+          maximumAge: highAccuracy ? 0 : 60000 // Use cached position for non-high-accuracy
         }
       );
-    } else {
-      resolve(undefined);
+    });
+    
+    const location: Location = {
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+    };
+    
+    // Cache this location
+    cachedLocation = { location, timestamp: now };
+    
+    // If we initially requested low accuracy for speed, get higher accuracy in background
+    if (!highAccuracy) {
+      // Fetch better location in background without blocking UI
+      setTimeout(() => {
+        getCurrentLocation({ highAccuracy: true, timeout: 10000 })
+          .then(betterLocation => {
+            if (betterLocation) {
+              cachedLocation = { location: betterLocation, timestamp: Date.now() };
+            }
+          })
+          .catch(err => console.error("Background location error:", err));
+      }, 0);
     }
-  });
-}
+    
+    // Get address in background if needed
+    if (!location.address) {
+      getAddressFromCoordinates(location.latitude, location.longitude)
+        .then(address => {
+          if (address && cachedLocation) {
+            cachedLocation.location.address = address;
+          }
+        })
+        .catch(err => console.error("Error getting address:", err));
+    }
+    
+    return location;
+  } catch (error) {
+    console.error("Error getting location:", error);
+    return undefined;
+  }
+};
 
 interface ExportSession {
   InterviewerCode: string;
