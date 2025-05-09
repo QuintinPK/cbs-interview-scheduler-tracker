@@ -2,6 +2,7 @@ import Dexie, { Table } from 'dexie';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
 import { Location } from '@/types';
+import { getCurrentLocation, getAddressFromCoordinates } from "@/lib/utils";
 
 // Define the structure for our offline interviewers
 export interface OfflineInterviewer {
