@@ -24,7 +24,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
   switchUser,
   onLogin
 }) => {
-  // Debug logging to check if isPrimaryUser is being set correctly
+  // Debug logging
   useEffect(() => {
     console.log("InterviewerCodeInput - isPrimaryUser:", isPrimaryUser);
     console.log("InterviewerCodeInput - interviewerCode:", interviewerCode);
@@ -40,7 +40,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
 
   return (
     <div className="space-y-2">
-      {/* LOGGED IN STATE - Always show when isPrimaryUser is true */}
+      {/* LOGGED IN STATE */}
       {isPrimaryUser && (
         <div className="flex flex-col gap-3">
           <div className="w-full">
@@ -53,7 +53,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
             </div>
           </div>
           
-          {/* Always show logout button when logged in */}
+          {/* Logout button */}
           <Button 
             variant="outline" 
             size="sm"
@@ -66,7 +66,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
         </div>
       )}
       
-      {/* NOT LOGGED IN STATE - Always show when isPrimaryUser is false */}
+      {/* NOT LOGGED IN STATE */}
       {!isPrimaryUser && (
         <form onSubmit={handleSubmit}>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
