@@ -57,7 +57,7 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
         </div>
       )}
       
-      {(!interviewerCode || !isPrimaryUser) && (
+      {!isPrimaryUser && (
         <>
           <Label htmlFor="interviewer-code">Interviewer Code</Label>
           <div className="space-y-2">
@@ -70,15 +70,49 @@ const InterviewerCodeInput: React.FC<InterviewerCodeInputProps> = ({
               disabled={loading || isRunning}
             />
             
-            <Button 
-              onClick={onLogin}
-              disabled={!interviewerCode.trim() || loading}
-              className="w-full"
-              variant="default"
-            >
-              <LogIn className="h-4 w-4 mr-1" />
-              <span>Log In</span>
-            </Button>
+            {interviewerCode.trim() && onLogin && (
+              <Button 
+                onClick={onLogin}
+                disabled={!interviewerCode.trim() || loading}
+                className="w-full"
+                variant="default"
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                <span>Log In</span>
+              </Button>
+            )}
+            
+            <p className="text-xs text-muted-foreground">
+              Enter your interviewer code to log in
+            </p>
+          </div>
+        </>
+      )}
+      
+      {isPrimaryUser && !interviewerCode && (
+        <>
+          <Label htmlFor="interviewer-code">Interviewer Code</Label>
+          <div className="space-y-2">
+            <Input
+              id="interviewer-code"
+              placeholder="Enter your code"
+              value={interviewerCode}
+              onChange={(e) => setInterviewerCode(e.target.value)}
+              className="text-lg"
+              disabled={loading || isRunning}
+            />
+            
+            {interviewerCode.trim() && onLogin && (
+              <Button 
+                onClick={onLogin}
+                disabled={!interviewerCode.trim() || loading}
+                className="w-full"
+                variant="default"
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                <span>Log In</span>
+              </Button>
+            )}
             
             <p className="text-xs text-muted-foreground">
               Enter your interviewer code to log in
