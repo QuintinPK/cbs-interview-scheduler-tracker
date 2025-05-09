@@ -1,3 +1,4 @@
+
 import Dexie, { Table } from 'dexie';
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";
@@ -687,7 +688,6 @@ async function syncSessions(): Promise<boolean> {
   try {
     // Get unsynced sessions that are not in progress
     // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
-    // and filter in memory for the syncInProgress check
     const unsyncedSessions = await db.sessions
       .where('synced')
       .equals(0)
@@ -842,21 +842,24 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       console.warn(`Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       await logSync('SyncSession', 'Error', 'warning', `Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       
-      // Fix: Use correct toast structure
+      // Fix: Use correct toast format
       toast(`Could not sync session ${session.id} after multiple attempts.`);
     }
     
     return false;
-  } catch (error) {
-    console.error(`Unexpected error in syncSingleSession for session ${session.id}:`, error);
-    await logSync('SyncSession', 'Error', 'error', `Unexpected error syncing session ${session.id}: ${error}`);
-
-    // Ensure syncInProgress is set to false to allow retries
-    await db.sessions.update(session.id!, {
-      syncInProgress: false,
-    });
-    return false;
   }
+}
+
+// Add an error handler for unexpected errors in syncSingleSession
+async function handleSyncSingleSessionError(session: OfflineSession, error: any): Promise<boolean> {
+  console.error(`Unexpected error in syncSingleSession for session ${session.id}:`, error);
+  await logSync('SyncSession', 'Error', 'error', `Unexpected error syncing session ${session.id}: ${error}`);
+
+  // Ensure syncInProgress is set to false to allow retries
+  await db.sessions.update(session.id!, {
+    syncInProgress: false,
+  });
+  return false;
 }
 
 // Sync interviews
@@ -986,3 +989,59 @@ async function syncSingleInterview(interview: OfflineInterview, session: Offline
       start_time: interview.startTime,
       end_time: interview.endTime,
       start_latitude: interview.startLatitude,
+      start_longitude: interview.startLongitude,
+      start_address: interview.startAddress,
+      end_latitude: interview.endLatitude,
+      end_longitude: interview.endLongitude,
+      end_address: interview.endAddress,
+      result: interview.result,
+      is_active: interview.endTime === null
+    };
+    
+    // Insert interview into Supabase
+    const { data, error } = await supabase
+      .from('interviews')
+      .upsert([interviewData], {
+        onConflict: 'id',
+        ignoreDuplicates: false
+      });
+    
+    if (error) {
+      throw error;
+    }
+    
+    console.log(`Interview ${interview.id} (UUID: ${interview.uuid}) synced successfully`);
+    await logSync('SyncInterview', 'Completed', 'success', `Interview ${interview.id} synced successfully`);
+    
+    // Mark as synced
+    await db.interviews.update(interview.id!, {
+      synced: true,
+      syncInProgress: false,
+      syncAttempts: interview.syncAttempts + 1,
+      lastSyncAttempt: new Date().toISOString()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error(`Error syncing interview ${interview.id}:`, error);
+    await logSync('SyncInterview', 'Error', 'error', `Error syncing interview ${interview.id}: ${error}`);
+    
+    // Mark as failed but not in progress
+    await db.interviews.update(interview.id!, {
+      synced: false,
+      syncInProgress: false,
+      syncAttempts: interview.syncAttempts + 1,
+      lastSyncAttempt: new Date().toISOString()
+    });
+    
+    // If we've tried too many times, give up
+    if (interview.syncAttempts >= 5) {
+      console.warn(`Giving up on syncing interview ${interview.id} after ${interview.syncAttempts} attempts`);
+      await logSync('SyncInterview', 'Error', 'warning', `Giving up on syncing interview ${interview.id} after ${interview.syncAttempts} attempts`);
+      
+      toast(`Could not sync interview ${interview.id} after multiple attempts.`);
+    }
+    
+    return false;
+  }
+}
