@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { LoaderCircle, Wifi, WifiOff, CheckCircle, AlertCircle } from 'lucide-react';
@@ -14,7 +13,6 @@ import {
   logSync
 } from '@/lib/offlineDB';
 import { requestSync } from '@/registerSW';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Progress } from '@/components/ui/progress';
 
 const SyncStatus = () => {
@@ -103,7 +101,7 @@ const SyncStatus = () => {
       }
       
       // Log sync start
-      await logSync('ManualSync', 'Started', 'info', 'Manual sync initiated from UI');
+      await logSync('ManualSync', 'Started', 'success', 'Manual sync initiated from UI');
       
       toast.success('Synchronization started');
       

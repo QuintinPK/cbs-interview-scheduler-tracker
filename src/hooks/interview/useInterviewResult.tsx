@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
-import { isOnline, setOfflineInterviewResult } from "@/lib/offlineDB";
+import { isOnline, updateOfflineInterviewResult } from "@/lib/offlineDB";
 
 /**
  * Hook for handling interview results
@@ -27,7 +27,7 @@ export const useInterviewResult = (
       // Check if this is an offline interview
       if (activeOfflineInterviewId !== null) {
         // Update the offline interview with the result
-        await setOfflineInterviewResult(activeOfflineInterviewId, result);
+        await updateOfflineInterviewResult(activeOfflineInterviewId, result);
         
         setActiveInterview(null);
         if (setActiveOfflineInterviewId) {
