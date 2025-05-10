@@ -6,7 +6,7 @@ import { useSessions } from "@/hooks/useSessions";
 import { useProjects } from "@/hooks/useProjects";
 import { supabase } from "@/integrations/supabase/client";
 import { DateRange } from "react-day-picker";
-import { Interviewer, Interview } from "@/types";
+import { Interviewer, Interview, Project } from "@/types";
 
 export const useInterviewerDashboard = () => {
   const navigate = useNavigate();
@@ -29,6 +29,7 @@ export const useInterviewerDashboard = () => {
 
   const [interviewer, setInterviewer] = useState<Interviewer | null>(null);
   const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [assignedProjects, setAssignedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   // Set the default tab based on URL param or defaulting to "overview"
   const [activeTab, setActiveTab] = useState(tabParam || "overview");
@@ -142,6 +143,53 @@ export const useInterviewerDashboard = () => {
       return [];
     }
   };
+
+  // Fetch assigned projects for the interviewer
+  const getInterviewerProjects = async () => {
+    if (!interviewerId) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('project_interviewers')
+        .select('project_id')
+        .eq('interviewer_id', interviewerId);
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        setAssignedProjects([]);
+        return [];
+      }
+      
+      const projectIds = data.map(item => item.project_id);
+      
+      // Fetch the full project details
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .in('id', projectIds);
+      
+      if (projectsError) throw projectsError;
+      
+      const typedProjects = (projectsData || []).map(project => ({
+        ...project,
+        excluded_islands: (project.excluded_islands || []) as ('Bonaire' | 'Saba' | 'Sint Eustatius')[]
+      }));
+      
+      setAssignedProjects(typedProjects);
+      return typedProjects;
+    } catch (error) {
+      console.error("Error fetching interviewer projects:", error);
+      return [];
+    }
+  };
+
+  // Load projects for the interviewer when the interviewer changes
+  useEffect(() => {
+    if (interviewerId) {
+      getInterviewerProjects();
+    }
+  }, [interviewerId]);
 
   // If there's a compare parameter, fetch the comparison interviewer data
   useEffect(() => {
@@ -303,6 +351,14 @@ export const useInterviewerDashboard = () => {
     fetchInterviews();
   }, [sessions]);
 
+  // Refresh all data
+  const refreshData = async () => {
+    if (interviewerId) {
+      // Refresh interviewer projects
+      await getInterviewerProjects();
+    }
+  };
+
   // Filter sessions by date range locally
   const filteredSessions = sessions.filter(session => {
     if (!dateRange.from || !dateRange.to) return true;
@@ -334,6 +390,9 @@ export const useInterviewerDashboard = () => {
     setActiveTab,
     getProjectName,
     projects,
+    getInterviewerProjects,
+    assignedProjects,
+    refreshData,
     compareInterviewer,
     compareSessions,
     compareInterviews

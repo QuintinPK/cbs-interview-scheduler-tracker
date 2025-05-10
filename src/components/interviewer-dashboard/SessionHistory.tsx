@@ -24,7 +24,7 @@ const SessionHistory: React.FC<SessionHistoryProps> = ({
   projectNameResolver
 }) => {
   const [expandedSessions, setExpandedSessions] = useState<Record<string, boolean>>({});
-  const [selectedCoordinate, setSelectedCoordinate] = useState<{lat: number, lng: number} | null>(null);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<{latitude: number, longitude: number} | null>(null);
   const [isMapOpen, setIsMapOpen] = useState(false);
   
   // This is just a placeholder as we're in the interviewer's context
@@ -39,7 +39,7 @@ const SessionHistory: React.FC<SessionHistoryProps> = ({
 
   const handleCoordinateClick = (lat: number | null, lng: number | null) => {
     if (lat !== null && lng !== null) {
-      setSelectedCoordinate({ lat, lng });
+      setSelectedCoordinate({ latitude: lat, longitude: lng });
       setIsMapOpen(true);
     }
   };

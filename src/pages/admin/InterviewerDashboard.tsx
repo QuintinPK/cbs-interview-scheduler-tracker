@@ -5,6 +5,7 @@ import { InterviewerHeader } from "@/components/interviewer-dashboard/Interviewe
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
 import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
+import { ProjectsTab } from "@/components/interviewer-dashboard/ProjectsTab"; // Import the new ProjectsTab
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { EvaluationsTab } from "@/components/interviewer-dashboard/EvaluationsTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
@@ -24,6 +25,9 @@ const InterviewerDashboard = () => {
     activeTab,
     setActiveTab,
     getProjectName,
+    getInterviewerProjects,
+    assignedProjects,
+    refreshData,
     compareInterviewer,
     compareSessions
   } = useInterviewerDashboard();
@@ -101,6 +105,12 @@ const InterviewerDashboard = () => {
               Sessions
             </TabsTrigger>
             <TabsTrigger 
+              value="projects" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Projects
+            </TabsTrigger>
+            <TabsTrigger 
               value="performance" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
@@ -145,6 +155,14 @@ const InterviewerDashboard = () => {
               setDateRange={setDateRange}
               showProject={true}
               projectNameResolver={getProjectName}
+            />
+          </TabsContent>
+          
+          <TabsContent value="projects" className="m-0 p-0">
+            <ProjectsTab
+              interviewer={interviewer}
+              assignedProjects={assignedProjects}
+              refreshData={refreshData}
             />
           </TabsContent>
 
