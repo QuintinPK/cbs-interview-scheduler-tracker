@@ -7,6 +7,7 @@ import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { EvaluationsTab } from "@/components/interviewer-dashboard/EvaluationsTab";
+import { ProjectsTab } from "@/components/interviewer-dashboard/ProjectsTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { InterviewerSchedulingTab } from "@/components/interviewer-dashboard/InterviewerSchedulingTab";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
@@ -25,7 +26,8 @@ const InterviewerDashboard = () => {
     setActiveTab,
     getProjectName,
     compareInterviewer,
-    compareSessions
+    compareSessions,
+    projects
   } = useInterviewerDashboard();
 
   // Update page title whenever interviewer changes
@@ -101,6 +103,12 @@ const InterviewerDashboard = () => {
               Sessions
             </TabsTrigger>
             <TabsTrigger 
+              value="projects" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Projects
+            </TabsTrigger>
+            <TabsTrigger 
               value="performance" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
@@ -145,6 +153,13 @@ const InterviewerDashboard = () => {
               setDateRange={setDateRange}
               showProject={true}
               projectNameResolver={getProjectName}
+            />
+          </TabsContent>
+          
+          <TabsContent value="projects" className="m-0 p-0">
+            <ProjectsTab 
+              interviewer={interviewer}
+              allProjects={projects}
             />
           </TabsContent>
 

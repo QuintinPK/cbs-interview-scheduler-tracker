@@ -24,8 +24,17 @@ export const useGoogleMapsApiKey = () => {
         }
 
         // Check if data exists and has a value property
-        if (data && typeof data.value === 'object' && data.value !== null && 'apiKey' in data.value) {
-          setApiKey(data.value.apiKey as string);
+        if (data && typeof data.value === 'object' && data.value !== null) {
+          // First try apiKey property
+          if ('apiKey' in data.value) {
+            setApiKey(data.value.apiKey as string);
+          } 
+          // Then try key property for backward compatibility
+          else if ('key' in data.value) {
+            setApiKey(data.value.key as string);
+          } else {
+            console.warn("API key format not recognized in settings");
+          }
         } else {
           console.warn("API key not found in settings");
         }
