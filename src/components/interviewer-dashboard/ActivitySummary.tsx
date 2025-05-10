@@ -98,10 +98,7 @@ export const ActivitySummary: React.FC<ActivitySummaryProps> = ({
       <CoordinatePopup
         isOpen={isMapOpen}
         onClose={closeMap} 
-        coordinate={selectedCoordinate ? {
-          latitude: selectedCoordinate.lat,
-          longitude: selectedCoordinate.lng
-        } : null}
+        coordinate={selectedCoordinate}
       />
     </>
   );

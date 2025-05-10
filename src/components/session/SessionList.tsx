@@ -396,10 +396,7 @@ const SessionList: React.FC<SessionListProps> = ({
       <CoordinatePopup
         isOpen={isMapOpen}
         onClose={() => setIsMapOpen(false)} 
-        coordinate={selectedCoordinate ? {
-          latitude: selectedCoordinate.lat,
-          longitude: selectedCoordinate.lng
-        } : null}
+        coordinate={selectedCoordinate}
       />
     </>
   );

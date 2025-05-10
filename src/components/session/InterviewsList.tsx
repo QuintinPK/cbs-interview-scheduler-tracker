@@ -342,10 +342,7 @@ const InterviewsList: React.FC<InterviewsListProps> = ({ interviews, refreshInte
       <CoordinatePopup
         isOpen={isMapOpen}
         onClose={() => setIsMapOpen(false)} 
-        coordinate={selectedCoordinate ? {
-          latitude: selectedCoordinate.lat,
-          longitude: selectedCoordinate.lng
-        } : null}
+        coordinate={selectedCoordinate}
       />
     </>
   );

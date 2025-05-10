@@ -52,27 +52,22 @@ const Map: React.FC<MapProps> = ({
 
   useEffect(() => {
     if (mapLoaded && mapRef.current && latitude && longitude) {
-      try {
-        const map = new google.maps.Map(mapRef.current, {
-          center: { lat: latitude, lng: longitude },
-          zoom: zoom,
-          zoomControl: true,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: true,
-        });
+      const map = new google.maps.Map(mapRef.current, {
+        center: { lat: latitude, lng: longitude },
+        zoom: zoom,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
 
-        const marker = new google.maps.Marker({
-          position: { lat: latitude, lng: longitude },
-          map: map,
-          title: 'Location',
-        });
+      const marker = new google.maps.Marker({
+        position: { lat: latitude, lng: longitude },
+        map: map,
+        title: 'Location',
+      });
 
-        setGoogleMap(map);
-      } catch (mapError) {
-        console.error('Error creating Google Map:', mapError);
-        setError('Error creating map');
-      }
+      setGoogleMap(map);
     }
   }, [mapLoaded, latitude, longitude, zoom]);
 

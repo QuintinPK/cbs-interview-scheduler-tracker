@@ -39,7 +39,7 @@ serve(async (req) => {
         .from('app_settings')
         .insert({
           key: 'google_maps_api_key',
-          value: { apiKey: initialApiKey },
+          value: { key: initialApiKey },
           updated_at: new Date(),
           updated_by: 'system'
         });
