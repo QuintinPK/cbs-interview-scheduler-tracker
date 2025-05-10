@@ -75,7 +75,7 @@ const SyncStatus = () => {
   const totalItems = status.sessionsTotal + status.interviewsTotal;
   const syncProgress = totalItems ? Math.round(((totalItems - totalUnsynced) / totalItems) * 100) : 100;
   
-  // Handle manual sync
+  // Handle manual sync with improved logging
   const handleSync = async () => {
     if (isOffline) {
       toast.error('Cannot sync while offline');
@@ -91,6 +91,7 @@ const SyncStatus = () => {
       setIsSyncing(true);
       
       const syncId = `manual-ui-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      console.log(`Starting manual sync with ID: ${syncId}`);
       
       // Try to acquire sync lock
       const lockAcquired = await acquireSyncLock(syncId);
@@ -109,9 +110,11 @@ const SyncStatus = () => {
       try {
         // Use Service Worker sync if available
         const swSyncId = requestSync();
+        console.log(`Requested service worker sync: ${swSyncId || 'not available'}`);
         
         if (!swSyncId) {
           // Fall back to direct sync
+          console.log('Service worker sync not available, falling back to direct sync');
           await syncOfflineSessions();
         }
         
@@ -122,6 +125,7 @@ const SyncStatus = () => {
         const checkSyncComplete = async () => {
           attempts++;
           const currentStatus = await getSyncStatus();
+          console.log(`Sync check attempt ${attempts}: ${currentStatus.sessionsUnsynced} sessions, ${currentStatus.interviewsUnsynced} interviews unsynced`);
           
           if (currentStatus.sessionsUnsynced === 0 && currentStatus.interviewsUnsynced === 0) {
             // Sync complete

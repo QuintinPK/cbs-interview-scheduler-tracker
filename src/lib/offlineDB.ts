@@ -240,6 +240,7 @@ export async function saveOfflineSession(
   try {
     // Generate a unique UUID for this session
     const sessionUuid = uuidv4();
+    console.log(`Generating new session UUID: ${sessionUuid}`);
     
     // Create a new session record
     const id = await db.sessions.add({
@@ -687,7 +688,6 @@ export async function syncOfflineSessions(): Promise<boolean> {
 async function syncSessions(): Promise<boolean> {
   try {
     // Get unsynced sessions that are not in progress
-    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
     const unsyncedSessions = await db.sessions
       .where('synced')
       .equals(0)
@@ -708,7 +708,12 @@ async function syncSessions(): Promise<boolean> {
     
     // Process them one by one to avoid race conditions
     for (const session of sessionsToSync) {
-      await syncSingleSession(session);
+      try {
+        await syncSingleSession(session);
+      } catch (error) {
+        // Handle any unexpected errors
+        await handleSyncSingleSessionError(session, error);
+      }
     }
     
     return true;
@@ -728,16 +733,17 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       lastSyncAttempt: new Date().toISOString()
     });
     
-    // Log session sync attempt
+    // Log session sync attempt with UUID for better tracking
     const sessionLog = `Syncing session ${session.id} (UUID: ${session.uuid}), attempt #${session.syncAttempts + 1}`;
     console.log(sessionLog);
     await logSync('SyncSession', 'Started', 'success', sessionLog);
     
-    // Check if session already exists by UUID
+    // CRITICAL FIX: Use the correct field 'id' instead of 'interviewer_id' when checking for existing sessions
+    console.log(`Checking if session with UUID ${session.uuid} already exists`);
     const { data: existingSessions, error: checkError } = await supabase
       .from('sessions')
       .select('id')
-      .eq('interviewer_id', session.uuid)
+      .eq('id', session.uuid) // FIXED: This was incorrectly using 'interviewer_id'
       .limit(1);
     
     if (checkError) {
@@ -763,6 +769,7 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
         .toArray();
       
       if (sessionInterviews.length > 0) {
+        console.log(`Found ${sessionInterviews.length} interviews for session ${session.id} that need to be synced`);
         for (const interview of sessionInterviews) {
           // Update each interview to use the online session ID
           await db.interviews.update(interview.id!, {
@@ -782,6 +789,8 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       throw new Error(`Interviewer with code ${session.interviewerCode} not found`);
     }
     
+    console.log(`Using interviewer ID ${interviewer.id} for session ${session.uuid}`);
+    
     // Prepare session data
     const sessionData = {
       id: session.uuid, // Use UUID as the online ID
@@ -797,6 +806,8 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       end_address: session.endAddress,
       is_active: session.endTime === null
     };
+    
+    console.log(`Attempting to insert session with UUID ${session.uuid} to Supabase`);
     
     // Insert session into Supabase
     const { data, error } = await supabase
@@ -842,7 +853,6 @@ async function syncSingleSession(session: OfflineSession): Promise<boolean> {
       console.warn(`Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       await logSync('SyncSession', 'Error', 'warning', `Giving up on syncing session ${session.id} after ${session.syncAttempts} attempts`);
       
-      // Fix: Use correct toast format
       toast(`Could not sync session ${session.id} after multiple attempts.`);
     }
     
@@ -866,7 +876,6 @@ async function handleSyncSingleSessionError(session: OfflineSession, error: any)
 async function syncInterviews(): Promise<boolean> {
   try {
     // Get unsynced interviews that are not in progress
-    // Fix: Use the equals() method with 0 (as number) instead of false (boolean)
     const unsyncedInterviews = await db.interviews
       .where('synced')
       .equals(0)
@@ -887,12 +896,20 @@ async function syncInterviews(): Promise<boolean> {
     
     // Process them one by one to avoid race conditions
     for (const interview of interviewsToSync) {
-      // Get the associated session
-      const session = await db.sessions.get(interview.sessionId);
-      
-      // Only sync if the session is synced or if this is a retry
-      if (session && (session.synced || interview.syncAttempts > 0)) {
-        await syncSingleInterview(interview, session);
+      try {
+        // Get the associated session
+        const session = await db.sessions.get(interview.sessionId);
+        
+        // Only sync if the session is synced or if this is a retry
+        if (session && (session.synced || interview.syncAttempts > 0)) {
+          await syncSingleInterview(interview, session);
+        }
+      } catch (error) {
+        // Handle individual interview sync errors
+        console.error(`Error syncing interview ${interview.id}:`, error);
+        await db.interviews.update(interview.id!, {
+          syncInProgress: false
+        });
       }
     }
     
