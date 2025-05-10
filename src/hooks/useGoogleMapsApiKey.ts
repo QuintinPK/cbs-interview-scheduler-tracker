@@ -24,10 +24,19 @@ export const useGoogleMapsApiKey = () => {
         }
 
         // Check if data exists and has a value property
-        if (data && typeof data.value === 'object' && data.value !== null && 'apiKey' in data.value) {
-          setApiKey(data.value.apiKey as string);
+        if (data && typeof data.value === 'object' && data.value !== null) {
+          // Try both potential field names for the API key
+          if ('apiKey' in data.value) {
+            setApiKey(data.value.apiKey as string);
+          } else if ('key' in data.value) {
+            setApiKey(data.value.key as string);
+          } else {
+            console.warn("API key not found in settings object:", data.value);
+            setError("API key not found in settings");
+          }
         } else {
           console.warn("API key not found in settings");
+          setError("API key not found in settings");
         }
       } catch (err) {
         console.error("Unexpected error:", err);
