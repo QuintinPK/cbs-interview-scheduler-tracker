@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@radix-ui/react-tooltip";
 import { Info } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 

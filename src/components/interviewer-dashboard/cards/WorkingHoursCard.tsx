@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Clock, Activity } from "lucide-react";
 import { formatTime } from "@/lib/utils";
@@ -7,7 +6,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@radix-ui/react-tooltip";
 
 interface WorkingHoursCardProps {
   earliestStartTime: Date | null;

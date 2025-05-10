@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@radix-ui/react-tooltip";
 import { Session } from '@/types';
 import {
   Dialog,

@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Briefcase, Activity } from "lucide-react";
 import {
@@ -6,7 +5,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@radix-ui/react-tooltip";
 
 interface DaysWorkedCardProps {
   avgDaysPerWeek: number;
