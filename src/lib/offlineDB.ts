@@ -13,7 +13,8 @@ const STORES = {
   interviewers: 'interviewers',
   projects: 'projects',
   syncLocks: 'syncLocks',
-  syncLogs: 'syncLogs'
+  syncLogs: 'syncLogs',
+  syncQueue: 'syncQueue' // Added for improved sync queueing
 };
 
 // Check if offline/online
@@ -75,38 +76,59 @@ const openDB = (): Promise<IDBDatabase> => {
         syncLogsStore.createIndex('status', 'status', { unique: false });
       }
       
+      // Add new sync queue store for improved sync operations
+      if (!db.objectStoreNames.contains(STORES.syncQueue)) {
+        const syncQueueStore = db.createObjectStore(STORES.syncQueue, { keyPath: 'id', autoIncrement: true });
+        syncQueueStore.createIndex('type', 'type', { unique: false });
+        syncQueueStore.createIndex('status', 'status', { unique: false });
+        syncQueueStore.createIndex('timestamp', 'timestamp', { unique: false });
+        syncQueueStore.createIndex('priority', 'priority', { unique: false });
+      }
+      
       // Add migration to ensure existing sessions and interviews have uniqueKey
-      const existingSessionsRequest = db.transaction(STORES.sessions, 'readwrite')
-        .objectStore(STORES.sessions)
-        .openCursor();
-      
-      existingSessionsRequest.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result;
-        if (cursor) {
-          const session = cursor.value;
-          if (!session.uniqueKey) {
-            session.uniqueKey = generateSessionUniqueKey(session);
-            cursor.update(session);
-          }
-          cursor.continue();
+      if (db.objectStoreNames.contains(STORES.sessions)) {
+        try {
+          const existingSessionsRequest = db.transaction(STORES.sessions, 'readwrite')
+            .objectStore(STORES.sessions)
+            .openCursor();
+          
+          existingSessionsRequest.onsuccess = (event) => {
+            const cursor = (event.target as IDBRequest).result;
+            if (cursor) {
+              const session = cursor.value;
+              if (!session.uniqueKey) {
+                session.uniqueKey = generateSessionUniqueKey(session);
+                cursor.update(session);
+              }
+              cursor.continue();
+            }
+          };
+        } catch (e) {
+          console.error("Error during session migration:", e);
         }
-      };
+      }
       
-      const existingInterviewsRequest = db.transaction(STORES.interviews, 'readwrite')
-        .objectStore(STORES.interviews)
-        .openCursor();
-      
-      existingInterviewsRequest.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result;
-        if (cursor) {
-          const interview = cursor.value;
-          if (!interview.uniqueKey) {
-            interview.uniqueKey = generateInterviewUniqueKey(interview);
-            cursor.update(interview);
-          }
-          cursor.continue();
+      if (db.objectStoreNames.contains(STORES.interviews)) {
+        try {
+          const existingInterviewsRequest = db.transaction(STORES.interviews, 'readwrite')
+            .objectStore(STORES.interviews)
+            .openCursor();
+          
+          existingInterviewsRequest.onsuccess = (event) => {
+            const cursor = (event.target as IDBRequest).result;
+            if (cursor) {
+              const interview = cursor.value;
+              if (!interview.uniqueKey) {
+                interview.uniqueKey = generateInterviewUniqueKey(interview);
+                cursor.update(interview);
+              }
+              cursor.continue();
+            }
+          };
+        } catch (e) {
+          console.error("Error during interview migration:", e);
         }
-      };
+      }
       
       console.log(`IndexedDB upgraded to version ${DB_VERSION}`);
     };
@@ -122,8 +144,7 @@ export const generateSessionUniqueKey = (session: any): string => {
   const randomFactor = Math.random().toString(36).substring(2, 10);
   
   // Generate a UUID-based hash that combines all these factors
-  const hashBase = `${interviewerCode}-${startTime}-${deviceId}-${randomFactor}`;
-  return uuidv4({ random: hashBase.split('').map(c => c.charCodeAt(0) % 256) });
+  return `${interviewerCode}-${startTime}-${deviceId}-${randomFactor}`;
 };
 
 // Generate a unique key for interviews
@@ -133,8 +154,7 @@ export const generateInterviewUniqueKey = (interview: any): string => {
   const deviceId = localStorage.getItem('device_id') || 'unknown';
   const randomFactor = Math.random().toString(36).substring(2, 10);
   
-  const hashBase = `${sessionId}-${startTime}-${deviceId}-${randomFactor}`;
-  return uuidv4({ random: hashBase.split('').map(c => c.charCodeAt(0) % 256) });
+  return `${sessionId}-${startTime}-${deviceId}-${randomFactor}`;
 };
 
 // Initialize device ID if not exists
@@ -390,7 +410,7 @@ export const getUnsyncedSessions = async (): Promise<any[]> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      // Use the key parameter for boolean indexes
+      // Use IDBKeyRange.only for boolean values
       const request = index.getAll(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
@@ -417,7 +437,7 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      // Use the key parameter for boolean indexes
+      // Use IDBKeyRange.only for boolean values
       const request = index.count(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
@@ -444,7 +464,7 @@ export const getUnsyncedInterviews = async (): Promise<any[]> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      // Use the key parameter for boolean indexes
+      // Use IDBKeyRange.only for boolean values
       const request = index.getAll(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
@@ -471,7 +491,7 @@ export const getUnsyncedInterviewsCount = async (): Promise<number> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      // Use the key parameter for boolean indexes
+      // Use IDBKeyRange.only for boolean values
       const request = index.count(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
@@ -1116,6 +1136,7 @@ export const getSyncStatus = async (): Promise<any> => {
         request.onerror = () => resolve(0);
       }),
       new Promise<number>((resolve) => {
+        // Use IDBKeyRange.only for boolean values
         const request = sessionsSyncIndex.count(IDBKeyRange.only(false));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
@@ -1126,6 +1147,7 @@ export const getSyncStatus = async (): Promise<any> => {
         request.onerror = () => resolve(0);
       }),
       new Promise<number>((resolve) => {
+        // Use IDBKeyRange.only for boolean values
         const request = interviewsSyncIndex.count(IDBKeyRange.only(false));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
@@ -1482,7 +1504,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         };
         
         // Upload the session
-        const { data: sessionResult, error } = await supabase
+        const { data: uploadedSessions, error } = await supabase
           .from('sessions')
           .insert([sessionData])
           .select();
@@ -1498,7 +1520,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           continue;
         }
         
-        if (!sessionResult || sessionResult.length === 0) {
+        if (!uploadedSessions || uploadedSessions.length === 0) {
           console.error(`No data returned when syncing session ${session.id}`);
           await markSessionSyncInProgress(session.id, false);
           
@@ -1509,7 +1531,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           continue;
         }
         
-        const onlineSessionId = sessionResult[0].id;
+        const onlineSessionId = uploadedSessions[0].id;
         
         // Mark session as synced
         await markSessionAsSynced(session.id, onlineSessionId);
@@ -1557,7 +1579,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
             }
             
             // Prepare interview data for upload
-            const interviewData = {
+            const interviewSubmitData = {
               session_id: onlineSessionId,
               project_id: interview.projectId || null,
               start_time: interview.startTime,
@@ -1576,9 +1598,9 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
             };
             
             // Upload the interview
-            const { data: uploadResult, error: interviewError } = await supabase
+            const { data: uploadedInterviews, error: interviewError } = await supabase
               .from('interviews')
-              .insert([interviewData])
+              .insert([interviewSubmitData])
               .select();
               
             if (interviewError) {
@@ -1592,7 +1614,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
               continue;
             }
             
-            if (!uploadResult || uploadResult.length === 0) {
+            if (!uploadedInterviews || uploadedInterviews.length === 0) {
               console.error(`No data returned when syncing interview ${interview.id}`);
               await markInterviewSyncInProgress(interview.id, false);
               
@@ -1603,7 +1625,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
               continue;
             }
             
-            const onlineInterviewId = uploadResult[0].id;
+            const onlineInterviewId = uploadedInterviews[0].id;
             
             // Mark interview as synced
             await markInterviewAsSynced(interview.id, onlineInterviewId);
