@@ -885,10 +885,12 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
     const { getSupabaseForSync } = await import('@/integrations/supabase/client');
     const supabase = getSupabaseForSync();
     
-    // Use explicit typing for the query response
-    type SessionResponse = { id: string }[];
+    // Use a simple type definition to avoid deep instantiation
+    interface SessionResult {
+      id: string;
+    }
     
-    // First try to find by uniqueKey
+    // Query supabase with explicit typing
     const { data, error } = await supabase
       .from('sessions')
       .select('id')
@@ -899,8 +901,8 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
       throw error;
     }
     
-    // Use a type assertion to break the circular reference
-    const sessions = data as SessionResponse;
+    // Use a simple type assertion to avoid circular references
+    const sessions = data as SessionResult[];
     
     if (sessions && sessions.length > 0) {
       return sessions[0].id;
@@ -922,10 +924,12 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
     const { getSupabaseForSync } = await import('@/integrations/supabase/client');
     const supabase = getSupabaseForSync();
     
-    // Use explicit typing for the query response
-    type InterviewResponse = { id: string }[];
+    // Use a simple type definition to avoid deep instantiation
+    interface InterviewResult {
+      id: string;
+    }
     
-    // Try to find by uniqueKey
+    // Query supabase with explicit typing
     const { data, error } = await supabase
       .from('interviews')
       .select('id')
@@ -936,8 +940,8 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
       throw error;
     }
     
-    // Use a type assertion to break the circular reference
-    const interviews = data as InterviewResponse;
+    // Use a simple type assertion to avoid circular references
+    const interviews = data as InterviewResult[];
     
     if (interviews && interviews.length > 0) {
       return interviews[0].id;
@@ -1120,25 +1124,32 @@ export const getSyncStatus = async (): Promise<{
   interviewsTotal: number;
   interviewsUnsynced: number;
   interviewsInProgress: number;
-  lastSync: any;
+  lastSync: string | null;
   currentLock: any;
 }> => {
   try {
     const db = await openDB();
     
-    // Use explicitly typed helper functions instead of nested promises
-    const result = {
-      sessionsTotal: await countAllSessions(db),
-      sessionsUnsynced: await countUnsyncedSessions(db),
-      sessionsInProgress: await countSessionsInProgress(db),
-      interviewsTotal: await countAllInterviews(db),
-      interviewsUnsynced: await countUnsyncedInterviews(db),
-      interviewsInProgress: await countInterviewsInProgress(db),
-      lastSync: await getLastSuccessfulSyncLog(db),
-      currentLock: await getCurrentSyncLock(db)
-    };
+    // Each function returns a specific type to avoid deep type instantiation
+    const sessionsTotal = await countAllSessions(db);
+    const sessionsUnsynced = await countUnsyncedSessions(db);
+    const sessionsInProgress = await countSessionsInProgress(db);
+    const interviewsTotal = await countAllInterviews(db);
+    const interviewsUnsynced = await countUnsyncedInterviews(db);
+    const interviewsInProgress = await countInterviewsInProgress(db);
+    const lastSync = await getLastSuccessfulSyncLog(db);
+    const currentLock = await getCurrentSyncLock(db);
     
-    return result;
+    return {
+      sessionsTotal,
+      sessionsUnsynced,
+      sessionsInProgress,
+      interviewsTotal,
+      interviewsUnsynced,
+      interviewsInProgress,
+      lastSync,
+      currentLock
+    };
   } catch (error) {
     console.error('Error getting sync status:', error);
     return {
@@ -1154,7 +1165,7 @@ export const getSyncStatus = async (): Promise<{
   }
 };
 
-// Helper functions for getSyncStatus with explicit return types
+// Helper functions with explicit return types to avoid type instantiation issues
 const countAllSessions = async (db: IDBDatabase): Promise<number> => {
   return new Promise<number>((resolve) => {
     try {
@@ -1273,6 +1284,7 @@ const countInterviewsInProgress = async (db: IDBDatabase): Promise<number> => {
   });
 };
 
+// Get the current sync lock with explicit return type
 const getCurrentSyncLock = async (db: IDBDatabase): Promise<any> => {
   return new Promise<any>((resolve) => {
     try {
@@ -1288,8 +1300,9 @@ const getCurrentSyncLock = async (db: IDBDatabase): Promise<any> => {
   });
 };
 
-const getLastSuccessfulSyncLog = async (db: IDBDatabase): Promise<any> => {
-  return new Promise<any>((resolve) => {
+// Get the last successful sync log with explicit return type
+const getLastSuccessfulSyncLog = async (db: IDBDatabase): Promise<string | null> => {
+  return new Promise<string | null>((resolve) => {
     try {
       const transaction = db.transaction([STORES.syncLogs], 'readonly');
       const store = transaction.objectStore(STORES.syncLogs);
