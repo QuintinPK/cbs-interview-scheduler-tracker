@@ -373,6 +373,14 @@ export const updateOfflineInterview = async (
   }
 };
 
+// Alias for updateOfflineInterview focused on just updating the result
+export const updateOfflineInterviewResult = async (
+  interviewId: number, 
+  result: string
+): Promise<void> => {
+  return updateOfflineInterview(interviewId, undefined, undefined, result);
+};
+
 // Get all unsynchronized sessions
 export const getUnsyncedSessions = async (): Promise<any[]> => {
   try {
@@ -382,7 +390,8 @@ export const getUnsyncedSessions = async (): Promise<any[]> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      const request = index.getAll(false);
+      // Use the key parameter for boolean indexes
+      const request = index.getAll(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
         resolve(request.result || []);
@@ -408,7 +417,8 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      const request = index.count(false);
+      // Use the key parameter for boolean indexes
+      const request = index.count(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
         resolve(request.result || 0);
@@ -434,7 +444,8 @@ export const getUnsyncedInterviews = async (): Promise<any[]> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      const request = index.getAll(false);
+      // Use the key parameter for boolean indexes
+      const request = index.getAll(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
         resolve(request.result || []);
@@ -460,7 +471,8 @@ export const getUnsyncedInterviewsCount = async (): Promise<number> => {
     const index = store.index('synced');
     
     return new Promise((resolve, reject) => {
-      const request = index.count(false);
+      // Use the key parameter for boolean indexes
+      const request = index.count(IDBKeyRange.only(false));
       
       request.onsuccess = () => {
         resolve(request.result || 0);
@@ -1104,7 +1116,7 @@ export const getSyncStatus = async (): Promise<any> => {
         request.onerror = () => resolve(0);
       }),
       new Promise<number>((resolve) => {
-        const request = sessionsSyncIndex.count(false);
+        const request = sessionsSyncIndex.count(IDBKeyRange.only(false));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
       }),
@@ -1114,7 +1126,7 @@ export const getSyncStatus = async (): Promise<any> => {
         request.onerror = () => resolve(0);
       }),
       new Promise<number>((resolve) => {
-        const request = interviewsSyncIndex.count(false);
+        const request = interviewsSyncIndex.count(IDBKeyRange.only(false));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
       }),
@@ -1470,7 +1482,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         };
         
         // Upload the session
-        const { data, error } = await supabase
+        const { data: sessionResult, error } = await supabase
           .from('sessions')
           .insert([sessionData])
           .select();
@@ -1486,7 +1498,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           continue;
         }
         
-        if (!data || data.length === 0) {
+        if (!sessionResult || sessionResult.length === 0) {
           console.error(`No data returned when syncing session ${session.id}`);
           await markSessionSyncInProgress(session.id, false);
           
@@ -1497,7 +1509,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           continue;
         }
         
-        const onlineSessionId = data[0].id;
+        const onlineSessionId = sessionResult[0].id;
         
         // Mark session as synced
         await markSessionAsSynced(session.id, onlineSessionId);
@@ -1557,14 +1569,14 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
               end_longitude: interview.endLongitude || null,
               end_address: interview.endAddress || null,
               is_active: interview.endTime ? false : true,
-              candidate_name: interview.candidateName || "Interview",
+              candidate_name: interview.candidateName || "Unknown",
               result: interview.result,
               unique_key: interview.uniqueKey,
               offline_created_at: interview.createdAt || new Date().toISOString()
             };
             
             // Upload the interview
-            const { data: interviewData, error: interviewError } = await supabase
+            const { data: uploadResult, error: interviewError } = await supabase
               .from('interviews')
               .insert([interviewData])
               .select();
@@ -1580,7 +1592,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
               continue;
             }
             
-            if (!interviewData || interviewData.length === 0) {
+            if (!uploadResult || uploadResult.length === 0) {
               console.error(`No data returned when syncing interview ${interview.id}`);
               await markInterviewSyncInProgress(interview.id, false);
               
@@ -1591,7 +1603,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
               continue;
             }
             
-            const onlineInterviewId = interviewData[0].id;
+            const onlineInterviewId = uploadResult[0].id;
             
             // Mark interview as synced
             await markInterviewAsSynced(interview.id, onlineInterviewId);
@@ -1649,6 +1661,7 @@ export default {
   updateOfflineSession,
   saveOfflineInterview,
   updateOfflineInterview,
+  updateOfflineInterviewResult,
   getUnsyncedSessions,
   getUnsyncedSessionsCount,
   getUnsyncedInterviews,

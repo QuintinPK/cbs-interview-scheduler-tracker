@@ -70,7 +70,6 @@ const InterviewerDashboard = () => {
   const {
     interviewer,
     loading,
-    error,
     sessions,
     interviews,
     dateRange,
@@ -82,7 +81,8 @@ const InterviewerDashboard = () => {
     assignedProjects,
     refreshData,
     compareInterviewer,
-    compareSessions
+    compareSessions,
+    compareInterviews
   } = useInterviewerDashboard();
   
   // Local states for performance optimization
@@ -105,9 +105,9 @@ const InterviewerDashboard = () => {
     };
   }, [interviewer, loading]);
   
-  // Show error toast when error is detected
+  // Handle error when interviewer cannot be loaded
   useEffect(() => {
-    if (error) {
+    if (!loading && !interviewer) {
       toast.error("Error loading interviewer data", {
         description: "Please try refreshing the page.",
         action: {
@@ -116,7 +116,7 @@ const InterviewerDashboard = () => {
         },
       });
     }
-  }, [error]);
+  }, [interviewer, loading]);
 
   // Handle manual refresh
   const handleRefresh = async () => {
@@ -173,7 +173,7 @@ const InterviewerDashboard = () => {
   }
   
   // Error state
-  if (error || !interviewer) {
+  if (!interviewer) {
     return (
       <AdminLayout>
         <div className="flex flex-col items-center justify-center h-[80vh] max-w-md mx-auto text-center">
@@ -196,7 +196,7 @@ const InterviewerDashboard = () => {
       <div className="space-y-6">
         <InterviewerHeader 
           interviewer={interviewer} 
-          loading={false} 
+          loading={false}
           onRefresh={handleRefresh}
           isRefreshing={isRefreshing}
           lastRefreshTime={lastRefreshTime}

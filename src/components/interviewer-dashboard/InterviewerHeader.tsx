@@ -1,48 +1,67 @@
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Interviewer } from "@/types";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
-interface InterviewerHeaderProps {
-  interviewer: Interviewer | null;
+export interface InterviewerHeaderProps {
+  interviewer: Interviewer;
   loading: boolean;
+  onRefresh?: () => Promise<void>;
+  isRefreshing?: boolean;
+  lastRefreshTime?: Date | null;
 }
 
-export const InterviewerHeader: React.FC<InterviewerHeaderProps> = ({
-  interviewer,
+export const InterviewerHeader = ({ 
+  interviewer, 
   loading,
-}) => {
-  const navigate = useNavigate();
-  
+  onRefresh,
+  isRefreshing = false,
+  lastRefreshTime = null
+}: InterviewerHeaderProps) => {
+  if (loading) {
+    return (
+      <Card className="w-full h-24 bg-gray-100 animate-pulse" />
+    );
+  }
+
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div>
-        <Button
-          variant="ghost"
-          className="mb-2 -ml-4 text-gray-600 hover:text-gray-900"
-          onClick={() => navigate("/admin/interviewers")}
-        >
-          <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to Interviewers
-        </Button>
-        <h1 className="text-2xl md:text-3xl font-bold">
-          {loading ? "Loading..." : interviewer ? `${interviewer.first_name} ${interviewer.last_name}'s Dashboard` : "Interviewer Not Found"}
-        </h1>
+    <Card className="p-6 bg-white shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold text-gray-800">
+              {interviewer.first_name} {interviewer.last_name}
+            </h1>
+            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
+              {interviewer.code}
+            </span>
+          </div>
+          <p className="text-gray-600">
+            {interviewer.island} Island
+          </p>
+        </div>
+        
+        {onRefresh && (
+          <div className="mt-4 sm:mt-0 flex flex-col items-end">
+            <Button 
+              onClick={onRefresh} 
+              disabled={isRefreshing}
+              variant="outline" 
+              size="sm"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? "Refreshing..." : "Refresh Data"}
+            </Button>
+            {lastRefreshTime && (
+              <p className="text-xs text-gray-500 mt-1">
+                Last updated: {lastRefreshTime.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+        )}
       </div>
-      
-      <div className="flex gap-2">
-        <Button 
-          variant="outline"
-          onClick={() => interviewer && navigate(`/admin/interactive-scheduling?interviewer=${interviewer.code}`)}
-          disabled={loading || !interviewer}
-          className="bg-white border-gray-200 hover:bg-gray-100"
-        >
-          <Calendar className="mr-2 h-4 w-4" />
-          Schedule
-        </Button>
-      </div>
-    </div>
+    </Card>
   );
 };
