@@ -1,768 +1,1187 @@
-import Dexie, { Table } from 'dexie';
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from 'sonner';
-import { Location } from '@/types';
-import { getCurrentLocation, getAddressFromCoordinates } from "@/lib/utils";
 
-// Define the structure for our offline interviewers
-export interface OfflineInterviewer {
-  id?: number;
-  code: string;
-  supabaseId: string | null;
-}
+import { v4 as uuidv4 } from 'uuid';
+import { Session, Interview, Location, Project } from "@/types";
 
-// Define the structure for our offline sessions
-export interface OfflineSession {
-  id?: number;
-  interviewerCode: string;
-  startTime: string;
-  endTime: string | null;
-  startLatitude: number | null;
-  startLongitude: number | null;
-  startAddress: string | null;
-  endLatitude: number | null;
-  endLongitude: number | null;
-  endAddress: string | null;
-  projectId: string | null;
-  synced: number; // 0 = false, 1 = true
-  supabaseId: string | null; // To store the ID from Supabase after sync
-  syncing: number; // 0 = false, 1 = true, new field to track sync in progress
-  syncAttempts: number; // Track number of sync attempts
-  uniqueKey: string; // New field to ensure uniqueness
-  lastSyncAttempt: string | null; // Timestamp of last sync attempt
-  syncError: string | null; // Store error messages from sync attempts
-  syncPriority: number; // Higher numbers get synced first (useful for retries)
-}
+// Setup IndexedDB database
+const DB_NAME = 'cbs_offline_db';
+const DB_VERSION = 4;
 
-// Define the structure for our offline interviews
-export interface OfflineInterview {
-  id?: number;
-  sessionId: number; // Local Dexie session ID
-  supabaseSessionId: string | null; // Supabase session ID (will be null until session is synced)
-  candidateName: string;
-  startTime: string;
-  endTime: string | null;
-  startLatitude: number | null;
-  startLongitude: number | null;
-  startAddress: string | null;
-  endLatitude: number | null;
-  endLongitude: number | null;
-  endAddress: string | null;
-  projectId: string | null;
-  result: string | null; // 'response' | 'non-response' | null
-  synced: number; // 0 = false, 1 = true
-  syncing: number; // 0 = false, 1 = true (new field)
-  syncAttempts: number; // Track number of sync attempts (new field)
-  lastSyncAttempt: string | null; // Timestamp of last sync attempt (new field)
-  syncError: string | null; // Store error messages from sync attempts (new field)
-}
-
-// Define the structure for our offline projects
-export interface OfflineProject {
-  id: string;
-  name: string;
-  excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
-  start_date?: string; // Added to match Project type
-  end_date?: string;   // Added to match Project type
-}
-
-// Define a structure for sync lock
-interface SyncLock {
-  id: 1; // We'll only ever have one lock record
-  isLocked: number; // 0 = false, 1 = true
-  lockedAt: string | null;
-  lockedBy: string | null;
-  expiresAt: string | null;
-}
-
-// Define a structure for sync logs
-interface SyncLog {
-  id?: number;
-  timestamp: string;
-  action: string;
-  status: string; // 'success', 'error', 'warning'
-  details: string;
-  sessionId?: number;
-  interviewId?: number;
-}
-
-// Create a Dexie database class
-class OfflineDatabase extends Dexie {
-  interviewers!: Table<OfflineInterviewer>;
-  sessions!: Table<OfflineSession>;
-  interviews!: Table<OfflineInterview>;
-  projects!: Table<OfflineProject>;
-  syncLock!: Table<SyncLock>;
-  syncLogs!: Table<SyncLog>; // New table for sync logs
-
-  constructor() {
-    super('offlineSessionsDB');
-    
-    // Update the database schema to include all tables we need
-    this.version(5).stores({
-      interviewers: '++id, code',
-      sessions: '++id, interviewerCode, startTime, synced, supabaseId, uniqueKey, syncing, syncPriority',
-      interviews: '++id, sessionId, startTime, endTime, synced, supabaseSessionId, syncing',
-      projects: 'id, name',
-      syncLock: 'id, isLocked, lockedAt',
-      syncLogs: '++id, timestamp, action, status, sessionId, interviewId'
-    });
-  }
-}
-
-// Create a singleton instance
-export const offlineDB = new OfflineDatabase();
-
-// Initialize sync lock if it doesn't exist
-(async () => {
-  try {
-    const lockExists = await offlineDB.syncLock.get(1);
-    if (!lockExists) {
-      await offlineDB.syncLock.add({
-        id: 1,
-        isLocked: 0,
-        lockedAt: null,
-        lockedBy: null,
-        expiresAt: null
-      });
-      console.log("Sync lock initialized");
-    }
-    
-    // Log database initialization
-    logSync('System', 'OfflineDB initialized', 'success', 'Application started');
-  } catch (error) {
-    console.error("Error initializing sync lock:", error);
-    logSync('System', 'OfflineDB initialization error', 'error', String(error));
-  }
-})();
-
-// Helper function to log sync activities
-export const logSync = async (action: string, status: string, type: 'success' | 'error' | 'warning', details: string, sessionId?: number, interviewId?: number) => {
-  try {
-    await offlineDB.syncLogs.add({
-      timestamp: new Date().toISOString(),
-      action,
-      status,
-      details,
-      sessionId,
-      interviewId
-    });
-  } catch (err) {
-    console.error("Error logging sync activity:", err);
-  }
+// Database schema
+const STORES = {
+  sessions: 'sessions',
+  interviews: 'interviews',
+  interviewers: 'interviewers',
+  projects: 'projects',
+  syncLocks: 'syncLocks',
+  syncLogs: 'syncLogs'
 };
 
-// Check if a network connection is available
+// Check if offline/online
 export const isOnline = (): boolean => {
   return navigator.onLine;
 };
 
-// Clear expired locks automatically
-const clearExpiredLocks = async () => {
-  try {
-    const lock = await offlineDB.syncLock.get(1);
-    if (lock && lock.isLocked === 1 && lock.expiresAt) {
-      if (new Date(lock.expiresAt) < new Date()) {
-        console.log("Found expired lock, clearing...");
-        await offlineDB.syncLock.update(1, {
-          isLocked: 0,
-          lockedAt: null,
-          lockedBy: null,
-          expiresAt: null
-        });
-        logSync('ClearExpiredLock', 'Lock cleared', 'warning', `Expired lock by ${lock.lockedBy} was cleared`);
-        return true;
-      }
-    }
-    return false;
-  } catch (error) {
-    console.error("Error clearing expired locks:", error);
-    return false;
-  }
-};
+// Open database connection
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-// Acquire a sync lock with a timeout mechanism and automatic clearing of expired locks
-export const acquireSyncLock = async (lockId: string, timeoutMs: number = 30000): Promise<boolean> => {
-  try {
-    // First check if there are any expired locks
-    await clearExpiredLocks();
-    
-    // Check if the lock is already acquired
-    const lock = await offlineDB.syncLock.get(1);
-    if (!lock) {
-      console.error("Sync lock record not found");
-      logSync('AcquireLock', 'Lock record missing', 'error', `Lock record not found for ${lockId}`);
-      return false;
-    }
-    
-    // If the lock is already locked, check if it's by us
-    if (lock.isLocked === 1) {
-      if (lock.lockedBy === lockId) {
-        // We already hold the lock, extend it
-        const now = new Date();
-        const expires = new Date(now.getTime() + timeoutMs);
-        
-        await offlineDB.syncLock.update(1, {
-          lockedAt: now.toISOString(),
-          expiresAt: expires.toISOString()
-        });
-        
-        logSync('AcquireLock', 'Lock extended', 'success', `Lock extended by ${lockId}`);
-        console.log("Sync lock extended by:", lockId);
-        return true;
+    request.onerror = (event) => {
+      console.error('Error opening IndexedDB:', event);
+      reject(new Error('Could not open IndexedDB'));
+    };
+
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      resolve(db);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      
+      // Create object stores if they don't exist
+      if (!db.objectStoreNames.contains(STORES.sessions)) {
+        const sessionsStore = db.createObjectStore(STORES.sessions, { keyPath: 'id', autoIncrement: true });
+        sessionsStore.createIndex('interviewerCode', 'interviewerCode', { unique: false });
+        sessionsStore.createIndex('synced', 'synced', { unique: false });
+        sessionsStore.createIndex('uniqueKey', 'uniqueKey', { unique: true });
+        sessionsStore.createIndex('startTime', 'startTime', { unique: false });
       }
       
-      // Someone else has the lock
-      logSync('AcquireLock', 'Lock acquisition failed', 'warning', `Lock already held by ${lock.lockedBy}, requested by ${lockId}`);
-      console.log("Sync already in progress by:", lock.lockedBy);
-      return false;
-    }
-    
-    // Try to acquire the lock
-    const now = new Date();
-    const expires = new Date(now.getTime() + timeoutMs);
-    
-    await offlineDB.syncLock.update(1, {
-      isLocked: 1,
-      lockedAt: now.toISOString(),
-      lockedBy: lockId,
-      expiresAt: expires.toISOString()
-    });
-    
-    logSync('AcquireLock', 'Lock acquired', 'success', `Lock acquired by ${lockId}`);
-    console.log("Sync lock acquired by:", lockId);
-    return true;
-  } catch (error) {
-    console.error("Error acquiring sync lock:", error);
-    logSync('AcquireLock', 'Lock error', 'error', `Error acquiring lock by ${lockId}: ${error}`);
-    return false;
-  }
-};
-
-// Release a sync lock
-export const releaseSyncLock = async (lockId: string): Promise<boolean> => {
-  try {
-    const lock = await offlineDB.syncLock.get(1);
-    if (!lock) {
-      console.error("Sync lock record not found");
-      return false;
-    }
-    
-    // Only release the lock if it's owned by the requesting ID
-    if (lock.isLocked === 1) {
-      // Allow force release if the lock has expired
-      const isExpired = lock.expiresAt && new Date(lock.expiresAt) < new Date();
+      if (!db.objectStoreNames.contains(STORES.interviews)) {
+        const interviewsStore = db.createObjectStore(STORES.interviews, { keyPath: 'id', autoIncrement: true });
+        interviewsStore.createIndex('sessionId', 'sessionId', { unique: false });
+        interviewsStore.createIndex('synced', 'synced', { unique: false });
+        interviewsStore.createIndex('startTime', 'startTime', { unique: false });
+        interviewsStore.createIndex('uniqueKey', 'uniqueKey', { unique: true });
+      }
       
-      if (lock.lockedBy === lockId || isExpired) {
-        await offlineDB.syncLock.update(1, {
-          isLocked: 0,
-          lockedAt: null,
-          lockedBy: null,
-          expiresAt: null
-        });
-        
-        if (isExpired) {
-          logSync('ReleaseLock', 'Forced lock release', 'warning', `Expired lock by ${lock.lockedBy} force-released by ${lockId}`);
-          console.log("Expired sync lock force released by:", lockId);
-        } else {
-          logSync('ReleaseLock', 'Lock released', 'success', `Lock released by ${lockId}`);
-          console.log("Sync lock released by:", lockId);
+      if (!db.objectStoreNames.contains(STORES.interviewers)) {
+        const interviewersStore = db.createObjectStore(STORES.interviewers, { keyPath: 'code' });
+      }
+      
+      if (!db.objectStoreNames.contains(STORES.projects)) {
+        const projectsStore = db.createObjectStore(STORES.projects, { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains(STORES.syncLocks)) {
+        const syncLocksStore = db.createObjectStore(STORES.syncLocks, { keyPath: 'id' });
+      }
+      
+      if (!db.objectStoreNames.contains(STORES.syncLogs)) {
+        const syncLogsStore = db.createObjectStore(STORES.syncLogs, { keyPath: 'id', autoIncrement: true });
+        syncLogsStore.createIndex('timestamp', 'timestamp', { unique: false });
+        syncLogsStore.createIndex('category', 'category', { unique: false });
+        syncLogsStore.createIndex('status', 'status', { unique: false });
+      }
+      
+      // Add migration to ensure existing sessions and interviews have uniqueKey
+      const existingSessionsRequest = db.transaction(STORES.sessions, 'readwrite')
+        .objectStore(STORES.sessions)
+        .openCursor();
+      
+      existingSessionsRequest.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          const session = cursor.value;
+          if (!session.uniqueKey) {
+            session.uniqueKey = generateSessionUniqueKey(session);
+            cursor.update(session);
+          }
+          cursor.continue();
         }
-        
-        return true;
-      } else {
-        logSync('ReleaseLock', 'Lock release denied', 'warning', `${lockId} tried to release lock owned by ${lock.lockedBy}`);
-        console.log("Cannot release lock - not owned by:", lockId);
-        return false;
-      }
-    } else {
-      // Lock is already released
-      return true;
-    }
-  } catch (error) {
-    console.error("Error releasing sync lock:", error);
-    logSync('ReleaseLock', 'Lock release error', 'error', `Error releasing lock by ${lockId}: ${error}`);
-    return false;
-  }
-};
-
-// Cache interviewer when they login
-export const cacheInterviewer = async (code: string): Promise<void> => {
-  try {
-    // Check if interviewer is already cached
-    const existingInterviewer = await offlineDB.interviewers
-      .where('code')
-      .equals(code)
-      .first();
-      
-    if (existingInterviewer) {
-      console.log("Interviewer already cached:", existingInterviewer);
-      return;
-    }
-    
-    // Only fetch from Supabase if online
-    if (isOnline()) {
-      const { data, error } = await supabase
-        .from('interviewers')
-        .select('id, code')
-        .eq('code', code)
-        .single();
-        
-      if (error || !data) {
-        console.log("Error fetching interviewer data, skipping cache:", error);
-        return;
-      }
-      
-      await offlineDB.interviewers.add({
-        code: data.code,
-        supabaseId: data.id
-      });
-      
-      logSync('CacheInterviewer', 'Interviewer cached', 'success', `Cached interviewer ${data.code}`);
-      console.log("Interviewer cached for offline use:", data.code);
-    }
-  } catch (error) {
-    console.error("Error caching interviewer:", error);
-    logSync('CacheInterviewer', 'Cache error', 'error', `Error caching interviewer ${code}: ${error}`);
-  }
-};
-
-// Cache projects when they are loaded
-export const cacheProjects = async (projects: any[]): Promise<void> => {
-  try {
-    if (!projects || projects.length === 0) return;
-    
-    for (const project of projects) {
-      // Check if project is already cached
-      const existingProject = await offlineDB.projects
-        .where('id')
-        .equals(project.id)
-        .first();
-        
-      if (!existingProject) {
-        await offlineDB.projects.add({
-          id: project.id,
-          name: project.name,
-          excluded_islands: project.excluded_islands,
-          start_date: project.start_date,
-          end_date: project.end_date
-        });
-      }
-    }
-    
-    logSync('CacheProjects', 'Projects cached', 'success', `Cached ${projects.length} projects`);
-    console.log(`${projects.length} projects cached for offline use`);
-  } catch (error) {
-    console.error("Error caching projects:", error);
-    logSync('CacheProjects', 'Cache error', 'error', `Error caching projects: ${error}`);
-  }
-};
-
-// Get interviewer by code (from cache or Supabase)
-export const getInterviewerByCode = async (code: string): Promise<{ id: string; code: string } | null> => {
-  try {
-    // First try the offline database
-    const cachedInterviewer = await offlineDB.interviewers
-      .where('code')
-      .equals(code)
-      .first();
-      
-    if (cachedInterviewer) {
-      console.log("Found interviewer in cache:", cachedInterviewer);
-      return {
-        id: cachedInterviewer.supabaseId || `offline-${cachedInterviewer.id}`,
-        code: cachedInterviewer.code
       };
-    }
-    
-    // If online, try Supabase
-    if (isOnline()) {
-      const { data, error } = await supabase
-        .from('interviewers')
-        .select('id, code')
-        .eq('code', code)
-        .single();
-        
-      if (error || !data) {
-        console.error("Interviewer not found:", error);
-        return null;
-      }
       
-      // Cache for future offline use
-      await cacheInterviewer(code);
+      const existingInterviewsRequest = db.transaction(STORES.interviews, 'readwrite')
+        .objectStore(STORES.interviews)
+        .openCursor();
       
-      return {
-        id: data.id,
-        code: data.code
+      existingInterviewsRequest.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          const interview = cursor.value;
+          if (!interview.uniqueKey) {
+            interview.uniqueKey = generateInterviewUniqueKey(interview);
+            cursor.update(interview);
+          }
+          cursor.continue();
+        }
       };
-    }
-    
-    console.log("Interviewer not found in offline cache and user is offline");
-    return null;
-  } catch (error) {
-    console.error("Error getting interviewer by code:", error);
-    logSync('GetInterviewer', 'Error', 'error', `Error getting interviewer ${code}: ${error}`);
-    return null;
+      
+      console.log(`IndexedDB upgraded to version ${DB_VERSION}`);
+    };
+  });
+};
+
+// Generate a unique key for sessions to prevent duplicates during sync
+export const generateSessionUniqueKey = (session: any): string => {
+  // Enhanced uniqueness factors
+  const interviewerCode = session.interviewerCode || 'unknown';
+  const startTime = session.startTime || new Date().toISOString();
+  const deviceId = localStorage.getItem('device_id') || 'unknown';
+  const randomFactor = Math.random().toString(36).substring(2, 10);
+  
+  // Generate a UUID-based hash that combines all these factors
+  const hashBase = `${interviewerCode}-${startTime}-${deviceId}-${randomFactor}`;
+  return uuidv4({ random: hashBase.split('').map(c => c.charCodeAt(0) % 256) });
+};
+
+// Generate a unique key for interviews
+export const generateInterviewUniqueKey = (interview: any): string => {
+  const sessionId = interview.sessionId || 'unknown';
+  const startTime = interview.startTime || new Date().toISOString();
+  const deviceId = localStorage.getItem('device_id') || 'unknown';
+  const randomFactor = Math.random().toString(36).substring(2, 10);
+  
+  const hashBase = `${sessionId}-${startTime}-${deviceId}-${randomFactor}`;
+  return uuidv4({ random: hashBase.split('').map(c => c.charCodeAt(0) % 256) });
+};
+
+// Initialize device ID if not exists
+export const initializeDeviceId = (): void => {
+  if (!localStorage.getItem('device_id')) {
+    localStorage.setItem('device_id', uuidv4());
+    console.log('Device ID initialized');
   }
 };
 
-// Get cached projects
-export const getCachedProjects = async (): Promise<OfflineProject[]> => {
-  try {
-    const projects = await offlineDB.projects.toArray();
-    return projects;
-  } catch (error) {
-    console.error("Error getting cached projects:", error);
-    logSync('GetProjects', 'Error', 'error', `Error getting cached projects: ${error}`);
-    return [];
-  }
-};
+// Call initialization on module load
+initializeDeviceId();
 
-// Generate a unique key for session
-const generateSessionUniqueKey = (interviewerCode: string, startTime: string, projectId: string | null): string => {
-  return `${interviewerCode}_${startTime}_${projectId || 'null'}`;
-};
-
-// Save a session to the offline database
+// Save session to offline storage
 export const saveOfflineSession = async (
-  interviewerCode: string, 
-  projectId: string | null, 
-  startTime: string, 
-  startLocation?: Location
+  interviewerCode: string,
+  projectId: string | null,
+  startTime: string,
+  locationData?: Location
 ): Promise<number> => {
   try {
-    // Generate a unique key to prevent duplicates
-    const uniqueKey = generateSessionUniqueKey(interviewerCode, startTime, projectId);
-
-    // Check if a session with this key already exists
-    const existingSession = await offlineDB.sessions
-      .where('uniqueKey')
-      .equals(uniqueKey)
-      .first();
-
-    if (existingSession) {
-      logSync('SaveSession', 'Session exists', 'warning', `Session with identical keys already exists: ${uniqueKey}`, existingSession.id);
-      console.log("Session with identical keys already exists, returning existing ID:", existingSession.id);
-      return existingSession.id as number;
-    }
+    const db = await openDB();
+    const transaction = db.transaction([STORES.sessions], 'readwrite');
+    const store = transaction.objectStore(STORES.sessions);
     
-    const id = await offlineDB.sessions.add({
+    const session = {
       interviewerCode,
       projectId,
       startTime,
-      startLatitude: startLocation?.latitude || null,
-      startLongitude: startLocation?.longitude || null,
-      startAddress: startLocation?.address || null,
-      endTime: null,
-      endLatitude: null,
-      endLongitude: null,
-      endAddress: null,
-      synced: 0,
-      supabaseId: null,
-      syncing: 0,
-      syncAttempts: 0,
-      uniqueKey,
-      lastSyncAttempt: null,
-      syncError: null,
-      syncPriority: 10 // Default priority
-    });
-    
-    logSync('SaveSession', 'Session saved', 'success', `New offline session saved with ID: ${id}`, id);
-    console.log("Session saved locally:", id);
-    
-    // Try to register background sync
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        // Check if sync is available
-        if (registration.sync) {
-          // Use a debounced sync request
-          await registration.sync.register('sync-sessions');
-        } else {
-          console.log('Background sync not available');
-        }
-      } catch (err) {
-        console.error('Background sync registration failed:', err);
-      }
-    }
-    
-    return id;
-  } catch (error) {
-    console.error("Error saving offline session:", error);
-    logSync('SaveSession', 'Error', 'error', `Error saving offline session: ${error}`);
-    throw error;
-  }
-};
-
-// Update an offline session with end details
-export const updateOfflineSession = async (
-  id: number, 
-  endTime: string, 
-  endLocation?: Location
-): Promise<void> => {
-  try {
-    console.log("Updating offline session with end location:", endLocation);
-    
-    // If no location provided, try to get it
-    let locationToUse = endLocation;
-    if (!locationToUse) {
-      try {
-        locationToUse = await getCurrentLocation({ highAccuracy: true, timeout: 5000 });
-        console.log("Got location for offline session end:", locationToUse);
-      } catch (err) {
-        console.error("Could not get location for session end:", err);
-      }
-    }
-    
-    const updateData: Partial<OfflineSession> = {
-      endTime,
-      // Increase sync priority for completed sessions
-      syncPriority: 20
+      startLatitude: locationData?.latitude,
+      startLongitude: locationData?.longitude,
+      startAddress: locationData?.address,
+      synced: false,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     
-    // Only add location data if we have it
-    if (locationToUse) {
-      updateData.endLatitude = locationToUse.latitude;
-      updateData.endLongitude = locationToUse.longitude;
-      updateData.endAddress = locationToUse.address || null;
-    }
+    // Generate a unique key for this session
+    session['uniqueKey'] = generateSessionUniqueKey(session);
     
-    // Get the current session to preserve uniqueKey and other fields
-    const existingSession = await offlineDB.sessions.get(id);
-    if (existingSession) {
-      // Make sure we keep the uniqueKey
-      updateData.uniqueKey = existingSession.uniqueKey;
-    }
+    // Log the session creation
+    await logSync('SessionCreation', 'Created', 'success', 
+      `Created offline session for interviewer ${interviewerCode}`);
     
-    await offlineDB.sessions.update(id, updateData);
-    
-    logSync('UpdateSession', 'Session updated', 'success', `Offline session ${id} updated with end details`, id);
-    console.log("Offline session updated with end details:", id, updateData);
-    
-    // Try to register background sync with debouncing
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      try {
-        const syncInProgress = localStorage.getItem("sync_in_progress");
-        const lastSyncTime = localStorage.getItem("last_sync_attempt");
-        
-        const now = Date.now();
-        let shouldSync = true;
-        
-        if (syncInProgress === "true" && lastSyncTime) {
-          // Only override if the last sync attempt was too long ago (possible stalled sync)
-          const timeSinceLastSync = now - parseInt(lastSyncTime);
-          if (timeSinceLastSync < 30000) { // 30 seconds
-            shouldSync = false;
-          }
-        }
-        
-        if (shouldSync) {
-          localStorage.setItem("last_sync_attempt", now.toString());
-          
-          const registration = await navigator.serviceWorker.ready;
-          if (registration.sync) {
-            await registration.sync.register('sync-sessions');
-          } else {
-            console.log('Background sync not available');
-          }
-        } else {
-          console.log("Sync already in progress, skipping additional sync request");
-        }
-      } catch (err) {
-        console.error('Background sync registration failed:', err);
-      }
-    }
+    return new Promise((resolve, reject) => {
+      const request = store.add(session);
+      
+      request.onsuccess = () => {
+        const sessionId = request.result as number;
+        console.log('Saved offline session with ID:', sessionId);
+        resolve(sessionId);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error saving offline session:', error);
+        reject(error);
+      };
+    });
   } catch (error) {
-    console.error("Error updating offline session:", error);
-    logSync('UpdateSession', 'Error', 'error', `Error updating offline session ${id}: ${error}`, id);
+    console.error('Fatal error saving offline session:', error);
     throw error;
   }
 };
 
-// Save interview to the offline database
+// Update offline session with end details
+export const updateOfflineSession = async (
+  sessionId: number,
+  endTime?: string,
+  locationData?: Location
+): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.sessions], 'readwrite');
+    const store = transaction.objectStore(STORES.sessions);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(sessionId);
+      
+      request.onsuccess = async () => {
+        const session = request.result;
+        
+        if (!session) {
+          reject(new Error(`Session with ID ${sessionId} not found`));
+          return;
+        }
+        
+        if (endTime) {
+          session.endTime = endTime;
+          session.isActive = false;
+        }
+        
+        if (locationData) {
+          session.endLatitude = locationData.latitude;
+          session.endLongitude = locationData.longitude;
+          session.endAddress = locationData.address;
+        }
+        
+        session.updatedAt = new Date().toISOString();
+        
+        const updateRequest = store.put(session);
+        
+        updateRequest.onsuccess = () => {
+          console.log('Updated offline session:', sessionId);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error('Error updating offline session:', error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error fetching session for update:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error updating offline session:', error);
+    throw error;
+  }
+};
+
+// Save an interview to offline storage
 export const saveOfflineInterview = async (
   sessionId: number,
   candidateName: string,
   projectId: string | null,
   startTime: string,
-  startLocation?: Location
+  locationData?: Location
 ): Promise<number> => {
   try {
-    const id = await offlineDB.interviews.add({
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readwrite');
+    const store = transaction.objectStore(STORES.interviews);
+    
+    const interview = {
       sessionId,
-      supabaseSessionId: null,
       candidateName,
       projectId,
       startTime,
-      startLatitude: startLocation?.latitude || null,
-      startLongitude: startLocation?.longitude || null,
-      startAddress: startLocation?.address || null,
+      startLatitude: locationData?.latitude,
+      startLongitude: locationData?.longitude,
+      startAddress: locationData?.address,
+      synced: false,
       endTime: null,
-      endLatitude: null,
-      endLongitude: null,
-      endAddress: null,
       result: null,
-      synced: 0,
-      syncing: 0,
-      syncAttempts: 0,
-      lastSyncAttempt: null,
-      syncError: null
-    });
-    
-    logSync('SaveInterview', 'Interview saved', 'success', `Offline interview saved with ID: ${id}`, sessionId, id);
-    console.log("Interview saved locally:", id);
-    return id;
-  } catch (error) {
-    console.error("Error saving offline interview:", error);
-    logSync('SaveInterview', 'Error', 'error', `Error saving offline interview: ${error}`);
-    throw error;
-  }
-};
-
-// Update an offline interview with end details
-export const updateOfflineInterview = async (
-  id: number,
-  endTime: string,
-  endLocation?: Location
-): Promise<void> => {
-  try {
-    console.log("Updating offline interview with end location:", endLocation);
-    
-    // If no location provided, try to get it
-    let locationToUse = endLocation;
-    if (!locationToUse) {
-      try {
-        locationToUse = await getCurrentLocation({ highAccuracy: true, timeout: 5000 });
-        console.log("Got location for offline interview end:", locationToUse);
-      } catch (err) {
-        console.error("Could not get location for interview end:", err);
-      }
-    }
-    
-    const updateData: Partial<OfflineInterview> = {
-      endTime
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     
-    // Only add location data if we have it
-    if (locationToUse) {
-      updateData.endLatitude = locationToUse.latitude;
-      updateData.endLongitude = locationToUse.longitude;
-      updateData.endAddress = locationToUse.address || null;
-    }
+    // Generate a unique key for this interview
+    interview['uniqueKey'] = generateInterviewUniqueKey(interview);
     
-    await offlineDB.interviews.update(id, updateData);
-    
-    logSync('UpdateInterview', 'Interview updated', 'success', `Offline interview ${id} updated with end details`, null, id);
-    console.log("Offline interview updated with end details:", id);
+    return new Promise((resolve, reject) => {
+      const request = store.add(interview);
+      
+      request.onsuccess = () => {
+        const interviewId = request.result as number;
+        console.log('Saved offline interview with ID:', interviewId);
+        resolve(interviewId);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error saving offline interview:', error);
+        reject(error);
+      };
+    });
   } catch (error) {
-    console.error("Error updating offline interview:", error);
-    logSync('UpdateInterview', 'Error', 'error', `Error updating offline interview ${id}: ${error}`, null, id);
+    console.error('Fatal error saving offline interview:', error);
     throw error;
   }
 };
 
-// Update interview result
-export const updateOfflineInterviewResult = async (
-  id: number,
-  result: string
+// Update offline interview with end details or result
+export const updateOfflineInterview = async (
+  interviewId: number,
+  endTime?: string,
+  locationData?: Location,
+  result?: string
 ): Promise<void> => {
   try {
-    await offlineDB.interviews.update(id, { result });
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readwrite');
+    const store = transaction.objectStore(STORES.interviews);
     
-    logSync('SetInterviewResult', 'Result set', 'success', `Offline interview ${id} result set to: ${result}`, null, id);
-    console.log(`Interview ${id} result set to ${result}`);
+    return new Promise((resolve, reject) => {
+      const request = store.get(interviewId);
+      
+      request.onsuccess = async () => {
+        const interview = request.result;
+        
+        if (!interview) {
+          reject(new Error(`Interview with ID ${interviewId} not found`));
+          return;
+        }
+        
+        if (endTime) {
+          interview.endTime = endTime;
+        }
+        
+        if (locationData) {
+          interview.endLatitude = locationData.latitude;
+          interview.endLongitude = locationData.longitude;
+          interview.endAddress = locationData.address;
+        }
+        
+        if (result !== undefined) {
+          interview.result = result;
+        }
+        
+        interview.updatedAt = new Date().toISOString();
+        
+        const updateRequest = store.put(interview);
+        
+        updateRequest.onsuccess = () => {
+          console.log('Updated offline interview:', interviewId);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error('Error updating offline interview:', error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error fetching interview for update:', error);
+        reject(error);
+      };
+    });
   } catch (error) {
-    console.error("Error setting interview result:", error);
-    logSync('SetInterviewResult', 'Error', 'error', `Error setting result for interview ${id}: ${error}`, null, id);
+    console.error('Fatal error updating offline interview:', error);
     throw error;
   }
 };
 
-// Get offline interviews for a session
-export const getInterviewsForOfflineSession = async (sessionId: number): Promise<OfflineInterview[]> => {
+// Get all unsynchronized sessions
+export const getUnsyncedSessions = async (): Promise<any[]> => {
   try {
-    return await offlineDB.interviews
-      .where('sessionId')
-      .equals(sessionId)
-      .toArray();
+    const db = await openDB();
+    const transaction = db.transaction([STORES.sessions], 'readonly');
+    const store = transaction.objectStore(STORES.sessions);
+    const index = store.index('synced');
+    
+    return new Promise((resolve, reject) => {
+      const request = index.getAll(false);
+      
+      request.onsuccess = () => {
+        resolve(request.result || []);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error getting unsynced sessions:', error);
+        reject(error);
+      };
+    });
   } catch (error) {
-    console.error("Error getting interviews for offline session:", error);
-    logSync('GetInterviews', 'Error', 'error', `Error getting interviews for session ${sessionId}: ${error}`, sessionId);
+    console.error('Fatal error getting unsynced sessions:', error);
+    return [];
+  }
+};
+
+// Get the count of unsynced sessions
+export const getUnsyncedSessionsCount = async (): Promise<number> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.sessions], 'readonly');
+    const store = transaction.objectStore(STORES.sessions);
+    const index = store.index('synced');
+    
+    return new Promise((resolve, reject) => {
+      const request = index.count(false);
+      
+      request.onsuccess = () => {
+        resolve(request.result || 0);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error counting unsynced sessions:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error counting unsynced sessions:', error);
+    return 0;
+  }
+};
+
+// Get all unsynchronized interviews
+export const getUnsyncedInterviews = async (): Promise<any[]> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readonly');
+    const store = transaction.objectStore(STORES.interviews);
+    const index = store.index('synced');
+    
+    return new Promise((resolve, reject) => {
+      const request = index.getAll(false);
+      
+      request.onsuccess = () => {
+        resolve(request.result || []);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error getting unsynced interviews:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error getting unsynced interviews:', error);
+    return [];
+  }
+};
+
+// Get the count of unsynced interviews
+export const getUnsyncedInterviewsCount = async (): Promise<number> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readonly');
+    const store = transaction.objectStore(STORES.interviews);
+    const index = store.index('synced');
+    
+    return new Promise((resolve, reject) => {
+      const request = index.count(false);
+      
+      request.onsuccess = () => {
+        resolve(request.result || 0);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error counting unsynced interviews:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error counting unsynced interviews:', error);
+    return 0;
+  }
+};
+
+// Get interviews for a specific offline session
+export const getInterviewsForOfflineSession = async (sessionId: number): Promise<any[]> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readonly');
+    const store = transaction.objectStore(STORES.interviews);
+    const index = store.index('sessionId');
+    
+    return new Promise((resolve, reject) => {
+      const request = index.getAll(sessionId);
+      
+      request.onsuccess = () => {
+        resolve(request.result || []);
+      };
+      
+      request.onerror = (error) => {
+        console.error(`Error getting interviews for session ${sessionId}:`, error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error(`Fatal error getting interviews for session ${sessionId}:`, error);
     return [];
   }
 };
 
 // Get a specific offline interview
-export const getOfflineInterview = async (id: number): Promise<OfflineInterview | undefined> => {
+export const getOfflineInterview = async (interviewId: number): Promise<any | null> => {
   try {
-    return await offlineDB.interviews.get(id);
-  } catch (error) {
-    console.error("Error getting offline interview:", error);
-    logSync('GetInterview', 'Error', 'error', `Error getting interview ${id}: ${error}`, null, id);
-    return undefined;
-  }
-};
-
-// Get total unsynced session count
-export const getUnsyncedSessionsCount = async (): Promise<number> => {
-  try {
-    return await offlineDB.sessions
-      .where('synced')
-      .equals(0)
-      .count();
-  } catch (error) {
-    console.error("Error getting unsynced sessions count:", error);
-    return 0;
-  }
-};
-
-// Get total unsynced interviews count
-export const getUnsyncedInterviewsCount = async (): Promise<number> => {
-  try {
-    return await offlineDB.interviews
-      .where('synced')
-      .equals(0)
-      .count();
-  } catch (error) {
-    console.error("Error getting unsynced interviews count:", error);
-    return 0;
-  }
-};
-
-// Get detailed sync status
-export const getSyncStatus = async (): Promise<{
-  sessionsTotal: number;
-  sessionsUnsynced: number;
-  sessionsInProgress: number;
-  interviewsTotal: number;
-  interviewsUnsynced: number;
-  interviewsInProgress: number;
-  lastSync: string | null;
-  currentLock: any | null;
-}> => {
-  try {
-    // Get session counts
-    const sessionsTotal = await offlineDB.sessions.count();
-    const sessionsUnsynced = await offlineDB.sessions.where('synced').equals(0).count();
-    const sessionsInProgress = await offlineDB.sessions.where('syncing').equals(1).count();
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readonly');
+    const store = transaction.objectStore(STORES.interviews);
     
-    // Get interview counts
-    const interviewsTotal = await offlineDB.interviews.count();
-    const interviewsUnsynced = await offlineDB.interviews.where('synced').equals(0).count();
-    const interviewsInProgress = await offlineDB.interviews.where('syncing').equals(1).count();
-    
-    // Get last successful sync log
-    const lastSyncLogs = await offlineDB.syncLogs
-      .where('action')
-      .equals('SessionSync')
-      .reverse()
-      .limit(1)
-      .toArray();
+    return new Promise((resolve, reject) => {
+      const request = store.get(interviewId);
       
-    const lastSync = lastSyncLogs.length > 0 ? lastSyncLogs[0].timestamp : null;
+      request.onsuccess = () => {
+        resolve(request.result || null);
+      };
+      
+      request.onerror = (error) => {
+        console.error(`Error getting interview ${interviewId}:`, error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error(`Fatal error getting interview ${interviewId}:`, error);
+    return null;
+  }
+};
+
+// Mark a session as synced
+export const markSessionAsSynced = async (sessionId: number, onlineId: string): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.sessions], 'readwrite');
+    const store = transaction.objectStore(STORES.sessions);
     
-    // Get current lock
-    const currentLock = await offlineDB.syncLock.get(1);
+    return new Promise((resolve, reject) => {
+      const request = store.get(sessionId);
+      
+      request.onsuccess = async () => {
+        const session = request.result;
+        
+        if (!session) {
+          reject(new Error(`Session with ID ${sessionId} not found`));
+          return;
+        }
+        
+        session.synced = true;
+        session.onlineId = onlineId;
+        session.syncedAt = new Date().toISOString();
+        
+        const updateRequest = store.put(session);
+        
+        updateRequest.onsuccess = () => {
+          console.log('Marked session as synced:', sessionId, 'Online ID:', onlineId);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error('Error marking session as synced:', error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error fetching session for marking as synced:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error marking session as synced:', error);
+    throw error;
+  }
+};
+
+// Mark an interview as synced
+export const markInterviewAsSynced = async (interviewId: number, onlineId: string): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readwrite');
+    const store = transaction.objectStore(STORES.interviews);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(interviewId);
+      
+      request.onsuccess = async () => {
+        const interview = request.result;
+        
+        if (!interview) {
+          reject(new Error(`Interview with ID ${interviewId} not found`));
+          return;
+        }
+        
+        interview.synced = true;
+        interview.onlineId = onlineId;
+        interview.syncedAt = new Date().toISOString();
+        
+        const updateRequest = store.put(interview);
+        
+        updateRequest.onsuccess = () => {
+          console.log('Marked interview as synced:', interviewId, 'Online ID:', onlineId);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error('Error marking interview as synced:', error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error fetching interview for marking as synced:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error marking interview as synced:', error);
+    throw error;
+  }
+};
+
+// Cache an interviewer locally for offline use
+export const cacheInterviewer = async (interviewerCode: string): Promise<boolean> => {
+  try {
+    if (!interviewerCode) return false;
+    
+    const db = await openDB();
+    
+    // First check if the interviewer is already cached
+    const existsTransaction = db.transaction([STORES.interviewers], 'readonly');
+    const existsStore = existsTransaction.objectStore(STORES.interviewers);
+    
+    return new Promise(async (resolve, reject) => {
+      const existsRequest = existsStore.get(interviewerCode);
+      
+      existsRequest.onsuccess = async () => {
+        // If interviewer is already cached, no need to do anything
+        if (existsRequest.result) {
+          console.log('Interviewer already cached:', interviewerCode);
+          resolve(true);
+          return;
+        }
+        
+        // If we're offline, we can't fetch the interviewer from the server
+        if (!isOnline()) {
+          console.log('Cannot cache interviewer while offline');
+          resolve(false);
+          return;
+        }
+        
+        // If we're online, fetch the interviewer from the server
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          
+          const { data: interviewers, error } = await supabase
+            .from('interviewers')
+            .select('*')
+            .eq('code', interviewerCode)
+            .limit(1);
+            
+          if (error) {
+            throw error;
+          }
+          
+          if (!interviewers || interviewers.length === 0) {
+            console.warn('Interviewer not found for caching:', interviewerCode);
+            resolve(false);
+            return;
+          }
+          
+          const interviewer = interviewers[0];
+          
+          // Store in cache
+          const saveTransaction = db.transaction([STORES.interviewers], 'readwrite');
+          const saveStore = saveTransaction.objectStore(STORES.interviewers);
+          
+          const saveRequest = saveStore.put({
+            ...interviewer,
+            lastCached: new Date().toISOString()
+          });
+          
+          saveRequest.onsuccess = () => {
+            console.log('Cached interviewer:', interviewerCode);
+            resolve(true);
+          };
+          
+          saveRequest.onerror = (error) => {
+            console.error('Error caching interviewer:', error);
+            resolve(false);
+          };
+        } catch (error) {
+          console.error('Error fetching interviewer for caching:', error);
+          resolve(false);
+        }
+      };
+      
+      existsRequest.onerror = (error) => {
+        console.error('Error checking if interviewer is cached:', error);
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error caching interviewer:', error);
+    return false;
+  }
+};
+
+// Get an interviewer by code (from cache or server)
+export const getInterviewerByCode = async (interviewerCode: string): Promise<any | null> => {
+  try {
+    if (!interviewerCode) return null;
+    
+    // Try to get from cache first
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviewers], 'readonly');
+    const store = transaction.objectStore(STORES.interviewers);
+    
+    return new Promise(async (resolve, reject) => {
+      const request = store.get(interviewerCode);
+      
+      request.onsuccess = async () => {
+        // If found in cache, return it
+        if (request.result) {
+          console.log('Found interviewer in cache:', interviewerCode);
+          resolve(request.result);
+          return;
+        }
+        
+        // If not found in cache and we're offline, we can't fetch it
+        if (!isOnline()) {
+          console.log('Interviewer not in cache and offline:', interviewerCode);
+          resolve(null);
+          return;
+        }
+        
+        // If we're online, fetch from server and cache it
+        try {
+          const { supabase } = await import('@/integrations/supabase/client');
+          
+          const { data: interviewers, error } = await supabase
+            .from('interviewers')
+            .select('*')
+            .eq('code', interviewerCode)
+            .limit(1);
+            
+          if (error) {
+            throw error;
+          }
+          
+          if (!interviewers || interviewers.length === 0) {
+            console.warn('Interviewer not found:', interviewerCode);
+            resolve(null);
+            return;
+          }
+          
+          const interviewer = interviewers[0];
+          
+          // Cache for future use
+          await cacheInterviewer(interviewerCode);
+          
+          resolve(interviewer);
+        } catch (error) {
+          console.error('Error fetching interviewer:', error);
+          resolve(null);
+        }
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error getting interviewer from cache:', error);
+        resolve(null);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error getting interviewer:', error);
+    return null;
+  }
+};
+
+// Cache projects for offline use
+export const cacheProjects = async (projects: Project[]): Promise<boolean> => {
+  try {
+    if (!projects || projects.length === 0) return false;
+    
+    const db = await openDB();
+    const transaction = db.transaction([STORES.projects], 'readwrite');
+    const store = transaction.objectStore(STORES.projects);
+    
+    return new Promise((resolve, reject) => {
+      let completed = 0;
+      let failed = 0;
+      
+      projects.forEach((project) => {
+        const request = store.put({
+          ...project,
+          lastCached: new Date().toISOString()
+        });
+        
+        request.onsuccess = () => {
+          completed++;
+          if (completed + failed === projects.length) {
+            console.log(`Cached ${completed}/${projects.length} projects`);
+            resolve(completed === projects.length);
+          }
+        };
+        
+        request.onerror = (error) => {
+          console.error('Error caching project:', error);
+          failed++;
+          if (completed + failed === projects.length) {
+            console.log(`Cached ${completed}/${projects.length} projects`);
+            resolve(completed === projects.length);
+          }
+        };
+      });
+    });
+  } catch (error) {
+    console.error('Fatal error caching projects:', error);
+    return false;
+  }
+};
+
+// Get cached projects
+export const getCachedProjects = async (): Promise<Project[]> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.projects], 'readonly');
+    const store = transaction.objectStore(STORES.projects);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.getAll();
+      
+      request.onsuccess = () => {
+        resolve(request.result || []);
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error getting cached projects:', error);
+        resolve([]);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error getting cached projects:', error);
+    return [];
+  }
+};
+
+// Check if a session already exists online by its uniqueKey
+export const checkSessionExists = async (uniqueKey: string): Promise<string | null> => {
+  if (!isOnline()) return null;
+  
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    // First try to find by uniqueKey
+    const { data: sessions, error } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('unique_key', uniqueKey)
+      .limit(1);
+      
+    if (error) {
+      throw error;
+    }
+    
+    if (sessions && sessions.length > 0) {
+      return sessions[0].id;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error checking if session exists:', error);
+    return null;
+  }
+};
+
+// Check if an interview already exists online by its uniqueKey
+export const checkInterviewExists = async (uniqueKey: string): Promise<string | null> => {
+  if (!isOnline()) return null;
+  
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    // Try to find by uniqueKey
+    const { data: interviews, error } = await supabase
+      .from('interviews')
+      .select('id')
+      .eq('unique_key', uniqueKey)
+      .limit(1);
+      
+    if (error) {
+      throw error;
+    }
+    
+    if (interviews && interviews.length > 0) {
+      return interviews[0].id;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error checking if interview exists:', error);
+    return null;
+  }
+};
+
+// Acquire a sync lock
+export const acquireSyncLock = async (lockerId: string): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLocks], 'readwrite');
+    const store = transaction.objectStore(STORES.syncLocks);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get('main');
+      
+      request.onsuccess = async () => {
+        const lock = request.result;
+        const now = new Date().getTime();
+        
+        // If lock exists and is still valid, check if it's our lock
+        if (lock && lock.isLocked === 1 && now < lock.expiresAt) {
+          // If it's our lock, we can extend it
+          if (lock.lockedBy === lockerId) {
+            lock.expiresAt = now + 5 * 60 * 1000; // Extend by 5 minutes
+            store.put(lock);
+            console.log('Extended existing sync lock:', lockerId);
+            resolve(true);
+            return;
+          }
+          
+          // Someone else has the lock and it's still valid
+          console.log('Sync already in progress by:', lock.lockedBy);
+          resolve(false);
+          return;
+        }
+        
+        // Lock doesn't exist or has expired, create a new one
+        const newLock = {
+          id: 'main',
+          isLocked: 1,
+          lockedBy: lockerId,
+          lockedAt: now,
+          expiresAt: now + 5 * 60 * 1000, // 5 minute expiration
+        };
+        
+        const putRequest = store.put(newLock);
+        
+        putRequest.onsuccess = () => {
+          console.log('Acquired sync lock:', lockerId);
+          resolve(true);
+        };
+        
+        putRequest.onerror = (error) => {
+          console.error('Error acquiring sync lock:', error);
+          resolve(false);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error checking sync lock:', error);
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error acquiring sync lock:', error);
+    return false;
+  }
+};
+
+// Release a sync lock
+export const releaseSyncLock = async (lockerId: string): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLocks], 'readwrite');
+    const store = transaction.objectStore(STORES.syncLocks);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get('main');
+      
+      request.onsuccess = async () => {
+        const lock = request.result;
+        
+        // Only release if it's our lock
+        if (lock && lock.lockedBy === lockerId) {
+          lock.isLocked = 0;
+          lock.releasedAt = new Date().getTime();
+          
+          const updateRequest = store.put(lock);
+          
+          updateRequest.onsuccess = () => {
+            console.log('Released sync lock:', lockerId);
+            resolve(true);
+          };
+          
+          updateRequest.onerror = (error) => {
+            console.error('Error releasing sync lock:', error);
+            resolve(false);
+          };
+        } else {
+          // Not our lock or no lock exists
+          console.log('Cannot release lock - not owned by:', lockerId);
+          resolve(false);
+        }
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error checking sync lock for release:', error);
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error releasing sync lock:', error);
+    return false;
+  }
+};
+
+// Force release any sync lock (for recovery)
+export const forceReleaseSyncLock = async (): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLocks], 'readwrite');
+    const store = transaction.objectStore(STORES.syncLocks);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get('main');
+      
+      request.onsuccess = async () => {
+        const lock = request.result;
+        
+        if (!lock) {
+          resolve(true);
+          return;
+        }
+        
+        lock.isLocked = 0;
+        lock.releasedAt = new Date().getTime();
+        lock.forcedRelease = true;
+        
+        const updateRequest = store.put(lock);
+        
+        updateRequest.onsuccess = () => {
+          console.log('Force released sync lock');
+          
+          // Log the forced release
+          logSync('SyncLock', 'ForceReleased', 'warning', 
+            `Forced release of sync lock held by ${lock.lockedBy}`);
+          
+          resolve(true);
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error('Error force releasing sync lock:', error);
+          resolve(false);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error checking sync lock for force release:', error);
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error force releasing sync lock:', error);
+    return false;
+  }
+};
+
+// Get sync status
+export const getSyncStatus = async (): Promise<any> => {
+  try {
+    const db = await openDB();
+    
+    // Get sessions info
+    const sessionsTransaction = db.transaction([STORES.sessions], 'readonly');
+    const sessionsStore = sessionsTransaction.objectStore(STORES.sessions);
+    const sessionsSyncIndex = sessionsStore.index('synced');
+    
+    // Get interviews info
+    const interviewsTransaction = db.transaction([STORES.interviews], 'readonly');
+    const interviewsStore = interviewsTransaction.objectStore(STORES.interviews);
+    const interviewsSyncIndex = interviewsStore.index('synced');
+    
+    // Get sync lock info
+    const syncLocksTransaction = db.transaction([STORES.syncLocks], 'readonly');
+    const syncLocksStore = syncLocksTransaction.objectStore(STORES.syncLocks);
+    
+    // Get sync logs for last sync
+    const syncLogsTransaction = db.transaction([STORES.syncLogs], 'readonly');
+    const syncLogsStore = syncLogsTransaction.objectStore(STORES.syncLogs);
+    const syncLogsIndex = syncLogsStore.index('timestamp');
+    
+    // Run all queries in parallel
+    const [
+      sessionsTotal,
+      sessionsUnsynced,
+      interviewsTotal,
+      interviewsUnsynced,
+      currentLock,
+      lastSyncLog
+    ] = await Promise.all([
+      new Promise<number>((resolve) => {
+        const request = sessionsStore.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      }),
+      new Promise<number>((resolve) => {
+        const request = sessionsSyncIndex.count(false);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      }),
+      new Promise<number>((resolve) => {
+        const request = interviewsStore.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      }),
+      new Promise<number>((resolve) => {
+        const request = interviewsSyncIndex.count(false);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      }),
+      new Promise<any>((resolve) => {
+        const request = syncLocksStore.get('main');
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => resolve(null);
+      }),
+      new Promise<any>((resolve) => {
+        // Get most recent successful sync completion log
+        const request = syncLogsStore.openCursor(null, 'prev');
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (cursor && cursor.value.category === 'SyncOperation' && cursor.value.status === 'success') {
+            resolve(cursor.value.timestamp);
+          } else {
+            resolve(null);
+          }
+        };
+        request.onerror = () => resolve(null);
+      })
+    ]);
+    
+    // Get in-progress counts (syncing but not yet complete)
+    const sessionsInProgress = await new Promise<number>((resolve) => {
+      // Check for sessions with syncInProgress flag
+      const request = sessionsStore.openCursor();
+      let count = 0;
+      
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          if (cursor.value.syncInProgress === true && !cursor.value.synced) {
+            count++;
+          }
+          cursor.continue();
+        } else {
+          resolve(count);
+        }
+      };
+      
+      request.onerror = () => {
+        resolve(0);
+      };
+    });
+    
+    const interviewsInProgress = await new Promise<number>((resolve) => {
+      // Check for interviews with syncInProgress flag
+      const request = interviewsStore.openCursor();
+      let count = 0;
+      
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          if (cursor.value.syncInProgress === true && !cursor.value.synced) {
+            count++;
+          }
+          cursor.continue();
+        } else {
+          resolve(count);
+        }
+      };
+      
+      request.onerror = () => {
+        resolve(0);
+      };
+    });
     
     return {
       sessionsTotal,
@@ -771,11 +1190,11 @@ export const getSyncStatus = async (): Promise<{
       interviewsTotal,
       interviewsUnsynced,
       interviewsInProgress,
-      lastSync,
+      lastSync: lastSyncLog,
       currentLock
     };
   } catch (error) {
-    console.error("Error getting sync status:", error);
+    console.error('Error getting sync status:', error);
     return {
       sessionsTotal: 0,
       sessionsUnsynced: 0,
@@ -789,595 +1208,462 @@ export const getSyncStatus = async (): Promise<{
   }
 };
 
-// Reset in-progress flags for any stalled operations
-export const resetStalledOperations = async (): Promise<void> => {
+// Log sync operation
+export const logSync = async (
+  category: string, 
+  operation: string, 
+  status: 'success' | 'error' | 'warning' | 'info',
+  details: string
+): Promise<number> => {
   try {
-    // Find sessions that have been marked as syncing for more than 5 minutes
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLogs], 'readwrite');
+    const store = transaction.objectStore(STORES.syncLogs);
     
-    // Reset sessions
-    const stalledSessions = await offlineDB.sessions
-      .where('syncing')
-      .equals(1)
-      .and(s => !!s.lastSyncAttempt && s.lastSyncAttempt < fiveMinutesAgo)
-      .toArray();
-    
-    if (stalledSessions.length > 0) {
-      console.log(`Resetting ${stalledSessions.length} stalled sessions`);
-      
-      for (const session of stalledSessions) {
-        await offlineDB.sessions.update(session.id as number, {
-          syncing: 0,
-          syncAttempts: (session.syncAttempts || 0) + 1,
-          syncError: `Sync operation stalled and was reset at ${new Date().toISOString()}`
-        });
-        
-        logSync('ResetStalled', 'Session reset', 'warning', `Reset stalled sync for session ${session.id}`, session.id);
+    const logEntry = {
+      category,
+      operation,
+      status,
+      details,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        deviceId: localStorage.getItem('device_id') || 'unknown',
+        isOnline: navigator.onLine,
+        userAgent: navigator.userAgent
       }
-    }
-    
-    // Reset interviews
-    const stalledInterviews = await offlineDB.interviews
-      .where('syncing')
-      .equals(1)
-      .and(i => !!i.lastSyncAttempt && i.lastSyncAttempt < fiveMinutesAgo)
-      .toArray();
-    
-    if (stalledInterviews.length > 0) {
-      console.log(`Resetting ${stalledInterviews.length} stalled interviews`);
-      
-      for (const interview of stalledInterviews) {
-        await offlineDB.interviews.update(interview.id as number, {
-          syncing: 0,
-          syncAttempts: (interview.syncAttempts || 0) + 1,
-          syncError: `Sync operation stalled and was reset at ${new Date().toISOString()}`
-        });
-        
-        logSync('ResetStalled', 'Interview reset', 'warning', `Reset stalled sync for interview ${interview.id}`, interview.sessionId, interview.id);
-      }
-    }
-    
-    // Reset any locks that have been held for too long
-    await clearExpiredLocks();
-    
-  } catch (error) {
-    console.error("Error resetting stalled operations:", error);
-  }
-};
-
-// Function to check if a session already exists in Supabase to prevent duplicates
-const checkSessionExists = async (interviewerCode: string, startTime: string, projectId: string | null): Promise<string | null> => {
-  if (!isOnline()) return null;
-  
-  try {
-    // Get interviewer ID from code
-    const interviewer = await getInterviewerByCode(interviewerCode);
-    if (!interviewer) return null;
-    
-    // Use a time range to account for slight time differences
-    const startTimeObj = new Date(startTime);
-    const startTimeFloor = new Date(startTimeObj.getTime() - 60000).toISOString(); // 1 minute before
-    const startTimeCeiling = new Date(startTimeObj.getTime() + 60000).toISOString(); // 1 minute after
-    
-    console.log(`Checking for existing session with: 
-      interviewer_id: ${interviewer.id}
-      startTime range: ${startTimeFloor} to ${startTimeCeiling}
-      projectId: ${projectId || 'null'}`);
-    
-    let query = supabase
-      .from('sessions')
-      .select('id, start_time')
-      .eq('interviewer_id', interviewer.id)
-      .gte('start_time', startTimeFloor)
-      .lte('start_time', startTimeCeiling);
-    
-    if (projectId) {
-      query = query.eq('project_id', projectId);
-    } else {
-      query = query.is('project_id', null);
-    }
-    
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error("Error checking for existing session:", error);
-      return null;
-    }
-    
-    if (data && data.length > 0) {
-      // Found existing session(s), return the closest match
-      console.log("Found existing sessions:", data);
-      
-      if (data.length === 1) {
-        return data[0].id;
-      }
-      
-      // If multiple matches, find the closest by start time
-      let closestSession = data[0];
-      let minDiff = Math.abs(new Date(data[0].start_time).getTime() - startTimeObj.getTime());
-      
-      for (let i = 1; i < data.length; i++) {
-        const diff = Math.abs(new Date(data[i].start_time).getTime() - startTimeObj.getTime());
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestSession = data[i];
-        }
-      }
-      
-      return closestSession.id;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error("Error checking if session exists:", error);
-    return null;
-  }
-};
-
-// Sync a single offline session to Supabase
-export const syncOfflineSession = async (sessionId: number): Promise<boolean> => {
-  if (!isOnline()) return false;
-  
-  // Set this session as currently syncing
-  let sessionRecord;
-  
-  try {
-    await offlineDB.sessions.update(sessionId, { 
-      syncing: 1,
-      lastSyncAttempt: new Date().toISOString()
-    });
-    
-    // Get the offline session data
-    sessionRecord = await offlineDB.sessions.get(sessionId);
-    if (!sessionRecord) {
-      console.error("Session not found:", sessionId);
-      return false;
-    }
-    
-    // Skip if already synced
-    if (sessionRecord.synced === 1 && sessionRecord.supabaseId) {
-      console.log("Session already synced:", sessionRecord.supabaseId);
-      return true;
-    }
-    
-    // Log sync attempt
-    logSync('SessionSync', 'Sync started', 'success', 
-      `Attempting to sync session ${sessionId} (${sessionRecord.interviewerCode}, ${sessionRecord.startTime})`,
-      sessionId);
-    
-    // Check if this session already exists in Supabase
-    const existingSessionId = await checkSessionExists(
-      sessionRecord.interviewerCode, 
-      sessionRecord.startTime,
-      sessionRecord.projectId
-    );
-    
-    if (existingSessionId) {
-      console.log("Found existing session in Supabase:", existingSessionId);
-      
-      // Update our local record to mark it as synced
-      await offlineDB.sessions.update(sessionId, {
-        synced: 1,
-        syncing: 0,
-        supabaseId: existingSessionId,
-        syncAttempts: (sessionRecord.syncAttempts || 0) + 1
-      });
-      
-      logSync('SessionSync', 'Found existing', 'success', 
-        `Session ${sessionId} matched to existing Supabase session ${existingSessionId}`, 
-        sessionId);
-      
-      // Now sync any interviews for this session
-      const interviews = await getInterviewsForOfflineSession(sessionId);
-      
-      for (const interview of interviews) {
-        if (interview.synced === 0) {
-          await syncOfflineInterview(interview.id as number, existingSessionId);
-        }
-      }
-      
-      return true;
-    }
-    
-    // Get interviewer ID from code
-    const interviewer = await getInterviewerByCode(sessionRecord.interviewerCode);
-    if (!interviewer) {
-      console.error("Interviewer not found:", sessionRecord.interviewerCode);
-      
-      // Update session to mark sync attempt
-      await offlineDB.sessions.update(sessionId, {
-        syncing: 0,
-        syncAttempts: (sessionRecord.syncAttempts || 0) + 1,
-        syncError: `Interviewer not found: ${sessionRecord.interviewerCode}`
-      });
-      
-      logSync('SessionSync', 'Interviewer not found', 'error', 
-        `Could not find interviewer with code ${sessionRecord.interviewerCode}`, 
-        sessionId);
-      
-      return false;
-    }
-    
-    // Create session in Supabase
-    const sessionData = {
-      interviewer_id: interviewer.id,
-      project_id: sessionRecord.projectId,
-      start_time: sessionRecord.startTime,
-      start_latitude: sessionRecord.startLatitude,
-      start_longitude: sessionRecord.startLongitude,
-      start_address: sessionRecord.startAddress,
-      is_active: sessionRecord.endTime ? false : true
     };
     
-    // Add end details if session is complete
-    if (sessionRecord.endTime) {
-      Object.assign(sessionData, {
-        end_time: sessionRecord.endTime,
-        end_latitude: sessionRecord.endLatitude,
-        end_longitude: sessionRecord.endLongitude,
-        end_address: sessionRecord.endAddress
-      });
-    }
-    
-    // Insert session into Supabase
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert([sessionData])
-      .select();
+    return new Promise((resolve, reject) => {
+      const request = store.add(logEntry);
       
-    if (error) {
-      console.error("Error inserting session:", error);
+      request.onsuccess = () => {
+        const logId = request.result as number;
+        console.log(`Logged sync operation: [${category}] ${operation} - ${status}`);
+        resolve(logId);
+      };
       
-      // Update session to mark sync attempt
-      await offlineDB.sessions.update(sessionId, {
-        syncing: 0,
-        syncAttempts: (sessionRecord.syncAttempts || 0) + 1,
-        syncError: `Error inserting: ${error.message}`
-      });
-      
-      logSync('SessionSync', 'Insert error', 'error', 
-        `Error inserting session ${sessionId}: ${error.message}`, 
-        sessionId);
-      
-      return false;
-    }
-    
-    if (!data || data.length === 0) {
-      console.error("No data returned from session insert");
-      
-      // Update session to mark sync attempt
-      await offlineDB.sessions.update(sessionId, {
-        syncing: 0,
-        syncAttempts: (sessionRecord.syncAttempts || 0) + 1,
-        syncError: "No data returned from insert"
-      });
-      
-      logSync('SessionSync', 'No data returned', 'error', 
-        `No data returned from inserting session ${sessionId}`, 
-        sessionId);
-      
-      return false;
-    }
-    
-    const supabaseSessionId = data[0].id;
-    
-    // Update local record with Supabase ID and mark as synced
-    await offlineDB.sessions.update(sessionId, {
-      synced: 1,
-      syncing: 0,
-      supabaseId: supabaseSessionId,
-      syncAttempts: (sessionRecord.syncAttempts || 0) + 1,
-      syncError: null
+      request.onerror = (error) => {
+        console.error('Error logging sync operation:', error);
+        reject(error);
+      };
     });
-    
-    logSync('SessionSync', 'Session synced', 'success', 
-      `Successfully synced session ${sessionId} to Supabase ID ${supabaseSessionId}`, 
-      sessionId);
-    
-    console.log("Session synced to Supabase:", supabaseSessionId);
-    
-    // Now sync any interviews for this session
-    const interviews = await getInterviewsForOfflineSession(sessionId);
-    
-    for (const interview of interviews) {
-      if (interview.synced === 0) {
-        await syncOfflineInterview(interview.id as number, supabaseSessionId);
-      }
-    }
-    
-    return true;
   } catch (error) {
-    console.error("Error syncing session:", error);
-    
-    try {
-      // Update session to mark sync attempt
-      await offlineDB.sessions.update(sessionId, {
-        syncing: 0,
-        syncAttempts: (sessionRecord?.syncAttempts || 0) + 1,
-        syncError: `Error: ${error}`
-      });
-      
-      logSync('SessionSync', 'Sync error', 'error', 
-        `Error syncing session ${sessionId}: ${error}`, 
-        sessionId);
-    } catch (e) {
-      console.error("Error updating session after sync failure:", e);
-    }
-    
-    return false;
+    console.error('Fatal error logging sync operation:', error);
+    throw error;
   }
 };
 
-// Sync a single offline interview to Supabase
-export const syncOfflineInterview = async (interviewId: number, supabaseSessionId: string): Promise<boolean> => {
-  if (!isOnline()) return false;
-  
-  let interviewRecord;
-  
+// Get sync logs
+export const getSyncLogs = async (limit: number = 100): Promise<any[]> => {
   try {
-    // Mark interview as syncing
-    await offlineDB.interviews.update(interviewId, { 
-      syncing: 1,
-      lastSyncAttempt: new Date().toISOString()
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLogs], 'readonly');
+    const store = transaction.objectStore(STORES.syncLogs);
+    const index = store.index('timestamp');
+    
+    return new Promise((resolve, reject) => {
+      const logs: any[] = [];
+      
+      const request = index.openCursor(null, 'prev');
+      
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        
+        if (cursor && logs.length < limit) {
+          logs.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(logs);
+        }
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error getting sync logs:', error);
+        reject(error);
+      };
     });
-    
-    // Get the offline interview data
-    interviewRecord = await offlineDB.interviews.get(interviewId);
-    if (!interviewRecord) {
-      console.error("Interview not found:", interviewId);
-      return false;
-    }
-    
-    // Skip if already synced
-    if (interviewRecord.synced === 1) {
-      console.log("Interview already synced:", interviewId);
-      return true;
-    }
-    
-    logSync('InterviewSync', 'Sync started', 'success', 
-      `Attempting to sync interview ${interviewId} for session ${interviewRecord.sessionId}`,
-      interviewRecord.sessionId, interviewId);
-    
-    // Create interview in Supabase
-    const interviewData = {
-      session_id: supabaseSessionId,
-      candidate_name: interviewRecord.candidateName,
-      start_time: interviewRecord.startTime,
-      start_latitude: interviewRecord.startLatitude,
-      start_longitude: interviewRecord.startLongitude,
-      start_address: interviewRecord.startAddress,
-      is_active: interviewRecord.endTime ? false : true
-    };
-    
-    // Add end details if interview is complete
-    if (interviewRecord.endTime) {
-      Object.assign(interviewData, {
-        end_time: interviewRecord.endTime,
-        end_latitude: interviewRecord.endLatitude,
-        end_longitude: interviewRecord.endLongitude,
-        end_address: interviewRecord.endAddress
-      });
-    }
-    
-    // Add result if available
-    if (interviewRecord.result) {
-      Object.assign(interviewData, {
-        result: interviewRecord.result
-      });
-    }
-    
-    // Insert interview into Supabase
-    const { error } = await supabase
-      .from('interviews')
-      .insert([interviewData]);
-      
-    if (error) {
-      console.error("Error inserting interview:", error);
-      
-      // Update interview to mark sync attempt
-      await offlineDB.interviews.update(interviewId, {
-        syncing: 0,
-        syncAttempts: (interviewRecord.syncAttempts || 0) + 1,
-        syncError: `Error inserting: ${error.message}`
-      });
-      
-      logSync('InterviewSync', 'Insert error', 'error', 
-        `Error inserting interview ${interviewId}: ${error.message}`,
-        interviewRecord.sessionId, interviewId);
-      
-      return false;
-    }
-    
-    // Update local record to mark as synced
-    await offlineDB.interviews.update(interviewId, {
-      synced: 1,
-      syncing: 0,
-      supabaseSessionId: supabaseSessionId,
-      syncAttempts: (interviewRecord.syncAttempts || 0) + 1,
-      syncError: null
-    });
-    
-    logSync('InterviewSync', 'Interview synced', 'success', 
-      `Successfully synced interview ${interviewId} to session ${supabaseSessionId}`,
-      interviewRecord.sessionId, interviewId);
-    
-    console.log(`Interview ${interviewId} synced to Supabase session ${supabaseSessionId}`);
-    
-    return true;
   } catch (error) {
-    console.error("Error syncing interview:", error);
-    
-    try {
-      // Update interview to mark sync attempt
-      await offlineDB.interviews.update(interviewId, {
-        syncing: 0,
-        syncAttempts: (interviewRecord?.syncAttempts || 0) + 1,
-        syncError: `Error: ${error}`
-      });
-      
-      logSync('InterviewSync', 'Sync error', 'error', 
-        `Error syncing interview ${interviewId}: ${error}`,
-        interviewRecord?.sessionId, interviewId);
-    } catch (e) {
-      console.error("Error updating interview after sync failure:", e);
-    }
-    
-    return false;
+    console.error('Fatal error getting sync logs:', error);
+    return [];
   }
 };
 
-// Improved synchronization of all offline sessions
+// Mark a session as sync in progress
+export const markSessionSyncInProgress = async (sessionId: number, inProgress: boolean): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.sessions], 'readwrite');
+    const store = transaction.objectStore(STORES.sessions);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(sessionId);
+      
+      request.onsuccess = async () => {
+        const session = request.result;
+        
+        if (!session) {
+          reject(new Error(`Session with ID ${sessionId} not found`));
+          return;
+        }
+        
+        session.syncInProgress = inProgress;
+        session.lastSyncAttempt = new Date().toISOString();
+        
+        const updateRequest = store.put(session);
+        
+        updateRequest.onsuccess = () => {
+          console.log(`Marked session ${sessionId} sync in progress: ${inProgress}`);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error(`Error marking session ${sessionId} sync in progress:`, error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error(`Error fetching session ${sessionId} for sync marking:`, error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error(`Fatal error marking session ${sessionId} sync in progress:`, error);
+    throw error;
+  }
+};
+
+// Mark an interview as sync in progress
+export const markInterviewSyncInProgress = async (interviewId: number, inProgress: boolean): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.interviews], 'readwrite');
+    const store = transaction.objectStore(STORES.interviews);
+    
+    return new Promise((resolve, reject) => {
+      const request = store.get(interviewId);
+      
+      request.onsuccess = async () => {
+        const interview = request.result;
+        
+        if (!interview) {
+          reject(new Error(`Interview with ID ${interviewId} not found`));
+          return;
+        }
+        
+        interview.syncInProgress = inProgress;
+        interview.lastSyncAttempt = new Date().toISOString();
+        
+        const updateRequest = store.put(interview);
+        
+        updateRequest.onsuccess = () => {
+          console.log(`Marked interview ${interviewId} sync in progress: ${inProgress}`);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error(`Error marking interview ${interviewId} sync in progress:`, error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error(`Error fetching interview ${interviewId} for sync marking:`, error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error(`Fatal error marking interview ${interviewId} sync in progress:`, error);
+    throw error;
+  }
+};
+
+// Synchronize offline sessions and interviews
 export const syncOfflineSessions = async (): Promise<boolean> => {
+  // Only sync when online
   if (!isOnline()) {
-    console.log("Cannot sync sessions while offline");
+    console.log('Cannot sync while offline');
     return false;
   }
   
-  const syncId = `sync-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  // Try to acquire the sync lock
+  const syncId = `manual-sync-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  const lockAcquired = await acquireSyncLock(syncId);
+  
+  if (!lockAcquired) {
+    console.log('Sync already in progress, skipping');
+    await logSync('SyncOperation', 'Skipped', 'warning', 'Sync already in progress');
+    return false;
+  }
   
   try {
-    // First reset any stalled operations
-    await resetStalledOperations();
+    // Log sync start
+    await logSync('SyncOperation', 'Started', 'info', 'Starting sync operation');
     
-    // Try to acquire sync lock
-    const lockAcquired = await acquireSyncLock(syncId, 60000); // 60 seconds timeout
+    const { supabase } = await import('@/integrations/supabase/client');
     
-    if (!lockAcquired) {
-      console.log("Could not acquire sync lock, another sync may be in progress");
-      return false;
-    }
-    
-    console.log(`Starting sync with ID: ${syncId}`);
-    logSync('SyncAll', 'Sync started', 'success', `Starting full sync operation with ID: ${syncId}`);
-    
-    localStorage.setItem("sync_in_progress", "true");
-    localStorage.setItem("last_sync_attempt", Date.now().toString());
-    
-    // First, get all unsynced sessions ordered by priority (completed sessions first, then by sync attempts)
-    const unsyncedSessions = await offlineDB.sessions
-      .where('synced')
-      .equals(0)
-      // Not currently being synced by another process
-      .and(s => s.syncing === 0)
-      .toArray();
-    
+    // Get unsynchronized sessions
+    const unsyncedSessions = await getUnsyncedSessions();
     console.log(`Found ${unsyncedSessions.length} unsynced sessions`);
     
-    // Sort by priority (higher number = higher priority)
-    // Then by lower sync attempts (to prioritize sessions that have failed fewer times)
-    unsyncedSessions.sort((a, b) => {
-      // First by priority
-      if (b.syncPriority !== a.syncPriority) {
-        return (b.syncPriority || 0) - (a.syncPriority || 0);
-      }
-      // Then by sync attempts (fewer attempts first)
-      return (a.syncAttempts || 0) - (b.syncAttempts || 0);
-    });
-    
-    // Count successfully synced sessions
-    let successCount = 0;
-    
-    // Process each session in sequence to avoid race conditions
+    // Process sessions in sequence to avoid race conditions
     for (const session of unsyncedSessions) {
       try {
-        // Double check lock still valid
-        const lock = await offlineDB.syncLock.get(1);
-        if (!lock || lock.isLocked === 0 || lock.lockedBy !== syncId) {
-          console.log("Lost lock during sync, aborting");
-          break;
+        // Mark session as sync in progress
+        await markSessionSyncInProgress(session.id, true);
+        
+        // Generate a unique key if not present
+        if (!session.uniqueKey) {
+          session.uniqueKey = generateSessionUniqueKey(session);
+          // Update the session with the new uniqueKey
+          const db = await openDB();
+          const transaction = db.transaction([STORES.sessions], 'readwrite');
+          const store = transaction.objectStore(STORES.sessions);
+          session.updatedAt = new Date().toISOString();
+          await store.put(session);
         }
         
-        // Extend lock timeout for each operation
-        await acquireSyncLock(syncId, 60000);
+        // Check if the session already exists online
+        const existingSessionId = await checkSessionExists(session.uniqueKey);
         
-        console.log(`Syncing session: ${session.id}`);
-        const success = await syncOfflineSession(session.id as number);
-        
-        if (success) {
-          successCount++;
+        if (existingSessionId) {
+          console.log(`Session ${session.id} already exists online with ID ${existingSessionId}`);
+          await markSessionAsSynced(session.id, existingSessionId);
+          await markSessionSyncInProgress(session.id, false);
+          
+          // Log duplicate found
+          await logSync('SessionSync', 'DuplicateFound', 'info', 
+            `Session ${session.id} matches online session ${existingSessionId}`);
+          
+          continue;
         }
-      } catch (e) {
-        console.error(`Error syncing session ${session.id}:`, e);
+        
+        // Get the interviewer ID
+        const interviewer = await getInterviewerByCode(session.interviewerCode);
+        
+        if (!interviewer) {
+          console.error(`Cannot sync session ${session.id}: Interviewer not found`);
+          await markSessionSyncInProgress(session.id, false);
+          
+          // Log error
+          await logSync('SessionSync', 'Error', 'error', 
+            `Cannot sync session ${session.id}: Interviewer ${session.interviewerCode} not found`);
+          
+          continue;
+        }
+        
+        // Prepare session data for upload
+        const sessionData = {
+          interviewer_id: interviewer.id,
+          project_id: session.projectId || null,
+          start_time: session.startTime,
+          end_time: session.endTime || null,
+          start_latitude: session.startLatitude || null,
+          start_longitude: session.startLongitude || null,
+          start_address: session.startAddress || null,
+          end_latitude: session.endLatitude || null,
+          end_longitude: session.endLongitude || null,
+          end_address: session.endAddress || null,
+          is_active: session.isActive || false,
+          unique_key: session.uniqueKey, // New field for deduplication
+          offline_created_at: session.createdAt || new Date().toISOString()
+        };
+        
+        // Upload the session
+        const { data, error } = await supabase
+          .from('sessions')
+          .insert([sessionData])
+          .select();
+          
+        if (error) {
+          console.error(`Error syncing session ${session.id}:`, error);
+          await markSessionSyncInProgress(session.id, false);
+          
+          // Log error
+          await logSync('SessionSync', 'Error', 'error', 
+            `Error syncing session ${session.id}: ${error.message}`);
+          
+          continue;
+        }
+        
+        if (!data || data.length === 0) {
+          console.error(`No data returned when syncing session ${session.id}`);
+          await markSessionSyncInProgress(session.id, false);
+          
+          // Log error
+          await logSync('SessionSync', 'Error', 'error', 
+            `No data returned when syncing session ${session.id}`);
+          
+          continue;
+        }
+        
+        const onlineSessionId = data[0].id;
+        
+        // Mark session as synced
+        await markSessionAsSynced(session.id, onlineSessionId);
+        
+        // Log success
+        await logSync('SessionSync', 'Success', 'success', 
+          `Synced session ${session.id} to online ID ${onlineSessionId}`);
+        
+        console.log(`Synced session ${session.id} to online ID ${onlineSessionId}`);
+        
+        // Get interviews for this session
+        const sessionInterviews = await getInterviewsForOfflineSession(session.id);
+        console.log(`Found ${sessionInterviews.length} interviews for session ${session.id}`);
+        
+        // Process interviews
+        for (const interview of sessionInterviews) {
+          try {
+            // Mark interview as sync in progress
+            await markInterviewSyncInProgress(interview.id, true);
+            
+            // Generate a unique key if not present
+            if (!interview.uniqueKey) {
+              interview.uniqueKey = generateInterviewUniqueKey(interview);
+              // Update the interview with the new uniqueKey
+              const db = await openDB();
+              const transaction = db.transaction([STORES.interviews], 'readwrite');
+              const store = transaction.objectStore(STORES.interviews);
+              interview.updatedAt = new Date().toISOString();
+              await store.put(interview);
+            }
+            
+            // Check if the interview already exists online
+            const existingInterviewId = await checkInterviewExists(interview.uniqueKey);
+            
+            if (existingInterviewId) {
+              console.log(`Interview ${interview.id} already exists online with ID ${existingInterviewId}`);
+              await markInterviewAsSynced(interview.id, existingInterviewId);
+              await markInterviewSyncInProgress(interview.id, false);
+              
+              // Log duplicate found
+              await logSync('InterviewSync', 'DuplicateFound', 'info', 
+                `Interview ${interview.id} matches online interview ${existingInterviewId}`);
+              
+              continue;
+            }
+            
+            // Prepare interview data for upload
+            const interviewData = {
+              session_id: onlineSessionId,
+              project_id: interview.projectId || null,
+              start_time: interview.startTime,
+              end_time: interview.endTime || null,
+              start_latitude: interview.startLatitude || null,
+              start_longitude: interview.startLongitude || null,
+              start_address: interview.startAddress || null,
+              end_latitude: interview.endLatitude || null,
+              end_longitude: interview.endLongitude || null,
+              end_address: interview.endAddress || null,
+              is_active: interview.endTime ? false : true,
+              candidate_name: interview.candidateName || "Interview",
+              result: interview.result,
+              unique_key: interview.uniqueKey,
+              offline_created_at: interview.createdAt || new Date().toISOString()
+            };
+            
+            // Upload the interview
+            const { data: interviewData, error: interviewError } = await supabase
+              .from('interviews')
+              .insert([interviewData])
+              .select();
+              
+            if (interviewError) {
+              console.error(`Error syncing interview ${interview.id}:`, interviewError);
+              await markInterviewSyncInProgress(interview.id, false);
+              
+              // Log error
+              await logSync('InterviewSync', 'Error', 'error', 
+                `Error syncing interview ${interview.id}: ${interviewError.message}`);
+              
+              continue;
+            }
+            
+            if (!interviewData || interviewData.length === 0) {
+              console.error(`No data returned when syncing interview ${interview.id}`);
+              await markInterviewSyncInProgress(interview.id, false);
+              
+              // Log error
+              await logSync('InterviewSync', 'Error', 'error', 
+                `No data returned when syncing interview ${interview.id}`);
+              
+              continue;
+            }
+            
+            const onlineInterviewId = interviewData[0].id;
+            
+            // Mark interview as synced
+            await markInterviewAsSynced(interview.id, onlineInterviewId);
+            
+            // Log success
+            await logSync('InterviewSync', 'Success', 'success', 
+              `Synced interview ${interview.id} to online ID ${onlineInterviewId}`);
+            
+            console.log(`Synced interview ${interview.id} to online ID ${onlineInterviewId}`);
+          } catch (interviewError) {
+            console.error(`Error processing interview ${interview.id}:`, interviewError);
+            await markInterviewSyncInProgress(interview.id, false);
+            
+            // Log error
+            await logSync('InterviewSync', 'Error', 'error', 
+              `Error processing interview ${interview.id}: ${interviewError}`);
+          }
+        }
+        
+        // Mark session as sync complete
+        await markSessionSyncInProgress(session.id, false);
+      } catch (sessionError) {
+        console.error(`Error processing session ${session.id}:`, sessionError);
+        await markSessionSyncInProgress(session.id, false);
+        
+        // Log error
+        await logSync('SessionSync', 'Error', 'error', 
+          `Error processing session ${session.id}: ${sessionError}`);
       }
     }
     
-    // Now sync any interviews whose sessions are already synced
-    const sessionIdsToSkip = unsyncedSessions.map(s => s.id);
-    
-    const unsyncedInterviews = await offlineDB.interviews
-      .where('synced')
-      .equals(0)
-      // Only get interviews for sessions that are already synced and have a Supabase ID
-      .and(interview => {
-        return !sessionIdsToSkip.includes(interview.sessionId);
-      })
-      .and(i => i.syncing === 0)
-      .toArray();
-    
-    console.log(`Found ${unsyncedInterviews.length} unsynced interviews for already synced sessions`);
-    
-    for (const interview of unsyncedInterviews) {
-      try {
-        // Get the session to get the Supabase session ID
-        const offlineSession = await offlineDB.sessions.get(interview.sessionId);
-        
-        if (offlineSession && offlineSession.supabaseId) {
-          console.log(`Syncing interview ${interview.id} to session ${offlineSession.supabaseId}`);
-          await syncOfflineInterview(interview.id as number, offlineSession.supabaseId);
-        }
-      } catch (e) {
-        console.error(`Error syncing interview ${interview.id}:`, e);
-      }
-    }
-    
-    console.log(`Sync complete. Sessions synced: ${successCount}/${unsyncedSessions.length}`);
-    
-    logSync('SyncAll', 'Sync completed', 'success', 
-      `Completed sync operation. Sessions synced: ${successCount}/${unsyncedSessions.length}`);
+    // Log sync completion
+    await logSync('SyncOperation', 'Completed', 'success', 
+      `Completed sync operation - Processed ${unsyncedSessions.length} sessions`);
     
     return true;
   } catch (error) {
-    console.error("Error during sync operation:", error);
-    logSync('SyncAll', 'Sync error', 'error', `Error during sync operation: ${error}`);
+    console.error('Error during sync operation:', error);
+    
+    // Log error
+    await logSync('SyncOperation', 'Failed', 'error', 
+      `Error during sync operation: ${error}`);
+    
     return false;
   } finally {
-    // Always clean up
-    localStorage.removeItem("sync_in_progress");
+    // Always release the sync lock
     await releaseSyncLock(syncId);
   }
 };
 
-// Migration function to add uniqueKey to existing sessions
-export const migrateExistingSessions = async (): Promise<void> => {
-  try {
-    const sessions = await offlineDB.sessions.toArray();
-    let migratedCount = 0;
-    
-    for (const session of sessions) {
-      // Skip if already has uniqueKey
-      if (session.uniqueKey) continue;
-      
-      const uniqueKey = generateSessionUniqueKey(
-        session.interviewerCode, 
-        session.startTime, 
-        session.projectId
-      );
-      
-      await offlineDB.sessions.update(session.id!, {
-        uniqueKey,
-        syncing: 0,
-        syncAttempts: session.syncAttempts || 0,
-        lastSyncAttempt: session.lastSyncAttempt || null
-      });
-      
-      migratedCount++;
-    }
-    
-    console.log(`Migrated ${migratedCount} sessions to include uniqueKey`);
-  } catch (error) {
-    console.error("Error migrating sessions:", error);
-  }
+// Export for use in other modules
+export default {
+  isOnline,
+  saveOfflineSession,
+  updateOfflineSession,
+  saveOfflineInterview,
+  updateOfflineInterview,
+  getUnsyncedSessions,
+  getUnsyncedSessionsCount,
+  getUnsyncedInterviews,
+  getUnsyncedInterviewsCount,
+  getInterviewsForOfflineSession,
+  getOfflineInterview,
+  syncOfflineSessions,
+  cacheInterviewer,
+  getInterviewerByCode,
+  cacheProjects,
+  getCachedProjects,
+  acquireSyncLock,
+  releaseSyncLock,
+  forceReleaseSyncLock,
+  getSyncStatus,
+  logSync,
+  getSyncLogs
 };
-
-// Run migrations on database upgrade
-migrateExistingSessions().catch(console.error);
