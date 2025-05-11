@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Location, Project } from "@/types";
 
@@ -428,7 +427,7 @@ export const getUnsyncedSessions = async (): Promise<any[]> => {
   }
 };
 
-// Get the count of unsynced sessions
+// Get the count of unsynchronized sessions
 export const getUnsyncedSessionsCount = async (): Promise<number> => {
   try {
     const db = await openDB();
@@ -482,7 +481,7 @@ export const getUnsyncedInterviews = async (): Promise<any[]> => {
   }
 };
 
-// Get the count of unsynced interviews
+// Get the count of unsynchronized interviews
 export const getUnsyncedInterviewsCount = async (): Promise<number> => {
   try {
     const db = await openDB();
@@ -1102,64 +1101,69 @@ export const getSyncStatus = async (): Promise<any> => {
   try {
     const db = await openDB();
     
-    // Get sessions info
-    const sessionsTransaction = db.transaction([STORES.sessions], 'readonly');
-    const sessionsStore = sessionsTransaction.objectStore(STORES.sessions);
-    const sessionsSyncIndex = sessionsStore.index('synced');
-    
-    // Get interviews info
-    const interviewsTransaction = db.transaction([STORES.interviews], 'readonly');
-    const interviewsStore = interviewsTransaction.objectStore(STORES.interviews);
-    const interviewsSyncIndex = interviewsStore.index('synced');
-    
-    // Get sync lock info
-    const syncLocksTransaction = db.transaction([STORES.syncLocks], 'readonly');
-    const syncLocksStore = syncLocksTransaction.objectStore(STORES.syncLocks);
-    
-    // Get sync logs for last sync
-    const syncLogsTransaction = db.transaction([STORES.syncLogs], 'readonly');
-    const syncLogsStore = syncLogsTransaction.objectStore(STORES.syncLogs);
-    const syncLogsIndex = syncLogsStore.index('timestamp');
-    
-    // Run all queries in parallel
-    const [
-      sessionsTotal,
-      sessionsUnsynced,
-      interviewsTotal,
-      interviewsUnsynced,
-      currentLock,
-      lastSyncLog
-    ] = await Promise.all([
-      new Promise<number>((resolve) => {
-        const request = sessionsStore.count();
+    // Create non-nested promises for session counts
+    const getSessionsTotal = async (): Promise<number> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.sessions], 'readonly');
+        const store = transaction.objectStore(STORES.sessions);
+        const request = store.count();
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
-      }),
-      new Promise<number>((resolve) => {
+      });
+    };
+    
+    const getSessionsUnsynced = async (): Promise<number> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.sessions], 'readonly');
+        const store = transaction.objectStore(STORES.sessions);
+        const index = store.index('synced');
         // Use IDBKeyRange.only for boolean values
-        const request = sessionsSyncIndex.count(IDBKeyRange.only(false));
+        const request = index.count(IDBKeyRange.only(false));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
-      }),
-      new Promise<number>((resolve) => {
-        const request = interviewsStore.count();
+      });
+    };
+    
+    // Create non-nested promises for interview counts
+    const getInterviewsTotal = async (): Promise<number> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.interviews], 'readonly');
+        const store = transaction.objectStore(STORES.interviews);
+        const request = store.count();
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
-      }),
-      new Promise<number>((resolve) => {
+      });
+    };
+    
+    const getInterviewsUnsynced = async (): Promise<number> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.interviews], 'readonly');
+        const store = transaction.objectStore(STORES.interviews);
+        const index = store.index('synced');
         // Use IDBKeyRange.only for boolean values
-        const request = interviewsSyncIndex.count(IDBKeyRange.only(false));
+        const request = index.count(IDBKeyRange.only(false));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => resolve(0);
-      }),
-      new Promise<any>((resolve) => {
-        const request = syncLocksStore.get('main');
+      });
+    };
+    
+    const getCurrentLock = async (): Promise<any> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.syncLocks], 'readonly');
+        const store = transaction.objectStore(STORES.syncLocks);
+        const request = store.get('main');
         request.onsuccess = () => resolve(request.result || null);
         request.onerror = () => resolve(null);
-      }),
-      new Promise<any>((resolve) => {
+      });
+    };
+    
+    const getLastSyncLog = async (): Promise<any> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.syncLogs], 'readonly');
+        const store = transaction.objectStore(STORES.syncLogs);
+        const index = store.index('timestamp');
         // Get most recent successful sync completion log
-        const request = syncLogsStore.openCursor(null, 'prev');
+        const request = index.openCursor(null, 'prev');
         request.onsuccess = () => {
           const cursor = request.result;
           if (cursor && cursor.value.category === 'SyncOperation' && cursor.value.status === 'success') {
@@ -1169,53 +1173,65 @@ export const getSyncStatus = async (): Promise<any> => {
           }
         };
         request.onerror = () => resolve(null);
-      })
-    ]);
+      });
+    };
     
-    // Get in-progress counts (syncing but not yet complete)
-    const sessionsInProgress = await new Promise<number>((resolve) => {
-      // Check for sessions with syncInProgress flag
-      const request = sessionsStore.openCursor();
-      let count = 0;
-      
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result;
-        if (cursor) {
-          if (cursor.value.syncInProgress === true && !cursor.value.synced) {
-            count++;
+    // Get in-progress counts using async functions instead of nested promises
+    const getSessionsInProgress = async (): Promise<number> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.sessions], 'readonly');
+        const store = transaction.objectStore(STORES.sessions);
+        let count = 0;
+        const request = store.openCursor();
+        
+        request.onsuccess = (event) => {
+          const cursor = (event.target as IDBRequest).result;
+          if (cursor) {
+            if (cursor.value.syncInProgress === true && !cursor.value.synced) {
+              count++;
+            }
+            cursor.continue();
+          } else {
+            resolve(count);
           }
-          cursor.continue();
-        } else {
-          resolve(count);
-        }
-      };
-      
-      request.onerror = () => {
-        resolve(0);
-      };
-    });
+        };
+        
+        request.onerror = () => resolve(0);
+      });
+    };
     
-    const interviewsInProgress = await new Promise<number>((resolve) => {
-      // Check for interviews with syncInProgress flag
-      const request = interviewsStore.openCursor();
-      let count = 0;
-      
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest).result;
-        if (cursor) {
-          if (cursor.value.syncInProgress === true && !cursor.value.synced) {
-            count++;
+    const getInterviewsInProgress = async (): Promise<number> => {
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORES.interviews], 'readonly');
+        const store = transaction.objectStore(STORES.interviews);
+        let count = 0;
+        const request = store.openCursor();
+        
+        request.onsuccess = (event) => {
+          const cursor = (event.target as IDBRequest).result;
+          if (cursor) {
+            if (cursor.value.syncInProgress === true && !cursor.value.synced) {
+              count++;
+            }
+            cursor.continue();
+          } else {
+            resolve(count);
           }
-          cursor.continue();
-        } else {
-          resolve(count);
-        }
-      };
-      
-      request.onerror = () => {
-        resolve(0);
-      };
-    });
+        };
+        
+        request.onerror = () => resolve(0);
+      });
+    };
+    
+    // Use await directly instead of Promise.all to avoid nesting issues
+    const sessionsTotal = await getSessionsTotal();
+    const sessionsUnsynced = await getSessionsUnsynced();
+    const sessionsInProgress = await getSessionsInProgress();
+    const interviewsTotal = await getInterviewsTotal();
+    const interviewsUnsynced = await getInterviewsUnsynced();
+    const interviewsInProgress = await getInterviewsInProgress();
+    const currentLock = await getCurrentLock();
+    const lastSyncLog = await getLastSyncLog();
     
     return {
       sessionsTotal,
