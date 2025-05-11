@@ -12,6 +12,9 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
 // Create a standalone supabase instance for offline sync operations to avoid circular imports
+export const supabaseSync = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// Deprecated: Use supabaseSync directly instead
 export function getSupabaseForSync() {
-  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  return supabaseSync;
 }
