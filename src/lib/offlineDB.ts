@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Location, Project } from "@/types";
 import { supabaseSync } from "@/integrations/supabase/client";
@@ -95,6 +96,15 @@ export interface SyncStatusData {
     lockedAt: number;
     expiresAt: number;
   } | null;
+}
+
+// Define simple result interfaces for database queries to avoid excessive type instantiation
+interface SessionResult {
+  id: string;
+}
+
+interface InterviewResult {
+  id: string;
 }
 
 // Check if offline/online
@@ -962,10 +972,7 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   if (!isOnline()) return null;
   
   try {
-    interface SessionResult {
-      id: string;
-    }
-    
+    // Use simple type annotation to avoid deep instantiation
     const { data, error } = await supabaseSync
       .from('sessions')
       .select('id')
@@ -976,7 +983,8 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
       throw error;
     }
     
-    const sessions = data as SessionResult[];
+    // Explicitly cast to a simple array type without using complex generics
+    const sessions = data as unknown as SessionResult[];
     
     if (sessions && sessions.length > 0) {
       return sessions[0].id;
@@ -994,10 +1002,7 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
   if (!isOnline()) return null;
   
   try {
-    interface InterviewResult {
-      id: string;
-    }
-    
+    // Use simple type annotation to avoid deep instantiation
     const { data, error } = await supabaseSync
       .from('interviews')
       .select('id')
@@ -1008,7 +1013,8 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
       throw error;
     }
     
-    const interviews = data as InterviewResult[];
+    // Explicitly cast to a simple array type without using complex generics
+    const interviews = data as unknown as InterviewResult[];
     
     if (interviews && interviews.length > 0) {
       return interviews[0].id;
