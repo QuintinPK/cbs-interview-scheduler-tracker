@@ -107,7 +107,7 @@ interface InterviewResult {
   id: string;
 }
 
-// Define simple database response types to avoid type recursion
+// Define simple database response type to avoid type recursion
 interface SupabaseDatabaseResponse<T> {
   data: T | null;
   error: any | null;
@@ -982,22 +982,26 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   if (!isOnline()) return null;
   
   try {
-    // Use basic fetch instead of Supabase client to avoid type instantiation issues
-    const response = await supabaseSync.rpc('check_session_exists', {
-      p_unique_key: uniqueKey
+    // Use Supabase edge function to check existence instead of RPC
+    const response = await fetch('https://jljhtvfrkxehvdvhfktv.supabase.co/functions/v1/check-existence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseSync.supabaseKey}`
+      },
+      body: JSON.stringify({
+        type: 'session',
+        uniqueKey: uniqueKey
+      })
     });
     
-    // Simple direct property access to avoid complex typings
-    if (response.error) {
-      throw response.error;
+    const result = await response.json();
+    
+    if (result.error) {
+      throw new Error(result.error);
     }
     
-    // If the response contains a session ID, return it
-    if (response.data) {
-      return response.data;
-    }
-    
-    return null;
+    return result.id;
   } catch (error) {
     console.error('Error checking if session exists:', error);
     return null;
@@ -1009,22 +1013,26 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
   if (!isOnline()) return null;
   
   try {
-    // Use basic fetch instead of Supabase client to avoid type instantiation issues
-    const response = await supabaseSync.rpc('check_interview_exists', {
-      p_unique_key: uniqueKey
+    // Use Supabase edge function to check existence instead of RPC
+    const response = await fetch('https://jljhtvfrkxehvdvhfktv.supabase.co/functions/v1/check-existence', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseSync.supabaseKey}`
+      },
+      body: JSON.stringify({
+        type: 'interview',
+        uniqueKey: uniqueKey
+      })
     });
     
-    // Simple direct property access to avoid complex typings
-    if (response.error) {
-      throw response.error;
+    const result = await response.json();
+    
+    if (result.error) {
+      throw new Error(result.error);
     }
     
-    // If the response contains an interview ID, return it
-    if (response.data) {
-      return response.data;
-    }
-    
-    return null;
+    return result.id;
   } catch (error) {
     console.error('Error checking if interview exists:', error);
     return null;

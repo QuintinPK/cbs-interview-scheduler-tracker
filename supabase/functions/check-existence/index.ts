@@ -1,7 +1,4 @@
 
-// Supabase Edge Function to check if sessions or interviews exist
-// This helps avoid excessive type instantiation on the client side
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
 
@@ -39,13 +36,15 @@ serve(async (req: Request) => {
         .from('sessions')
         .select('id')
         .eq('unique_key', uniqueKey)
-        .limit(1);
+        .limit(1)
+        .single();
     } else if (type === "interview") {
       response = await supabase
         .from('interviews')
         .select('id')
         .eq('unique_key', uniqueKey)
-        .limit(1);
+        .limit(1)
+        .single();
     } else {
       return new Response(
         JSON.stringify({ error: "Invalid type parameter" }),
@@ -54,17 +53,23 @@ serve(async (req: Request) => {
     }
 
     if (response.error) {
+      // If the error is "No rows returned", it means the record doesn't exist
+      if (response.error.code === "PGRST116") {
+        return new Response(
+          JSON.stringify({ id: null }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: response.error.message }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
 
-    // Return the ID if found, null otherwise
-    const id = response.data && response.data.length > 0 ? response.data[0].id : null;
-
+    // Return the ID if found
     return new Response(
-      JSON.stringify({ id }),
+      JSON.stringify({ id: response.data?.id || null }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   } catch (error) {
