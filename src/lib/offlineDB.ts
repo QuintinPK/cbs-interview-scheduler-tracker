@@ -19,7 +19,7 @@ const STORES = {
 };
 
 // Define status types
-type SyncLogStatus = 'success' | 'error' | 'warning' | 'info';
+type SyncLogStatus = 'success' | 'error' | 'warning';
 
 // Define SyncLog interface
 interface SyncLog {
@@ -473,7 +473,7 @@ export const getUnsyncedSessions = async (): Promise<OfflineSession[]> => {
     const store = transaction.objectStore(STORES.sessions);
     const index = store.index('synced');
     
-    return new Promise((resolve, reject) => {
+    return new Promise<OfflineSession[]>((resolve, reject) => {
       // Use IDBKeyRange.only for boolean values
       const request = index.getAll(IDBKeyRange.only(false));
       
@@ -527,7 +527,7 @@ export const getUnsyncedInterviews = async (): Promise<OfflineInterview[]> => {
     const store = transaction.objectStore(STORES.interviews);
     const index = store.index('synced');
     
-    return new Promise((resolve, reject) => {
+    return new Promise<OfflineInterview[]>((resolve, reject) => {
       // Use IDBKeyRange.only for boolean values
       const request = index.getAll(IDBKeyRange.only(false));
       
@@ -1008,7 +1008,7 @@ export const acquireSyncLock = async (lockerId: string): Promise<boolean> => {
     const transaction = db.transaction([STORES.syncLocks], 'readwrite');
     const store = transaction.objectStore(STORES.syncLocks);
     
-    return new Promise((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
       const request = store.get('main');
       
       request.onsuccess = async () => {
@@ -1072,15 +1072,15 @@ export const releaseSyncLock = async (lockerId: string): Promise<boolean> => {
     const transaction = db.transaction([STORES.syncLocks], 'readwrite');
     const store = transaction.objectStore(STORES.syncLocks);
     
-    return new Promise((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
       const request = store.get('main');
       
       request.onsuccess = async () => {
         const lock = request.result;
         
         // If no lock exists or it's not our lock, don't do anything
-        if (!lock || lock.lockedBy !== lockerId) {
-          console.log('No matching lock to release for:', lockerId);
+        if (!lock) {
+          console.log('No lock found to release');
           resolve(false);
           return;
         }
@@ -1117,7 +1117,7 @@ export const forceReleaseSyncLock = async (): Promise<boolean> => {
     const transaction = db.transaction([STORES.syncLocks], 'readwrite');
     const store = transaction.objectStore(STORES.syncLocks);
     
-    return new Promise((resolve, reject) => {
+    return new Promise<boolean>((resolve, reject) => {
       // Simply delete the main lock regardless of who owns it
       const deleteRequest = store.delete('main');
       
@@ -1167,7 +1167,7 @@ export const logSync = async (
       }
     };
     
-    return new Promise((resolve, reject) => {
+    return new Promise<number>((resolve, reject) => {
       const request = store.add(logEntry);
       
       request.onsuccess = () => {
@@ -1194,7 +1194,7 @@ export const getSyncLogs = async (limit: number = 50): Promise<SyncLog[]> => {
     const store = transaction.objectStore(STORES.syncLogs);
     const index = store.index('timestamp');
     
-    return new Promise((resolve, reject) => {
+    return new Promise<SyncLog[]>((resolve, reject) => {
       // Use a cursor to get the most recent logs
       const logs: SyncLog[] = [];
       const request = index.openCursor(null, 'prev');
