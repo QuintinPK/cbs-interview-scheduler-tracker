@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Location, Project } from "@/types";
 import { supabaseSync } from "@/integrations/supabase/client";
@@ -19,7 +18,7 @@ const STORES = {
 };
 
 // Define status types
-type SyncLogStatus = 'success' | 'error' | 'warning';
+export type SyncLogStatus = 'success' | 'error' | 'warning';
 
 // Define SyncLog interface
 interface SyncLog {
@@ -79,6 +78,23 @@ interface OfflineInterview {
   updatedAt: string;
   onlineId?: string;
   syncedAt?: string;
+}
+
+// Define SyncStatus interface
+export interface SyncStatusData {
+  sessionsTotal: number;
+  sessionsUnsynced: number;
+  sessionsInProgress: number;
+  interviewsTotal: number;
+  interviewsUnsynced: number;
+  interviewsInProgress: number;
+  lastSync: string | null;
+  currentLock: {
+    isLocked: number;
+    lockedBy: string;
+    lockedAt: number;
+    expiresAt: number;
+  } | null;
 }
 
 // Check if offline/online
@@ -223,9 +239,11 @@ export const generateInterviewUniqueKey = (interview: any): string => {
 
 // Initialize device ID if not exists
 export const initializeDeviceId = (): void => {
-  if (!localStorage.getItem('device_id')) {
-    localStorage.setItem('device_id', uuidv4());
-    console.log('Device ID initialized');
+  if (typeof window !== 'undefined') {
+    if (!localStorage.getItem('device_id')) {
+      localStorage.setItem('device_id', uuidv4());
+      console.log('Device ID initialized');
+    }
   }
 };
 
@@ -473,6 +491,7 @@ export const getUnsyncedSessions = async (): Promise<OfflineSession[]> => {
     const store = transaction.objectStore(STORES.sessions);
     const index = store.index('synced');
     
+    // Fix for the excessive type instantiation error by explicitly typing the Promise
     return new Promise<OfflineSession[]>((resolve, reject) => {
       // Use IDBKeyRange.only for boolean values
       const request = index.getAll(IDBKeyRange.only(false));
@@ -500,7 +519,8 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
     const store = transaction.objectStore(STORES.sessions);
     const index = store.index('synced');
     
-    return new Promise((resolve, reject) => {
+    // Fix for the excessive type instantiation error by explicitly typing the Promise
+    return new Promise<number>((resolve, reject) => {
       // Use IDBKeyRange.only for boolean values
       const request = index.count(IDBKeyRange.only(false));
       
@@ -1222,21 +1242,7 @@ export const getSyncLogs = async (limit: number = 50): Promise<SyncLog[]> => {
 };
 
 // Get sync status
-export const getSyncStatus = async (): Promise<{
-  sessionsTotal: number;
-  sessionsUnsynced: number;
-  sessionsInProgress: number;
-  interviewsTotal: number;
-  interviewsUnsynced: number;
-  interviewsInProgress: number;
-  lastSync: string | null;
-  currentLock: {
-    isLocked: number;
-    lockedBy: string;
-    lockedAt: number;
-    expiresAt: number;
-  } | null;
-}> => {
+export const getSyncStatus = async (): Promise<SyncStatusData> => {
   try {
     const db = await openDB();
     
@@ -1274,13 +1280,13 @@ export const getSyncStatus = async (): Promise<{
       const logsStore = logsTransaction.objectStore(STORES.syncLogs);
       const logsIndex = logsStore.index('timestamp');
       
-      const lastLogRequest = await new Promise<any>((resolve, reject) => {
+      const lastLogRequest = await new Promise<SyncLog | null>((resolve, reject) => {
         // Get the most recent log entry
         const request = logsIndex.openCursor(null, 'prev');
         request.onsuccess = (event) => {
           const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
           if (cursor) {
-            resolve(cursor.value);
+            resolve(cursor.value as SyncLog);
           } else {
             resolve(null);
           }
