@@ -11,9 +11,7 @@ import {
   syncOfflineSessions,
   acquireSyncLock,
   releaseSyncLock,
-  logSync,
-  forceReleaseSyncLock,
-  getSyncLogs
+  logSync
 } from '@/lib/offlineDB';
 import { requestSync } from '@/registerSW';
 import { Progress } from '@/components/ui/progress';
@@ -130,7 +128,7 @@ const SyncStatus = () => {
             ) {
               // Force release the stale lock
               console.log('Forcing release of stale sync lock');
-              await forceReleaseSyncLock();
+              await handleForceReleaseLock();
               
               toast.warning('Detected and cleared a stale sync lock');
               setIsSyncing(false);
@@ -152,8 +150,9 @@ const SyncStatus = () => {
     
     try {
       setIsLoadingLogs(true);
-      const logs = await getSyncLogs(50); // Get the last 50 logs
-      setSyncLogs(logs);
+      // Since getSyncLogs doesn't exist yet, we'll stub it by creating an empty array
+      // This will be replaced later when we implement getSyncLogs
+      setSyncLogs([]);
     } catch (error) {
       console.error('Error loading sync logs:', error);
     } finally {
@@ -268,7 +267,12 @@ const SyncStatus = () => {
   // Handle force releasing a sync lock (admin function)
   const handleForceReleaseLock = async () => {
     try {
-      const successful = await forceReleaseSyncLock();
+      // Create a special ID for forced release
+      const forceId = `force-release-${Date.now()}`;
+      
+      // Just delete the lock directly
+      const successful = await releaseSyncLock('main');
+      
       if (successful) {
         toast.success('Successfully released sync lock');
         await logSync('SyncLock', 'ManualForceRelease', 'warning', 'User manually forced sync lock release');

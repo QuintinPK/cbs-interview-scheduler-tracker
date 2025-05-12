@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Location, Project } from "@/types";
 import { supabaseSync } from "@/integrations/supabase/client";
@@ -16,6 +17,69 @@ const STORES = {
   syncLogs: 'syncLogs',
   syncQueue: 'syncQueue' // Added for improved sync queueing
 };
+
+// Define status types
+type SyncLogStatus = 'success' | 'error' | 'warning' | 'info';
+
+// Define SyncLog interface
+interface SyncLog {
+  id?: number;
+  timestamp: string;
+  category: string;
+  operation: string;
+  status: SyncLogStatus;
+  details: string;
+  metadata?: {
+    deviceId: string;
+    isOnline: boolean;
+    userAgent: string;
+  };
+}
+
+// Define local session interface
+interface OfflineSession {
+  id?: number;
+  interviewerCode: string;
+  projectId: string | null;
+  startTime: string;
+  endTime?: string;
+  startLatitude?: number;
+  startLongitude?: number;
+  startAddress?: string;
+  endLatitude?: number;
+  endLongitude?: number;
+  endAddress?: string;
+  synced: boolean;
+  isActive: boolean;
+  uniqueKey: string;
+  createdAt: string;
+  updatedAt: string;
+  onlineId?: string;
+  syncedAt?: string;
+}
+
+// Define local interview interface
+interface OfflineInterview {
+  id?: number;
+  sessionId: number;
+  candidateName: string;
+  projectId: string | null;
+  startTime: string;
+  endTime?: string | null;
+  startLatitude?: number;
+  startLongitude?: number;
+  startAddress?: string;
+  endLatitude?: number;
+  endLongitude?: number;
+  endAddress?: string;
+  result?: string | null;
+  synced: boolean;
+  uniqueKey: string;
+  createdAt: string;
+  updatedAt: string;
+  onlineId?: string;
+  syncedAt?: string;
+}
 
 // Check if offline/online
 export const isOnline = (): boolean => {
@@ -402,7 +466,7 @@ export const updateOfflineInterviewResult = async (
 };
 
 // Get all unsynchronized sessions
-export const getUnsyncedSessions = async (): Promise<any[]> => {
+export const getUnsyncedSessions = async (): Promise<OfflineSession[]> => {
   try {
     const db = await openDB();
     const transaction = db.transaction([STORES.sessions], 'readonly');
@@ -456,7 +520,7 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
 };
 
 // Get all unsynchronized interviews
-export const getUnsyncedInterviews = async (): Promise<any[]> => {
+export const getUnsyncedInterviews = async (): Promise<OfflineInterview[]> => {
   try {
     const db = await openDB();
     const transaction = db.transaction([STORES.interviews], 'readonly');
@@ -510,7 +574,7 @@ export const getUnsyncedInterviewsCount = async (): Promise<number> => {
 };
 
 // Get interviews for a specific offline session
-export const getInterviewsForOfflineSession = async (sessionId: number): Promise<any[]> => {
+export const getInterviewsForOfflineSession = async (sessionId: number): Promise<OfflineInterview[]> => {
   try {
     const db = await openDB();
     const transaction = db.transaction([STORES.interviews], 'readonly');
@@ -536,7 +600,7 @@ export const getInterviewsForOfflineSession = async (sessionId: number): Promise
 };
 
 // Get a specific offline interview
-export const getOfflineInterview = async (interviewId: number): Promise<any | null> => {
+export const getOfflineInterview = async (interviewId: number): Promise<OfflineInterview | null> => {
   try {
     const db = await openDB();
     const transaction = db.transaction([STORES.interviews], 'readonly');
@@ -571,7 +635,7 @@ export const markSessionAsSynced = async (sessionId: number, onlineId: string): 
       const request = store.get(sessionId);
       
       request.onsuccess = async () => {
-        const session = request.result;
+        const session = request.result as OfflineSession;
         
         if (!session) {
           reject(new Error(`Session with ID ${sessionId} not found`));
@@ -617,7 +681,7 @@ export const markInterviewAsSynced = async (interviewId: number, onlineId: strin
       const request = store.get(interviewId);
       
       request.onsuccess = async () => {
-        const interview = request.result;
+        const interview = request.result as OfflineInterview;
         
         if (!interview) {
           reject(new Error(`Interview with ID ${interviewId} not found`));
@@ -683,9 +747,7 @@ export const cacheInterviewer = async (interviewerCode: string): Promise<boolean
         
         // If we're online, fetch the interviewer from the server
         try {
-          const { supabase } = await import('@/integrations/supabase/client');
-          
-          const { data: interviewers, error } = await supabase
+          const { data: interviewers, error } = await supabaseSync
             .from('interviewers')
             .select('*')
             .eq('code', interviewerCode)
@@ -768,9 +830,7 @@ export const getInterviewerByCode = async (interviewerCode: string): Promise<any
         
         // If we're online, fetch from server and cache it
         try {
-          const { supabase } = await import('@/integrations/supabase/client');
-          
-          const { data: interviewers, error } = await supabase
+          const { data: interviewers, error } = await supabaseSync
             .from('interviewers')
             .select('*')
             .eq('code', interviewerCode)
@@ -882,10 +942,10 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   if (!isOnline()) return null;
   
   try {
-    // Define a simple type for the session result
-    type SessionResult = { id: string };
+    interface SessionResult {
+      id: string;
+    }
     
-    // Use the imported supabaseSync client directly
     const { data, error } = await supabaseSync
       .from('sessions')
       .select('id')
@@ -896,7 +956,6 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
       throw error;
     }
     
-    // Use a type assertion with the simplified type
     const sessions = data as SessionResult[];
     
     if (sessions && sessions.length > 0) {
@@ -915,10 +974,10 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
   if (!isOnline()) return null;
   
   try {
-    // Define a simple type for the interview result
-    type InterviewResult = { id: string };
+    interface InterviewResult {
+      id: string;
+    }
     
-    // Use the imported supabaseSync client directly
     const { data, error } = await supabaseSync
       .from('interviews')
       .select('id')
@@ -929,7 +988,6 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
       throw error;
     }
     
-    // Use a type assertion with the simplified type
     const interviews = data as InterviewResult[];
     
     if (interviews && interviews.length > 0) {
@@ -1052,11 +1110,43 @@ export const releaseSyncLock = async (lockerId: string): Promise<boolean> => {
   }
 };
 
+// Force release a sync lock (admin function)
+export const forceReleaseSyncLock = async (): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLocks], 'readwrite');
+    const store = transaction.objectStore(STORES.syncLocks);
+    
+    return new Promise((resolve, reject) => {
+      // Simply delete the main lock regardless of who owns it
+      const deleteRequest = store.delete('main');
+      
+      deleteRequest.onsuccess = () => {
+        console.log('Forcibly released sync lock');
+        
+        // Log this action
+        logSync('SyncLock', 'ForceRelease', 'warning', 
+          'Sync lock was forcibly released, which may indicate a stale lock or issue with previous sync');
+          
+        resolve(true);
+      };
+      
+      deleteRequest.onerror = (error) => {
+        console.error('Error force releasing sync lock:', error);
+        resolve(false);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error force releasing sync lock:', error);
+    return false;
+  }
+};
+
 // Log a sync operation
 export const logSync = async (
   category: string,
-  action: string,
-  status: 'success' | 'error' | 'warning',
+  operation: string,
+  status: SyncLogStatus,
   details?: string
 ): Promise<number> => {
   try {
@@ -1064,12 +1154,17 @@ export const logSync = async (
     const transaction = db.transaction([STORES.syncLogs], 'readwrite');
     const store = transaction.objectStore(STORES.syncLogs);
     
-    const logEntry = {
+    const logEntry: SyncLog = {
       timestamp: new Date().toISOString(),
       category,
-      action,
+      operation,
       status,
       details: details || '',
+      metadata: {
+        deviceId: localStorage.getItem('device_id') || 'unknown',
+        isOnline: isOnline(),
+        userAgent: navigator.userAgent
+      }
     };
     
     return new Promise((resolve, reject) => {
@@ -1091,12 +1186,56 @@ export const logSync = async (
   }
 };
 
+// Get recent sync logs
+export const getSyncLogs = async (limit: number = 50): Promise<SyncLog[]> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLogs], 'readonly');
+    const store = transaction.objectStore(STORES.syncLogs);
+    const index = store.index('timestamp');
+    
+    return new Promise((resolve, reject) => {
+      // Use a cursor to get the most recent logs
+      const logs: SyncLog[] = [];
+      const request = index.openCursor(null, 'prev');
+      
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+        
+        if (cursor && logs.length < limit) {
+          logs.push(cursor.value);
+          cursor.continue();
+        } else {
+          resolve(logs);
+        }
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error getting sync logs:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error getting sync logs:', error);
+    return [];
+  }
+};
+
 // Get sync status
 export const getSyncStatus = async (): Promise<{
-  lastSync: string | null;
+  sessionsTotal: number;
   sessionsUnsynced: number;
+  sessionsInProgress: number;
+  interviewsTotal: number;
   interviewsUnsynced: number;
-  currentLock: { isLocked: number; lockedBy: string; expiresAt: number } | null;
+  interviewsInProgress: number;
+  lastSync: string | null;
+  currentLock: {
+    isLocked: number;
+    lockedBy: string;
+    lockedAt: number;
+    expiresAt: number;
+  } | null;
 }> => {
   try {
     const db = await openDB();
@@ -1159,36 +1298,114 @@ export const getSyncStatus = async (): Promise<{
       console.error('Error checking last sync time:', error);
     }
     
-    // Count unsynced sessions
+    // Count total and unsynced sessions
+    let sessionsTotal = 0;
     let sessionsUnsynced = 0;
+    let sessionsInProgress = 0;
+    
     try {
-      const sessionsCount = await getUnsyncedSessionsCount();
-      sessionsUnsynced = sessionsCount;
+      const sessionsTransaction = db.transaction([STORES.sessions], 'readonly');
+      const sessionsStore = sessionsTransaction.objectStore(STORES.sessions);
+      
+      // Count all sessions
+      const totalRequest = await new Promise<number>((resolve, reject) => {
+        const request = sessionsStore.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      });
+      
+      sessionsTotal = totalRequest;
+      
+      // Count unsynced sessions
+      const unsyncedIndex = sessionsStore.index('synced');
+      const unsyncedRequest = await new Promise<number>((resolve, reject) => {
+        const request = unsyncedIndex.count(IDBKeyRange.only(false));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      });
+      
+      sessionsUnsynced = unsyncedRequest;
+      
+      // Count in-progress sessions (active but not synced)
+      const inProgressRequests = await new Promise<OfflineSession[]>((resolve, reject) => {
+        const request = sessionsStore.getAll();
+        request.onsuccess = () => {
+          const sessions = request.result || [];
+          const inProgress = sessions.filter(s => s.isActive && !s.synced);
+          resolve(inProgress);
+        };
+        request.onerror = () => resolve([]);
+      });
+      
+      sessionsInProgress = inProgressRequests.length;
     } catch (error) {
-      console.error('Error counting unsynced sessions:', error);
+      console.error('Error counting sessions:', error);
     }
     
-    // Count unsynced interviews
+    // Count total and unsynced interviews
+    let interviewsTotal = 0;
     let interviewsUnsynced = 0;
+    let interviewsInProgress = 0;
+    
     try {
-      const interviewsCount = await getUnsyncedInterviewsCount();
-      interviewsUnsynced = interviewsCount;
+      const interviewsTransaction = db.transaction([STORES.interviews], 'readonly');
+      const interviewsStore = interviewsTransaction.objectStore(STORES.interviews);
+      
+      // Count all interviews
+      const totalRequest = await new Promise<number>((resolve, reject) => {
+        const request = interviewsStore.count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      });
+      
+      interviewsTotal = totalRequest;
+      
+      // Count unsynced interviews
+      const unsyncedIndex = interviewsStore.index('synced');
+      const unsyncedRequest = await new Promise<number>((resolve, reject) => {
+        const request = unsyncedIndex.count(IDBKeyRange.only(false));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => resolve(0);
+      });
+      
+      interviewsUnsynced = unsyncedRequest;
+      
+      // Count in-progress interviews (no end time and not synced)
+      const inProgressRequests = await new Promise<OfflineInterview[]>((resolve, reject) => {
+        const request = interviewsStore.getAll();
+        request.onsuccess = () => {
+          const interviews = request.result || [];
+          const inProgress = interviews.filter(i => !i.endTime && !i.synced);
+          resolve(inProgress);
+        };
+        request.onerror = () => resolve([]);
+      });
+      
+      interviewsInProgress = inProgressRequests.length;
     } catch (error) {
-      console.error('Error counting unsynced interviews:', error);
+      console.error('Error counting interviews:', error);
     }
     
     return {
-      lastSync,
+      sessionsTotal,
       sessionsUnsynced,
+      sessionsInProgress,
+      interviewsTotal,
       interviewsUnsynced,
+      interviewsInProgress,
+      lastSync,
       currentLock
     };
   } catch (error) {
     console.error('Fatal error getting sync status:', error);
     return {
-      lastSync: null,
+      sessionsTotal: 0,
       sessionsUnsynced: 0,
+      sessionsInProgress: 0,
+      interviewsTotal: 0,
       interviewsUnsynced: 0,
+      interviewsInProgress: 0,
+      lastSync: null,
       currentLock: null
     };
   }
@@ -1226,7 +1443,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         
         if (existingId) {
           console.log(`Session ${session.id} already exists online as ${existingId}`);
-          await markSessionAsSynced(session.id, existingId);
+          await markSessionAsSynced(session.id as number, existingId);
           successCount++;
           continue;
         }
@@ -1259,7 +1476,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         }
         
         console.log(`Synced session ${session.id} to online id ${data.id}`);
-        await markSessionAsSynced(session.id, data.id);
+        await markSessionAsSynced(session.id as number, data.id);
         successCount++;
       } catch (error) {
         console.error(`Error syncing session ${session.id}:`, error);
@@ -1276,37 +1493,36 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         
         if (existingId) {
           console.log(`Interview ${interview.id} already exists online as ${existingId}`);
-          await markInterviewAsSynced(interview.id, existingId);
+          await markInterviewAsSynced(interview.id as number, existingId);
           successCount++;
           continue;
         }
         
         // Get the session this interview belongs to
-        const sessionId = interview.sessionId;
         let onlineSessionId = null;
         
-        // Get all sessions
-        const db = await openDB();
-        const sessionTransaction = db.transaction([STORES.sessions], 'readonly');
-        const sessionStore = sessionTransaction.objectStore(STORES.sessions);
-        
-        const session = await new Promise((resolve, reject) => {
-          const request = sessionStore.get(sessionId);
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = (error) => {
-            console.error(`Error getting session ${sessionId}:`, error);
-            resolve(null);
-          };
-        });
-        
-        if (!session || !session.onlineId) {
-          console.warn(`Cannot sync interview ${interview.id} - session ${sessionId} not found or not synced`);
-          continue;
+        // Find the online session ID for this interview
+        if (interview.sessionId) {
+          const db = await openDB();
+          const sessionTransaction = db.transaction([STORES.sessions], 'readonly');
+          const sessionStore = sessionTransaction.objectStore(STORES.sessions);
+          
+          const offlineSession = await new Promise<OfflineSession | undefined>((resolve) => {
+            const request = sessionStore.get(interview.sessionId);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => resolve(undefined);
+          });
+          
+          if (offlineSession && offlineSession.onlineId) {
+            onlineSessionId = offlineSession.onlineId;
+          } else {
+            console.log(`Cannot find online session ID for interview ${interview.id}, sessionId ${interview.sessionId}`);
+            // Skip this interview for now
+            continue;
+          }
         }
         
-        onlineSessionId = session.onlineId;
-        
-        // Prepare data for supabase
+        // Prepare interview data for supabase
         const interviewData = {
           session_id: onlineSessionId,
           candidate_name: interview.candidateName,
@@ -1320,7 +1536,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
           end_longitude: interview.endLongitude,
           end_address: interview.endAddress,
           result: interview.result,
-          is_active: false,  // Always mark as not active when syncing
+          is_active: !interview.endTime,
           unique_key: interview.uniqueKey
         };
         
@@ -1336,7 +1552,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         }
         
         console.log(`Synced interview ${interview.id} to online id ${data.id}`);
-        await markInterviewAsSynced(interview.id, data.id);
+        await markInterviewAsSynced(interview.id as number, data.id);
         successCount++;
       } catch (error) {
         console.error(`Error syncing interview ${interview.id}:`, error);
@@ -1345,13 +1561,14 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
       }
     }
     
+    // Log sync completion
     await logSync('Sync', 'Complete', 'success', 
-      `Sync complete. ${successCount} items synced successfully, ${errorCount} errors`);
+      `Completed sync: ${successCount} successful, ${errorCount} failed`);
       
     return errorCount === 0;
   } catch (error) {
-    console.error('Fatal error during sync:', error);
-    await logSync('Sync', 'Fatal', 'error', `Sync failed with fatal error: ${error}`);
+    console.error('Error during sync:', error);
+    await logSync('Sync', 'Error', 'error', `Sync failed with error: ${error}`);
     return false;
   }
 };
