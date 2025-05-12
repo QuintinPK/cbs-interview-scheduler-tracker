@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,18 +15,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Safe client-side state initialization
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
-      const auth = localStorage.getItem("cbs_auth");
-      // Only check localStorage if it exists
-      if (auth === "true") {
-        setIsAuthenticated(true);
-      } else {
-        // Clear any stale auth state
-        setIsAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        const auth = localStorage.getItem("cbs_auth");
+        // Only check localStorage if it exists
+        if (auth === "true") {
+          setIsAuthenticated(true);
+        } else {
+          // Clear any stale auth state
+          setIsAuthenticated(false);
+        }
       }
     };
     
@@ -116,7 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Set auth state and persist it in localStorage
         setIsAuthenticated(true);
-        localStorage.setItem("cbs_auth", "true");
+        if (typeof window !== 'undefined') {
+          localStorage.setItem("cbs_auth", "true");
+        }
         return true;
       }
     }
@@ -126,7 +133,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     // Remove authenticated state
     setIsAuthenticated(false);
-    localStorage.removeItem("cbs_auth");
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("cbs_auth");
+    }
     // Sign out from Supabase
     supabase.auth.signOut();
   };

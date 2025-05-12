@@ -1,10 +1,14 @@
-import { useTheme } from "next-themes"
+
+"use client";
+
 import { Toaster as Sonner } from "sonner"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  // Remove dependency on useTheme() which causes the context error
+  // Default to system theme instead of using the theme provider
+  const theme = "system";
 
   return (
     <Sonner

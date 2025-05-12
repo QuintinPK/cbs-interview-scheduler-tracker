@@ -2,6 +2,9 @@
 import { register } from 'register-service-worker';
 import { logSync } from './lib/offlineDB';
 
+// Define the type for sync event types to avoid deep instantiations
+type SyncEventType = 'ServiceWorker' | 'Session' | 'Interview' | 'Data';
+
 // Register service worker for production
 export function registerServiceWorker() {
   if (process.env.NODE_ENV === 'production') {
