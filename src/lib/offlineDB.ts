@@ -982,12 +982,16 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   if (!isOnline()) return null;
   
   try {
+    // Get the URL and anon key from the imported supabase client instance
+    const SUPABASE_URL = "https://jljhtvfrkxehvdvhfktv.supabase.co";
+    
     // Use Supabase edge function to check existence instead of RPC
-    const response = await fetch('https://jljhtvfrkxehvdvhfktv.supabase.co/functions/v1/check-existence', {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/check-existence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseSync.supabaseKey}`
+        // Use the Authorization header with anon key from the client
+        'Authorization': `Bearer ${supabaseSync.auth.anon}`
       },
       body: JSON.stringify({
         type: 'session',
@@ -1013,12 +1017,16 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
   if (!isOnline()) return null;
   
   try {
+    // Get the URL and anon key from the imported supabase client instance
+    const SUPABASE_URL = "https://jljhtvfrkxehvdvhfktv.supabase.co";
+    
     // Use Supabase edge function to check existence instead of RPC
-    const response = await fetch('https://jljhtvfrkxehvdvhfktv.supabase.co/functions/v1/check-existence', {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/check-existence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseSync.supabaseKey}`
+        // Use the Authorization header with anon key from the client
+        'Authorization': `Bearer ${supabaseSync.auth.anon}`
       },
       body: JSON.stringify({
         type: 'interview',
