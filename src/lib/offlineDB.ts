@@ -107,6 +107,12 @@ interface InterviewResult {
   id: string;
 }
 
+// Define simple database response types to avoid type recursion
+interface SupabaseDatabaseResponse<T> {
+  data: T | null;
+  error: any | null;
+}
+
 // Check if offline/online
 export const isOnline = (): boolean => {
   return navigator.onLine;
@@ -777,11 +783,13 @@ export const cacheInterviewer = async (interviewerCode: string): Promise<boolean
         
         // If we're online, fetch the interviewer from the server
         try {
-          const { data: interviewers, error } = await supabaseSync
+          const response = await supabaseSync
             .from('interviewers')
             .select('*')
             .eq('code', interviewerCode)
             .limit(1);
+            
+          const { data: interviewers, error } = response;
             
           if (error) {
             throw error;
@@ -860,11 +868,13 @@ export const getInterviewerByCode = async (interviewerCode: string): Promise<any
         
         // If we're online, fetch from server and cache it
         try {
-          const { data: interviewers, error } = await supabaseSync
+          const response = await supabaseSync
             .from('interviewers')
             .select('*')
             .eq('code', interviewerCode)
             .limit(1);
+            
+          const { data: interviewers, error } = response;
             
           if (error) {
             throw error;
@@ -972,22 +982,19 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   if (!isOnline()) return null;
   
   try {
-    // Use simple type annotation to avoid deep instantiation
-    const { data, error } = await supabaseSync
-      .from('sessions')
-      .select('id')
-      .eq('unique_key', uniqueKey)
-      .limit(1);
-      
-    if (error) {
-      throw error;
+    // Use basic fetch instead of Supabase client to avoid type instantiation issues
+    const response = await supabaseSync.rpc('check_session_exists', {
+      p_unique_key: uniqueKey
+    });
+    
+    // Simple direct property access to avoid complex typings
+    if (response.error) {
+      throw response.error;
     }
     
-    // Explicitly cast to a simple array type without using complex generics
-    const sessions = data as unknown as SessionResult[];
-    
-    if (sessions && sessions.length > 0) {
-      return sessions[0].id;
+    // If the response contains a session ID, return it
+    if (response.data) {
+      return response.data;
     }
     
     return null;
@@ -1002,22 +1009,19 @@ export const checkInterviewExists = async (uniqueKey: string): Promise<string | 
   if (!isOnline()) return null;
   
   try {
-    // Use simple type annotation to avoid deep instantiation
-    const { data, error } = await supabaseSync
-      .from('interviews')
-      .select('id')
-      .eq('unique_key', uniqueKey)
-      .limit(1);
-      
-    if (error) {
-      throw error;
+    // Use basic fetch instead of Supabase client to avoid type instantiation issues
+    const response = await supabaseSync.rpc('check_interview_exists', {
+      p_unique_key: uniqueKey
+    });
+    
+    // Simple direct property access to avoid complex typings
+    if (response.error) {
+      throw response.error;
     }
     
-    // Explicitly cast to a simple array type without using complex generics
-    const interviews = data as unknown as InterviewResult[];
-    
-    if (interviews && interviews.length > 0) {
-      return interviews[0].id;
+    // If the response contains an interview ID, return it
+    if (response.data) {
+      return response.data;
     }
     
     return null;
@@ -1477,15 +1481,17 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         };
         
         // Insert into Supabase
-        const { data, error } = await supabaseSync
+        const response = await supabaseSync
           .from('sessions')
           .insert([sessionData])
           .select()
           .single();
           
-        if (error) {
-          throw error;
+        if (response.error) {
+          throw response.error;
         }
+        
+        const data = response.data;
         
         console.log(`Synced session ${session.id} to online id ${data.id}`);
         await markSessionAsSynced(session.id as number, data.id);
@@ -1553,15 +1559,17 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         };
         
         // Insert into Supabase
-        const { data, error } = await supabaseSync
+        const response = await supabaseSync
           .from('interviews')
           .insert([interviewData])
           .select()
           .single();
           
-        if (error) {
-          throw error;
+        if (response.error) {
+          throw response.error;
         }
+        
+        const data = response.data;
         
         console.log(`Synced interview ${interview.id} to online id ${data.id}`);
         await markInterviewAsSynced(interview.id as number, data.id);
