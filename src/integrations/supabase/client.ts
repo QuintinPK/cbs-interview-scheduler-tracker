@@ -14,8 +14,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 // Create a standalone supabase instance for offline sync operations to avoid circular imports
 export const supabaseSync = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    // Make anon key accessible for edge function calls
-    anon: SUPABASE_PUBLISHABLE_KEY,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
