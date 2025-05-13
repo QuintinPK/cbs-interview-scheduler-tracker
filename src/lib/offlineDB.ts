@@ -1089,9 +1089,15 @@ export const getCurrentDBVersion = (): number => {
   return DB_VERSION;
 };
 
-// Initialize offline database
+// Initialize offline database with improved error handling
 export const initializeOfflineDB = async (): Promise<boolean> => {
   try {
+    // First check if IndexedDB is supported in this browser
+    if (!window.indexedDB) {
+      console.error("This browser doesn't support IndexedDB");
+      return false;
+    }
+    
     const db = await openDB();
     
     // Validate critical stores exist
@@ -1100,12 +1106,33 @@ export const initializeOfflineDB = async (): Promise<boolean> => {
     
     if (!sessionsValid || !interviewsValid) {
       console.error("Database schema validation failed - critical indices are missing");
+      
+      // Log the failure
+      await logSync('Database', 'InitializationFailed', 'error', 
+        'Failed to initialize database - schema validation failed');
+      
       return false;
     }
     
+    // Log successful initialization
+    await logSync('Database', 'Initialized', 'success', `Database initialized successfully, version ${DB_VERSION}`);
     return true;
   } catch (error) {
     console.error("Failed to initialize offline database:", error);
+    
+    // Log the error
+    try {
+      await logSync('Database', 'InitializationError', 'error', 
+        `Error initializing database: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } catch (logError) {
+      console.error("Could not log database initialization error:", logError);
+    }
+    
     return false;
   }
+};
+
+// New function to check browser compatibility with IndexedDB
+export const checkBrowserCompatibility = (): boolean => {
+  return !!window.indexedDB;
 };
