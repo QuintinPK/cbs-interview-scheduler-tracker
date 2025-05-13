@@ -3,9 +3,10 @@ import React, { useEffect, useState } from "react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Info, HardDrive } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { 
   initializeOfflineDB, 
-  getCurrentDBVersion, 
+  getCurrentDBVersion,
   checkBrowserCompatibility 
 } from "@/lib/offlineDB";
 import { 
@@ -15,7 +16,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 
 interface DatabaseStatusProps {
@@ -34,8 +34,25 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({
   const [isCompatible, setIsCompatible] = useState(true);
   
   useEffect(() => {
-    setDbVersion(getCurrentDBVersion());
-    setIsCompatible(checkBrowserCompatibility());
+    // Use try-catch for getting DB version to prevent errors
+    try {
+      setDbVersion(getCurrentDBVersion());
+    } catch (error) {
+      console.error("Error getting database version:", error);
+      setDbVersion(0);
+    }
+    
+    // Check browser compatibility
+    const compatible = checkBrowserCompatibility();
+    setIsCompatible(compatible);
+    
+    if (!compatible) {
+      toast({
+        title: "Browser Compatibility Issue",
+        description: "Your browser does not fully support the required features for offline functionality.",
+        variant: "destructive",
+      });
+    }
   }, []);
 
   const handleRetryInit = async () => {
@@ -46,11 +63,25 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({
       const success = await initializeOfflineDB();
       if (success && onInitialized) {
         onInitialized();
+        toast({
+          title: "Database Connected",
+          description: "Successfully connected to the offline database.",
+        });
       } else if (!success) {
         console.error("Database initialization retry failed");
+        toast({
+          title: "Connection Failed",
+          description: "Could not connect to the offline database.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error during database initialization retry:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while connecting to the database.",
+        variant: "destructive",
+      });
     } finally {
       setIsAttemptingReconnect(false);
     }
@@ -62,20 +93,39 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({
     }
     
     try {
+      setIsAttemptingReconnect(true);
       // Delete the entire database
       const deleteRequest = window.indexedDB.deleteDatabase('cbs_offline_db');
       
       deleteRequest.onerror = () => {
         console.error("Could not delete database");
+        toast({
+          title: "Reset Failed",
+          description: "Could not reset the database. Please try again.",
+          variant: "destructive",
+        });
+        setIsAttemptingReconnect(false);
       };
       
       deleteRequest.onsuccess = () => {
         console.log("Database deleted successfully");
-        // Attempt to initialize a fresh database
-        handleRetryInit();
+        toast({
+          title: "Database Reset",
+          description: "Database has been reset. Attempting to initialize a fresh database.",
+        });
+        // Add a small delay before attempting to initialize a fresh database
+        setTimeout(() => {
+          handleRetryInit();
+        }, 500);
       };
     } catch (error) {
       console.error("Error resetting database:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while resetting the database.",
+        variant: "destructive",
+      });
+      setIsAttemptingReconnect(false);
     }
   };
   
@@ -130,7 +180,7 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({
                   variant="destructive" 
                   size="sm" 
                   onClick={handleResetDatabase}
-                  disabled={!isCompatible}
+                  disabled={!isCompatible || isAttemptingReconnect}
                 >
                   Reset Database
                 </Button>

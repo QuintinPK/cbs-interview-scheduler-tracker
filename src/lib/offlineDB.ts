@@ -17,6 +17,12 @@ const STORES = {
   syncQueue: 'syncQueue' // Added for improved sync queueing
 };
 
+// New function to check browser compatibility with IndexedDB
+// Defining this function early in the file to avoid reference errors
+export const checkBrowserCompatibility = (): boolean => {
+  return typeof window !== 'undefined' && !!window.indexedDB;
+};
+
 // Define status types
 export type SyncLogStatus = 'success' | 'error' | 'warning';
 
@@ -627,7 +633,7 @@ export const updateOfflineInterviewResult = async (
   return updateOfflineInterview(interviewId, undefined, undefined, result);
 };
 
-// Get all unsynchronized sessions
+// Fix the getUnsyncedSessions function to handle null/undefined values properly
 export const getUnsyncedSessions = async (): Promise<OfflineSession[]> => {
   try {
     const db = await openDB();
@@ -635,21 +641,37 @@ export const getUnsyncedSessions = async (): Promise<OfflineSession[]> => {
     const store = transaction.objectStore(STORES.sessions);
     
     try {
+      // Check if the index exists first
+      if (!store.indexNames.contains('synced')) {
+        console.error('Synced index does not exist');
+        throw new Error('Synced index not found');
+      }
+      
       const index = store.index('synced');
       
       // Fix for the excessive type instantiation error by explicitly typing the Promise
       return new Promise<OfflineSession[]>((resolve, reject) => {
-        // Use IDBKeyRange.only for boolean values
-        const request = index.getAll(IDBKeyRange.only(false));
-        
-        request.onsuccess = () => {
-          resolve(request.result || []);
-        };
-        
-        request.onerror = (error) => {
-          console.error('Error getting unsynced sessions:', error);
-          reject(error);
-        };
+        try {
+          // Only use IDBKeyRange.only with a valid boolean value
+          const request = index.getAll(IDBKeyRange.only(false));
+          
+          request.onsuccess = () => {
+            resolve(request.result || []);
+          };
+          
+          request.onerror = (error) => {
+            console.error('Error getting unsynced sessions:', error);
+            reject(error);
+          };
+        } catch (error) {
+          console.error('Error using IDBKeyRange:', error);
+          // Fallback to getting all and filtering
+          store.getAll().onsuccess = (event) => {
+            const sessions = (event.target as IDBRequest<OfflineSession[]>).result || [];
+            const unsyncedSessions = sessions.filter(session => session.synced === false);
+            resolve(unsyncedSessions);
+          };
+        }
       });
     } catch (error) {
       console.error('Error accessing synced index:', error);
@@ -675,7 +697,7 @@ export const getUnsyncedSessions = async (): Promise<OfflineSession[]> => {
   }
 };
 
-// Get the count of unsynchronized sessions
+// Fix the getUnsyncedSessionsCount function
 export const getUnsyncedSessionsCount = async (): Promise<number> => {
   try {
     const db = await openDB();
@@ -683,21 +705,37 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
     const store = transaction.objectStore(STORES.sessions);
     
     try {
+      // Check if the index exists first
+      if (!store.indexNames.contains('synced')) {
+        console.error('Synced index does not exist');
+        throw new Error('Synced index not found');
+      }
+      
       const index = store.index('synced');
       
       // Fix for the excessive type instantiation error by explicitly typing the Promise
       return new Promise<number>((resolve, reject) => {
-        // Use IDBKeyRange.only for boolean values
-        const request = index.count(IDBKeyRange.only(false));
-        
-        request.onsuccess = () => {
-          resolve(request.result || 0);
-        };
-        
-        request.onerror = (error) => {
-          console.error('Error counting unsynced sessions:', error);
-          reject(error);
-        };
+        try {
+          // Only use IDBKeyRange.only with a valid boolean value
+          const request = index.count(IDBKeyRange.only(false));
+          
+          request.onsuccess = () => {
+            resolve(request.result || 0);
+          };
+          
+          request.onerror = (error) => {
+            console.error('Error counting unsynced sessions:', error);
+            reject(error);
+          };
+        } catch (error) {
+          console.error('Error using IDBKeyRange:', error);
+          // Fallback to getting all and counting
+          store.getAll().onsuccess = (event) => {
+            const sessions = (event.target as IDBRequest<OfflineSession[]>).result || [];
+            const unsyncedCount = sessions.filter(session => session.synced === false).length;
+            resolve(unsyncedCount);
+          };
+        }
       });
     } catch (error) {
       console.error('Error accessing synced index for count:', error);
@@ -723,7 +761,7 @@ export const getUnsyncedSessionsCount = async (): Promise<number> => {
   }
 };
 
-// Get all unsynchronized interviews
+// Fix the getUnsyncedInterviews function
 export const getUnsyncedInterviews = async (): Promise<OfflineInterview[]> => {
   try {
     const db = await openDB();
@@ -731,20 +769,36 @@ export const getUnsyncedInterviews = async (): Promise<OfflineInterview[]> => {
     const store = transaction.objectStore(STORES.interviews);
     
     try {
+      // Check if the index exists first
+      if (!store.indexNames.contains('synced')) {
+        console.error('Synced index does not exist in interviews store');
+        throw new Error('Synced index not found');
+      }
+      
       const index = store.index('synced');
       
       return new Promise<OfflineInterview[]>((resolve, reject) => {
-        // Use IDBKeyRange.only for boolean values
-        const request = index.getAll(IDBKeyRange.only(false));
-        
-        request.onsuccess = () => {
-          resolve(request.result || []);
-        };
-        
-        request.onerror = (error) => {
-          console.error('Error getting unsynced interviews:', error);
-          reject(error);
-        };
+        try {
+          // Use IDBKeyRange.only with a valid boolean value
+          const request = index.getAll(IDBKeyRange.only(false));
+          
+          request.onsuccess = () => {
+            resolve(request.result || []);
+          };
+          
+          request.onerror = (error) => {
+            console.error('Error getting unsynced interviews:', error);
+            reject(error);
+          };
+        } catch (error) {
+          console.error('Error using IDBKeyRange for interviews:', error);
+          // Fallback to getting all and filtering
+          store.getAll().onsuccess = (event) => {
+            const interviews = (event.target as IDBRequest<OfflineInterview[]>).result || [];
+            const unsyncedInterviews = interviews.filter(interview => interview.synced === false);
+            resolve(unsyncedInterviews);
+          };
+        }
       });
     } catch (error) {
       console.error('Error accessing synced index for interviews:', error);
@@ -770,7 +824,7 @@ export const getUnsyncedInterviews = async (): Promise<OfflineInterview[]> => {
   }
 };
 
-// Get the count of unsynchronized interviews
+// Fix the getUnsyncedInterviewsCount function
 export const getUnsyncedInterviewsCount = async (): Promise<number> => {
   try {
     const db = await openDB();
@@ -778,20 +832,36 @@ export const getUnsyncedInterviewsCount = async (): Promise<number> => {
     const store = transaction.objectStore(STORES.interviews);
     
     try {
+      // Check if the index exists first
+      if (!store.indexNames.contains('synced')) {
+        console.error('Synced index does not exist in interviews store');
+        throw new Error('Synced index not found');
+      }
+      
       const index = store.index('synced');
       
-      return new Promise((resolve, reject) => {
-        // Use IDBKeyRange.only for boolean values
-        const request = index.count(IDBKeyRange.only(false));
-        
-        request.onsuccess = () => {
-          resolve(request.result || 0);
-        };
-        
-        request.onerror = (error) => {
-          console.error('Error counting unsynced interviews:', error);
-          reject(error);
-        };
+      return new Promise<number>((resolve, reject) => {
+        try {
+          // Use IDBKeyRange.only with a valid boolean value
+          const request = index.count(IDBKeyRange.only(false));
+          
+          request.onsuccess = () => {
+            resolve(request.result || 0);
+          };
+          
+          request.onerror = (error) => {
+            console.error('Error counting unsynced interviews:', error);
+            reject(error);
+          };
+        } catch (error) {
+          console.error('Error using IDBKeyRange for interview count:', error);
+          // Fallback to getting all and counting
+          store.getAll().onsuccess = (event) => {
+            const interviews = (event.target as IDBRequest<OfflineInterview[]>).result || [];
+            const unsyncedCount = interviews.filter(interview => interview.synced === false).length;
+            resolve(unsyncedCount);
+          };
+        }
       });
     } catch (error) {
       console.error('Error accessing synced index for count:', error);
@@ -817,7 +887,7 @@ export const getUnsyncedInterviewsCount = async (): Promise<number> => {
   }
 };
 
-// Get active session count
+// Fix the getActiveSessionCount function
 export const getActiveSessionCount = async (): Promise<number> => {
   try {
     const db = await openDB();
@@ -825,19 +895,35 @@ export const getActiveSessionCount = async (): Promise<number> => {
     const store = transaction.objectStore(STORES.sessions);
     
     try {
+      // Check if the index exists first
+      if (!store.indexNames.contains('isActive')) {
+        console.error('isActive index does not exist');
+        throw new Error('isActive index not found');
+      }
+      
       const index = store.index('isActive');
       
       return new Promise<number>((resolve, reject) => {
-        const request = index.count(IDBKeyRange.only(true));
-        
-        request.onsuccess = () => {
-          resolve(request.result || 0);
-        };
-        
-        request.onerror = (error) => {
-          console.error('Error counting active sessions:', error);
-          reject(error);
-        };
+        try {
+          const request = index.count(IDBKeyRange.only(true));
+          
+          request.onsuccess = () => {
+            resolve(request.result || 0);
+          };
+          
+          request.onerror = (error) => {
+            console.error('Error counting active sessions:', error);
+            reject(error);
+          };
+        } catch (error) {
+          console.error('Error using IDBKeyRange for active sessions:', error);
+          // Fallback to getting all and counting
+          store.getAll().onsuccess = (event) => {
+            const sessions = (event.target as IDBRequest<OfflineSession[]>).result || [];
+            const activeCount = sessions.filter(session => session.isActive === true).length;
+            resolve(activeCount);
+          };
+        }
       });
     } catch (error) {
       console.error('Error accessing isActive index:', error);
@@ -1029,23 +1115,61 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
 // Get sync status
 export const getSyncStatus = async (): Promise<SyncStatusData> => {
   try {
-    const sessionsTotal = 0; // Implement counting logic
-    const sessionsUnsynced = await getUnsyncedSessionsCount();
-    const interviewsUnsynced = await getUnsyncedInterviewsCount();
+    // Get session count from database or fallback to 0
+    let sessionsTotal = 0;
+    let sessionsUnsynced = 0;
+    let interviewsUnsynced = 0;
+    
+    try {
+      const db = await openDB();
+      // Count total sessions
+      const sessionRequest = db.transaction([STORES.sessions], 'readonly')
+        .objectStore(STORES.sessions)
+        .count();
+        
+      sessionRequest.onsuccess = (event) => {
+        sessionsTotal = (event.target as IDBRequest<number>).result || 0;
+      };
+    } catch (error) {
+      console.error("Error getting database session counts:", error);
+    }
+    
+    // Get unsynced counts (with error handling)
+    try {
+      sessionsUnsynced = await getUnsyncedSessionsCount();
+    } catch (error) {
+      console.error("Error getting unsynced sessions count:", error);
+    }
+    
+    try {
+      interviewsUnsynced = await getUnsyncedInterviewsCount();
+    } catch (error) {
+      console.error("Error getting unsynced interviews count:", error);
+    }
     
     return {
       sessionsTotal,
       sessionsUnsynced,
-      interviewsTotal: 0, // Implement counting logic
-      interviewsUnsynced, // Add this missing property
-      sessionsInProgress: 0, // Implement counting logic
-      interviewsInProgress: 0, // Implement counting logic
-      lastSync: null, // Implement last sync timestamp logic
-      currentLock: null, // Implement lock status logic
+      interviewsTotal: 0, // Implement counting logic if needed
+      interviewsUnsynced,
+      sessionsInProgress: 0, // Implement counting logic if needed
+      interviewsInProgress: 0, // Implement counting logic if needed
+      lastSync: null, // Implement last sync timestamp logic if needed
+      currentLock: null, // Implement lock status logic if needed
     };
   } catch (error) {
     console.error("Error getting sync status:", error);
-    throw error;
+    // Return default values on error to prevent further errors
+    return {
+      sessionsTotal: 0,
+      sessionsUnsynced: 0,
+      sessionsInProgress: 0,
+      interviewsTotal: 0, 
+      interviewsUnsynced: 0,
+      interviewsInProgress: 0,
+      lastSync: null,
+      currentLock: null,
+    };
   }
 };
 
@@ -1093,7 +1217,7 @@ export const getCurrentDBVersion = (): number => {
 export const initializeOfflineDB = async (): Promise<boolean> => {
   try {
     // First check if IndexedDB is supported in this browser
-    if (!window.indexedDB) {
+    if (!checkBrowserCompatibility()) {
       console.error("This browser doesn't support IndexedDB");
       return false;
     }
@@ -1101,8 +1225,20 @@ export const initializeOfflineDB = async (): Promise<boolean> => {
     const db = await openDB();
     
     // Validate critical stores exist
-    const sessionsValid = await validateStore(STORES.sessions, ['synced', 'isActive']);
-    const interviewsValid = await validateStore(STORES.interviews, ['synced', 'sessionId']);
+    let sessionsValid = false;
+    let interviewsValid = false;
+    
+    try {
+      sessionsValid = await validateStore(STORES.sessions, ['synced', 'isActive']);
+    } catch (error) {
+      console.error("Error validating sessions store:", error);
+    }
+    
+    try {
+      interviewsValid = await validateStore(STORES.interviews, ['synced', 'sessionId']);
+    } catch (error) {
+      console.error("Error validating interviews store:", error);
+    }
     
     if (!sessionsValid || !interviewsValid) {
       console.error("Database schema validation failed - critical indices are missing");
@@ -1130,9 +1266,4 @@ export const initializeOfflineDB = async (): Promise<boolean> => {
     
     return false;
   }
-};
-
-// New function to check browser compatibility with IndexedDB
-export const checkBrowserCompatibility = (): boolean => {
-  return !!window.indexedDB;
 };
