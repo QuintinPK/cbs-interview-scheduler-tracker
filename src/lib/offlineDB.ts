@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Location, Project } from "@/types";
 import { supabaseSync } from "@/integrations/supabase/client";
@@ -264,6 +265,49 @@ export const initializeDeviceId = (): void => {
 
 // Call initialization on module load
 initializeDeviceId();
+
+// Function to log synchronization events
+const logSync = async (
+  category: string,
+  operation: string,
+  status: SyncLogStatus, 
+  details: string
+): Promise<void> => {
+  try {
+    const db = await openDB();
+    const transaction = db.transaction([STORES.syncLogs], 'readwrite');
+    const store = transaction.objectStore(STORES.syncLogs);
+    
+    const log: SyncLog = {
+      timestamp: new Date().toISOString(),
+      category,
+      operation,
+      status,
+      details,
+      metadata: {
+        deviceId: localStorage.getItem('device_id') || 'unknown',
+        isOnline: navigator.onLine,
+        userAgent: navigator.userAgent
+      }
+    };
+    
+    return new Promise((resolve, reject) => {
+      const request = store.add(log);
+      
+      request.onsuccess = () => {
+        resolve();
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error logging sync event:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error logging sync event:', error);
+    return Promise.resolve(); // Don't fail the calling function if logging fails
+  }
+};
 
 // Save session to offline storage
 export const saveOfflineSession = async (
@@ -782,13 +826,11 @@ export const cacheInterviewer = async (interviewerCode: string): Promise<boolean
         
         // If we're online, fetch the interviewer from the server
         try {
-          const response = await supabaseSync
+          const { data: interviewers, error } = await supabaseSync
             .from('interviewers')
             .select('*')
             .eq('code', interviewerCode)
             .limit(1);
-            
-          const { data: interviewers, error } = response;
             
           if (error) {
             throw error;
@@ -867,13 +909,11 @@ export const getInterviewerByCode = async (interviewerCode: string): Promise<any
         
         // If we're online, fetch from server and cache it
         try {
-          const response = await supabaseSync
+          const { data: interviewers, error } = await supabaseSync
             .from('interviewers')
             .select('*')
             .eq('code', interviewerCode)
             .limit(1);
-            
-          const { data: interviewers, error } = response;
             
           if (error) {
             throw error;
@@ -983,13 +1023,13 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   try {
     // Get the URL from environment variable
     const SUPABASE_URL = "https://jljhtvfrkxehvdvhfktv.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsamh0dmZya3hlaHZkdmhma3R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNzc0MzgsImV4cCI6MjA1OTY1MzQzOH0.No4bnq7PUvkeNMZliZx8QV-KEEemjcwaw_HfBT0bqrM";
     
     // Use Supabase edge function to check existence
     const response = await fetch(`${SUPABASE_URL}/functions/v1/check-existence`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Use the SUPABASE_PUBLISHABLE_KEY from the imported constant
         'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
       },
       body: JSON.stringify({
@@ -1012,3 +1052,44 @@ export const checkSessionExists = async (uniqueKey: string): Promise<string | nu
   } catch (error) {
     console.error('Error checking if session exists:', error);
     return null;
+  }
+};
+
+// Check if an interview already exists online by its uniqueKey
+export const checkInterviewExists = async (uniqueKey: string): Promise<string | null> => {
+  if (!isOnline()) return null;
+  
+  try {
+    // Get the URL from environment variable
+    const SUPABASE_URL = "https://jljhtvfrkxehvdvhfktv.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsamh0dmZya3hlaHZkdmhma3R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNzc0MzgsImV4cCI6MjA1OTY1MzQzOH0.No4bnq7PUvkeNMZliZx8QV-KEEemjcwaw_HfBT0bqrM";
+    
+    // Use Supabase edge function to check existence
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/check-existence`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+      },
+      body: JSON.stringify({
+        type: 'interview',
+        uniqueKey: uniqueKey
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.error) {
+      throw new Error(result.error);
+    }
+    
+    return result.id;
+  } catch (error) {
+    console.error('Error checking if interview exists:', error);
+    return null;
+  }
+};
