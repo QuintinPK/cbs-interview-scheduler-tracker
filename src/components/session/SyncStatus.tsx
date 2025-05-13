@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Wifi, WifiOff, CheckCircle, AlertCircle, History } from 'lucide-react';
@@ -271,16 +270,12 @@ const SyncStatus = () => {
       const forceId = `force-release-${Date.now()}`;
       
       // Just delete the lock directly
-      const successful = await releaseSyncLock('main');
+      await releaseSyncLock('main');
       
-      if (successful) {
-        toast.success('Successfully released sync lock');
-        await logSync('SyncLock', 'ManualForceRelease', 'warning', 'User manually forced sync lock release');
-        setIsSyncing(false);
-        refreshStatus();
-      } else {
-        toast.error('Failed to release sync lock');
-      }
+      toast.success('Successfully released sync lock');
+      await logSync('SyncLock', 'ManualForceRelease', 'warning', 'User manually forced sync lock release');
+      setIsSyncing(false);
+      refreshStatus();
     } catch (error) {
       console.error('Error force releasing sync lock:', error);
       toast.error('Error releasing sync lock');

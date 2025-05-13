@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Refresh } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { initializeOfflineDB, getCurrentDBVersion } from "@/lib/offlineDB";
 
 interface DatabaseStatusProps {
@@ -56,7 +56,7 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({
               <>Reconnecting...</>
             ) : (
               <>
-                <Refresh className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Retry Connection
               </>
             )}

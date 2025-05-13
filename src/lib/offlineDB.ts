@@ -180,7 +180,7 @@ const openDB = (): Promise<IDBDatabase> => {
       } else if (oldVersion < 5) {
         // Ensure we have the correct indices for existing stores
         try {
-          const txn = event.target?.transaction;
+          const txn = (event.target as IDBOpenDBRequest).transaction;
           if (txn) {
             const sessionsStore = txn.objectStore(STORES.sessions);
             if (!sessionsStore.indexNames.contains('synced')) {
@@ -203,7 +203,7 @@ const openDB = (): Promise<IDBDatabase> => {
         interviewsStore.createIndex('uniqueKey', 'uniqueKey', { unique: true });
       } else if (oldVersion < 5) {
         try {
-          const txn = event.target?.transaction;
+          const txn = (event.target as IDBOpenDBRequest).transaction;
           if (txn) {
             const interviewsStore = txn.objectStore(STORES.interviews);
             if (!interviewsStore.indexNames.contains('synced')) {
@@ -1037,6 +1037,7 @@ export const getSyncStatus = async (): Promise<SyncStatusData> => {
       sessionsTotal,
       sessionsUnsynced,
       interviewsTotal: 0, // Implement counting logic
+      interviewsUnsynced, // Add this missing property
       sessionsInProgress: 0, // Implement counting logic
       interviewsInProgress: 0, // Implement counting logic
       lastSync: null, // Implement last sync timestamp logic
