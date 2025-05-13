@@ -270,7 +270,7 @@ export const initializeDeviceId = (): void => {
 // Call initialization on module load
 initializeDeviceId();
 
-// Function to log synchronization events - now exported
+// Function to log synchronization events - now properly exported
 export const logSync = async (
   category: string,
   operation: string,
