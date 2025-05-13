@@ -1131,7 +1131,7 @@ export const getSyncStatus = async (): Promise<SyncStatusData> => {
       interviewsUnsynced: 0,
       interviewsInProgress: 0,
       lastSync: null,
-      currentLock: null
+      currentLock: null  // Set to null instead of an empty object
     };
   }
 };
@@ -1344,6 +1344,7 @@ const getSyncLock = async () => {
       const request = store.get('main');
       
       request.onsuccess = () => {
+        // Return the lock data if available, otherwise null
         resolve(request.result || null);
       };
       
