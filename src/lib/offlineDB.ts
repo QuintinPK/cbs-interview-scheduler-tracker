@@ -982,4 +982,129 @@ export const markInterviewAsSynced = async (interviewId: number, onlineId: strin
         interview.onlineId = onlineId;
         interview.syncedAt = new Date().toISOString();
         
-        const
+        const updateRequest = store.put(interview);
+        
+        updateRequest.onsuccess = () => {
+          console.log('Marked interview as synced:', interviewId, 'Online ID:', onlineId);
+          resolve();
+        };
+        
+        updateRequest.onerror = (error) => {
+          console.error('Error marking interview as synced:', error);
+          reject(error);
+        };
+      };
+      
+      request.onerror = (error) => {
+        console.error('Error fetching interview for marking as synced:', error);
+        reject(error);
+      };
+    });
+  } catch (error) {
+    console.error('Fatal error marking interview as synced:', error);
+    throw error;
+  }
+};
+
+// Sync offline sessions to online DB
+export const syncOfflineSessions = async (): Promise<boolean> => {
+  if (!isOnline()) {
+    console.log("Cannot sync while offline");
+    return false;
+  }
+  
+  try {
+    // Log the sync attempt
+    await logSync('SyncAttempt', 'Started', 'success', 'Starting sync of offline sessions');
+    
+    // Implement the sync logic here
+    return true;
+  } catch (error) {
+    console.error("Error syncing sessions:", error);
+    await logSync('SyncAttempt', 'Failed', 'error', `Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return false;
+  }
+};
+
+// Get sync status
+export const getSyncStatus = async (): Promise<SyncStatusData> => {
+  try {
+    const sessionsTotal = 0; // Implement counting logic
+    const sessionsUnsynced = await getUnsyncedSessionsCount();
+    const interviewsUnsynced = await getUnsyncedInterviewsCount();
+    
+    return {
+      sessionsTotal,
+      sessionsUnsynced,
+      interviewsTotal: 0, // Implement counting logic
+      sessionsInProgress: 0, // Implement counting logic
+      interviewsInProgress: 0, // Implement counting logic
+      lastSync: null, // Implement last sync timestamp logic
+      currentLock: null, // Implement lock status logic
+    };
+  } catch (error) {
+    console.error("Error getting sync status:", error);
+    throw error;
+  }
+};
+
+// Cache interviewer
+export const cacheInterviewer = async (interviewerCode: string): Promise<void> => {
+  // Implementation would go here
+  console.log(`Caching interviewer ${interviewerCode}`);
+};
+
+// Get interviewer by code
+export const getInterviewerByCode = async (code: string): Promise<any> => {
+  // Implementation would go here
+  return { id: code, code };
+};
+
+// Cache projects
+export const cacheProjects = async (projects: Project[]): Promise<void> => {
+  // Implementation would go here
+  console.log(`Caching ${projects.length} projects`);
+};
+
+// Get cached projects
+export const getCachedProjects = async (): Promise<Project[]> => {
+  // Implementation would go here
+  return [];
+};
+
+// Acquire sync lock
+export const acquireSyncLock = async (lockId: string): Promise<boolean> => {
+  // Implementation would go here
+  return true;
+};
+
+// Release sync lock
+export const releaseSyncLock = async (lockId: string): Promise<void> => {
+  // Implementation would go here
+};
+
+// Get current DB version
+export const getCurrentDBVersion = (): number => {
+  return DB_VERSION;
+};
+
+// Initialize offline database
+export const initializeOfflineDB = async (): Promise<boolean> => {
+  try {
+    const db = await openDB();
+    
+    // Validate critical stores exist
+    const sessionsValid = await validateStore(STORES.sessions, ['synced', 'isActive']);
+    const interviewsValid = await validateStore(STORES.interviews, ['synced', 'sessionId']);
+    
+    if (!sessionsValid || !interviewsValid) {
+      console.error("Database schema validation failed - critical indices are missing");
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Failed to initialize offline database:", error);
+    return false;
+  }
+};
