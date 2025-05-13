@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { Session, Interview, Location, Project } from "@/types";
 import { supabaseSync } from "@/integrations/supabase/client";
@@ -80,6 +81,15 @@ interface OfflineInterview {
   syncedAt?: string;
 }
 
+// Define SyncLock interface to ensure proper typing
+interface SyncLock {
+  id: string;
+  isLocked: number;
+  lockedBy: string;
+  lockedAt: number;
+  expiresAt: number;
+}
+
 // Define SyncStatus interface
 export interface SyncStatusData {
   sessionsTotal: number;
@@ -89,12 +99,7 @@ export interface SyncStatusData {
   interviewsUnsynced: number;
   interviewsInProgress: number;
   lastSync: string | null;
-  currentLock: {
-    isLocked: number;
-    lockedBy: string;
-    lockedAt: number;
-    expiresAt: number;
-  } | null;
+  currentLock: SyncLock | null;
 }
 
 // Define simple result interfaces for database queries to avoid excessive type instantiation
@@ -1131,7 +1136,7 @@ export const getSyncStatus = async (): Promise<SyncStatusData> => {
       interviewsUnsynced: 0,
       interviewsInProgress: 0,
       lastSync: null,
-      currentLock: null  // Set to null instead of an empty object
+      currentLock: null
     };
   }
 };
@@ -1236,7 +1241,7 @@ export const acquireSyncLock = async (lockId: string): Promise<boolean> => {
       const getRequest = store.get('main');
       
       getRequest.onsuccess = () => {
-        const existingLock = getRequest.result;
+        const existingLock = getRequest.result as SyncLock | undefined;
         const now = Date.now();
         
         // If lock exists and hasn't expired
@@ -1245,7 +1250,7 @@ export const acquireSyncLock = async (lockId: string): Promise<boolean> => {
           resolve(false);
         } else {
           // Create a new lock or update expired one
-          const newLock = {
+          const newLock: SyncLock = {
             id: 'main',
             isLocked: 1,
             lockedBy: lockId,
@@ -1290,7 +1295,7 @@ export const releaseSyncLock = async (lockId: string): Promise<boolean> => {
       const getRequest = store.get('main');
       
       getRequest.onsuccess = () => {
-        const existingLock = getRequest.result;
+        const existingLock = getRequest.result as SyncLock | undefined;
         
         // Special case for forced release
         const isForced = lockId.startsWith('force-release');
@@ -1300,10 +1305,10 @@ export const releaseSyncLock = async (lockId: string): Promise<boolean> => {
           resolve(false);
         } else {
           // Release the lock
-          const releasedLock = {
+          const releasedLock: SyncLock = {
             id: 'main',
             isLocked: 0,
-            lockedBy: null,
+            lockedBy: '',
             lockedAt: 0,
             expiresAt: 0
           };
@@ -1334,18 +1339,19 @@ export const releaseSyncLock = async (lockId: string): Promise<boolean> => {
 };
 
 // Get current sync lock
-const getSyncLock = async () => {
+const getSyncLock = async (): Promise<SyncLock | null> => {
   try {
     const db = await openDB();
     const transaction = db.transaction([STORES.syncLocks], 'readonly');
     const store = transaction.objectStore(STORES.syncLocks);
     
-    return new Promise((resolve, reject) => {
+    return new Promise<SyncLock | null>((resolve, reject) => {
       const request = store.get('main');
       
       request.onsuccess = () => {
+        const result = request.result as SyncLock | undefined;
         // Return the lock data if available, otherwise null
-        resolve(request.result || null);
+        resolve(result || null);
       };
       
       request.onerror = (error) => {
