@@ -15,6 +15,7 @@ import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
 import SyncStatus from "./SyncStatus";
+import DatabaseStatus from "./DatabaseStatus";
 import { 
   isOnline, 
   syncOfflineSessions, 
@@ -27,7 +28,8 @@ import {
   acquireSyncLock,
   releaseSyncLock,
   getSyncStatus,
-  logSync
+  logSync,
+  initializeOfflineDB
 } from "@/lib/offlineDB";
 
 interface SessionFormProps {
@@ -48,6 +50,7 @@ interface SessionFormProps {
   offlineSessionId?: number | null;
   lastValidatedCode?: string;
   validateInterviewerCode?: () => Promise<boolean>;
+  dbInitialized?: boolean;
 }
 
 const SessionForm: React.FC<SessionFormProps> = ({
@@ -67,7 +70,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
   startSession,
   offlineSessionId,
   lastValidatedCode,
-  validateInterviewerCode
+  validateInterviewerCode,
+  dbInitialized = true
 }) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -76,6 +80,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [availableProjects, setAvailableProjects] = useState<Project[]>([]);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [localDbInitialized, setLocalDbInitialized] = useState<boolean>(dbInitialized);
   
   const {
     activeInterview,
@@ -97,6 +102,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
     lastSyncAttempt: null as string | null,
     isSyncInProgress: false
   });
+
+  // Update local DB initialization status when prop changes
+  useEffect(() => {
+    setLocalDbInitialized(dbInitialized);
+  }, [dbInitialized]);
 
   // Set selected project ID when active session has a project ID
   useEffect(() => {
@@ -389,10 +399,14 @@ const SessionForm: React.FC<SessionFormProps> = ({
     };
     
     const checkUnsyncedItems = async () => {
-      const sessionCount = await getUnsyncedSessionsCount();
-      const interviewCount = await getUnsyncedInterviewsCount();
-      setUnsyncedCount(sessionCount);
-      setUnsyncedInterviews(interviewCount);
+      try {
+        const sessionCount = await getUnsyncedSessionsCount();
+        const interviewCount = await getUnsyncedInterviewsCount();
+        setUnsyncedCount(sessionCount);
+        setUnsyncedInterviews(interviewCount);
+      } catch (error) {
+        console.error("Error checking unsynced items:", error);
+      }
     };
     
     // Check initial state
@@ -505,6 +519,16 @@ const SessionForm: React.FC<SessionFormProps> = ({
           return;
         }
         
+        // Make sure the database is initialized
+        if (!localDbInitialized) {
+          toast({
+            title: "Database Error",
+            description: "The offline database is not properly initialized. Please try refreshing the page.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
         // Check if interviewer has assigned projects
         if (availableProjects.length === 0) {
           toast({
@@ -588,78 +612,46 @@ const SessionForm: React.FC<SessionFormProps> = ({
 
       let session: Session | null = null;
       
-      // If we're offline or if startSession is provided (for offline support)
-      if (!isOnline() && startSession) {
-        session = await startSession(interviewerId, projectId, currentLocation);
-        if (session) {
-          setActiveSession(session);
-          setIsRunning(true);
-          setStartTime(session.start_time);
-          setStartLocation(currentLocation);
-          
-          // Get higher accuracy location in background
-          getCurrentLocation({ highAccuracy: true, timeout: 10000 })
-            .then(betterLocation => {
-              if (betterLocation && session) {
-                // Update the session with better location
-                session.start_latitude = betterLocation.latitude;
-                session.start_longitude = betterLocation.longitude;
-                session.start_address = betterLocation.address;
-                setStartLocation(betterLocation);
-                
-                // Update localStorage
-                localStorage.setItem("active_session", JSON.stringify({
-                  ...session,
-                  offlineId: offlineSessionId
-                }));
-              }
-            })
-            .catch(err => console.error("Error getting better location:", err));
-            
-          toast({
-            title: "Session Started",
-            description: `Started at ${new Date().toLocaleTimeString()}`,
-          });
-          
-          const endTime = performance.now();
-          console.log(`Session start completed in ${endTime - startTime}ms`);
-          return;
-        }
+      // Make sure we have a valid startSession function before using it
+      if (typeof startSession !== 'function') {
+        console.error("startSession function is not available");
+        toast({
+          title: "Error",
+          description: "Session creation is not available. Please refresh the page.",
+          variant: "destructive",
+        });
+        return;
       }
       
-      // Otherwise proceed with online session
-      const { data: sessionData, error: insertError } = await supabase
-        .from('sessions')
-        .insert([
-          {
-            interviewer_id: interviewerId,
-            project_id: projectId,
-            start_latitude: currentLocation?.latitude || null,
-            start_longitude: currentLocation?.longitude || null,
-            start_address: currentLocation?.address || null,
-            is_active: true
-          }
-        ])
-        .select()
-        .single();
-        
-      if (insertError) {
-        throw insertError;
+      // Start the session (handles both online and offline)
+      session = await startSession(interviewerId, projectId, currentLocation);
+      
+      if (session) {
+        // Get higher accuracy location in background
+        getCurrentLocation({ highAccuracy: true, timeout: 10000 })
+          .then(betterLocation => {
+            if (betterLocation && session) {
+              // Update the session with better location
+              session.start_latitude = betterLocation.latitude;
+              session.start_longitude = betterLocation.longitude;
+              session.start_address = betterLocation.address;
+              setStartLocation(betterLocation);
+              
+              // Update localStorage
+              localStorage.setItem("active_session", JSON.stringify({
+                ...session,
+                offlineId: offlineSessionId
+              }));
+            }
+          })
+          .catch(err => console.error("Error getting better location:", err));
+          
+        const endTime = performance.now();
+        console.log(`Session start completed in ${endTime - startTime}ms`);
+        return;
+      } else {
+        throw new Error("Failed to create session");
       }
-      
-      console.log("Session created successfully:", sessionData);
-      setActiveSession(sessionData);
-      setIsRunning(true);
-      setStartTime(sessionData.start_time);
-      setStartLocation(currentLocation);
-      
-      toast({
-        title: "Session Started",
-        description: `Started at ${new Date().toLocaleTimeString()}`,
-      });
-      
-      const endTime = performance.now();
-      console.log(`Online session start completed in ${endTime - startTime}ms`);
     } catch (error) {
       console.error("Error starting session:", error);
       toast({
@@ -757,8 +749,19 @@ const SessionForm: React.FC<SessionFormProps> = ({
     await debouncedSync();
   };
 
+  // Database initialization handler
+  const handleDbInitialized = useCallback(() => {
+    setLocalDbInitialized(true);
+  }, []);
+
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
+      {/* Database status component */}
+      <DatabaseStatus 
+        dbInitialized={localDbInitialized} 
+        onInitialized={handleDbInitialized} 
+      />
+      
       {/* SyncStatus component */}
       <SyncStatus />
       
@@ -843,7 +846,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
             isInterviewActive={!!activeInterview}
             loading={isInterviewLoading}
             onClick={handleInterviewAction}
-            disabled={loading}
+            disabled={loading || !localDbInitialized}
           />
         )}
         
@@ -852,7 +855,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           loading={loading}
           interviewerCode={interviewerCode}
           onClick={handleStartStop}
-          disabled={isRunning && !!activeInterview}
+          disabled={isRunning && !!activeInterview || !localDbInitialized}
           isOffline={syncState.isOffline}
           unsyncedCount={syncState.unsyncedSessions + syncState.unsyncedInterviews}
         />

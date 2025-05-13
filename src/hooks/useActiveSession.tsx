@@ -10,7 +10,10 @@ import {
   getInterviewsForOfflineSession,
   cacheInterviewer,
   getInterviewerByCode,
-  cacheProjects
+  cacheProjects,
+  initializeOfflineDB,
+  validateStore,
+  logSync
 } from "@/lib/offlineDB";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
@@ -27,6 +30,20 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
   const [isPrimaryUser, setIsPrimaryUser] = useState(false);
   const [offlineSessionId, setOfflineSessionId] = useState<number | null>(null);
   const [lastValidatedCode, setLastValidatedCode] = useState<string>("");
+  const [dbInitialized, setDbInitialized] = useState<boolean>(false);
+
+  // Initialize IndexedDB on first load
+  useEffect(() => {
+    const initDB = async () => {
+      const success = await initializeOfflineDB();
+      setDbInitialized(success);
+      if (!success) {
+        console.error("Failed to initialize offline database - some features may not work correctly");
+      }
+    };
+    
+    initDB();
+  }, []);
 
   // Load saved interviewer code from localStorage on initial render
   useEffect(() => {
@@ -327,57 +344,137 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     // We keep the interviewer code and primary user status
   };
 
-  // Function to start a new session with improved performance
+  // Function to start a new session with improved performance and better error handling
   const startSession = async (
     interviewerId: string,
     projectId: string | null,
     locationData?: Location
   ): Promise<Session | null> => {
-    // If offline, save to local database
-    if (!isOnline()) {
-      try {
-        const now = new Date().toISOString();
-        const id = await saveOfflineSession(
-          interviewerCode,
-          projectId,
-          now,
-          locationData
-        );
-        
-        setOfflineSessionId(id);
-        
-        // Create a pseudo-session object to maintain compatibility
-        const offlineSession: Session = {
-          id: `offline-${id}`,
-          interviewer_id: interviewerId,
-          project_id: projectId,
-          start_time: now,
-          is_active: true,
-          created_at: now
-        };
-        
-        if (locationData) {
-          offlineSession.start_latitude = locationData.latitude;
-          offlineSession.start_longitude = locationData.longitude;
-          offlineSession.start_address = locationData.address;
+    try {
+      console.log("Starting new session...");
+      
+      // Validate IndexedDB is initialized
+      if (!dbInitialized) {
+        console.error("IndexedDB not initialized, attempting to initialize now");
+        const success = await initializeOfflineDB();
+        if (!success) {
+          throw new Error("Failed to initialize offline database");
+        }
+        setDbInitialized(success);
+      }
+      
+      // If offline, save to local database
+      if (!isOnline()) {
+        try {
+          // Check if we can use the offline database
+          const storeValid = await validateStore('sessions', ['synced', 'isActive']);
+          if (!storeValid) {
+            console.error("Sessions store validation failed - cannot create offline session");
+            throw new Error("Database schema validation failed");
+          }
+          
+          console.log("Creating offline session");
+          const now = new Date().toISOString();
+          
+          // Log the attempt
+          await logSync('SessionStart', 'Starting', 'success', 
+            `Attempting to start offline session for interviewer ${interviewerCode}`);
+          
+          // Save offline session
+          const id = await saveOfflineSession(
+            interviewerCode,
+            projectId,
+            now,
+            locationData
+          );
+          
+          console.log("Offline session created with ID:", id);
+          setOfflineSessionId(id);
+          
+          // Create a pseudo-session object to maintain compatibility
+          const offlineSession: Session = {
+            id: `offline-${id}`,
+            interviewer_id: interviewerId,
+            project_id: projectId,
+            start_time: now,
+            is_active: true,
+            created_at: now
+          };
+          
+          if (locationData) {
+            offlineSession.start_latitude = locationData.latitude;
+            offlineSession.start_longitude = locationData.longitude;
+            offlineSession.start_address = locationData.address;
+          }
+          
+          // Store the session in state and localStorage
+          updateSessionState(offlineSession);
+          
+          // Log the success
+          await logSync('SessionStart', 'Success', 'success', 
+            `Successfully started offline session with ID ${id}`);
+          
+          toast({
+            title: "Offline Mode",
+            description: "Session started locally. It will sync when you're back online.",
+          });
+          
+          return offlineSession;
+        } catch (error) {
+          console.error("Error starting offline session:", error);
+          // Log the error
+          await logSync('SessionStart', 'Failed', 'error', 
+            `Failed to start offline session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          
+          toast({
+            title: "Error",
+            description: "Could not start session in offline mode. Please try again.",
+            variant: "destructive",
+          });
+          throw error;
+        }
+      } else {
+        // Online mode - create session in Supabase
+        console.log("Creating online session");
+        const { data: sessionData, error: insertError } = await supabase
+          .from('sessions')
+          .insert([
+            {
+              interviewer_id: interviewerId,
+              project_id: projectId,
+              start_latitude: locationData?.latitude || null,
+              start_longitude: locationData?.longitude || null,
+              start_address: locationData?.address || null,
+              is_active: true
+            }
+          ])
+          .select()
+          .single();
+          
+        if (insertError) {
+          console.error("Error creating online session:", insertError);
+          throw insertError;
         }
         
-        // Store the session in state and localStorage
-        updateSessionState(offlineSession);
+        console.log("Online session created:", sessionData);
+        updateSessionState(sessionData);
         
         toast({
-          title: "Offline Mode",
-          description: "Session started locally. It will sync when you're back online.",
+          title: "Session Started",
+          description: `Started at ${new Date().toLocaleTimeString()}`,
         });
         
-        return offlineSession;
-      } catch (error) {
-        console.error("Error starting offline session:", error);
-        throw error;
+        return sessionData;
       }
+    } catch (error) {
+      console.error("Error in startSession:", error);
+      toast({
+        title: "Error",
+        description: "Could not start session",
+        variant: "destructive",
+      });
+      return null;
     }
-    
-    return null;
   };
 
   return {
@@ -399,6 +496,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     startSession,
     offlineSessionId,
     lastValidatedCode,
-    validateInterviewerCode
+    validateInterviewerCode,
+    dbInitialized
   };
 };
