@@ -18,25 +18,9 @@ const Login = () => {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [csrfToken, setCsrfToken] = useState("");
   
   // Get the page they were trying to access
   const from = location.state?.from?.pathname || "/admin/dashboard";
-  
-  // Generate CSRF token on component mount
-  useEffect(() => {
-    const token = generateCSRFToken();
-    setCsrfToken(token);
-    // Store token in localStorage for validation
-    localStorage.setItem("csrf_token", token);
-  }, []);
-  
-  // Generate a random CSRF token
-  const generateCSRFToken = (): string => {
-    const array = new Uint8Array(16);
-    window.crypto.getRandomValues(array);
-    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-  };
   
   // Redirect if already authenticated
   useEffect(() => {
@@ -45,30 +29,10 @@ const Login = () => {
     }
   }, [isAuthenticated, navigate, from]);
   
-  // Sanitize input to prevent XSS
-  const sanitizeInput = (input: string): string => {
-    const div = document.createElement('div');
-    div.textContent = input;
-    return div.innerHTML;
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate CSRF token
-    const storedToken = localStorage.getItem("csrf_token");
-    if (csrfToken !== storedToken) {
-      toast({
-        title: "Security Error",
-        description: "Invalid session. Please refresh the page and try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Validate inputs
-    const sanitizedUsername = sanitizeInput(username.trim());
-    if (!sanitizedUsername || !password) {
+    if (!username || !password) {
       toast({
         title: "Error",
         description: "Please enter both username and password",
@@ -80,28 +44,9 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // Rate limit login attempts (simulated)
-      const lastAttempt = localStorage.getItem("last_login_attempt");
-      const now = Date.now();
-      if (lastAttempt && now - parseInt(lastAttempt) < 2000) {
-        toast({
-          title: "Too Many Attempts",
-          description: "Please wait before trying again",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      localStorage.setItem("last_login_attempt", now.toString());
-      
-      const success = await login(sanitizedUsername, password);
+      const success = await login(username, password);
       
       if (success) {
-        // Generate a new CSRF token after successful login
-        const newToken = generateCSRFToken();
-        localStorage.setItem("csrf_token", newToken);
-        
         toast({
           title: "Success",
           description: "Logged in successfully",
@@ -138,8 +83,6 @@ const Login = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input type="hidden" name="csrf_token" value={csrfToken} />
-              
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -148,7 +91,6 @@ const Login = () => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter username"
-                  autoComplete="username"
                 />
               </div>
               
@@ -160,7 +102,6 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
-                  autoComplete="current-password"
                 />
               </div>
               
