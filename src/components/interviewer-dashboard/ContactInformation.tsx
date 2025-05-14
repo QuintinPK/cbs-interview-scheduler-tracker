@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Mail, Phone, MapPin, Pencil } from "lucide-react";
 import { Interviewer } from "@/types";
 import { ContactInformationEdit } from "./ContactInformationEdit";
+import { useToast } from "@/hooks/use-toast";
 
 interface ContactInformationProps {
   interviewer: Interviewer | null;
@@ -12,6 +13,7 @@ interface ContactInformationProps {
 
 export const ContactInformation: React.FC<ContactInformationProps> = ({ interviewer }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const { toast } = useToast();
   
   if (!interviewer) {
     return (
@@ -60,7 +62,7 @@ export const ContactInformation: React.FC<ContactInformationProps> = ({ intervie
           <div className="flex items-start gap-3">
             <MapPin className="h-5 w-5 text-primary mt-0.5" />
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Island</p>
+              <p className="text-sm text-muted-foreground mb-1">Location</p>
               <p className="font-medium">{interviewer.island || "Not specified"}</p>
             </div>
           </div>

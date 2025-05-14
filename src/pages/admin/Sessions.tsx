@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Session, Interview } from "@/types";
@@ -18,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, Download, Loader2 } from "lucide-react";
+import { CalendarIcon, Download, Loader2, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { cn, formatDateTime } from "@/lib/utils";
 import SessionFilters from "@/components/session/SessionFilters";
@@ -43,13 +44,15 @@ const Sessions = () => {
     resetFilters,
     stopSession,
     updateSession,
-    deleteSession
+    deleteSession,
+    refreshSessions
   } = useSessions();
   
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   const [editEndDate, setEditEndDate] = useState<Date | undefined>(undefined);
   const [editEndTime, setEditEndTime] = useState("");
@@ -127,6 +130,26 @@ const Sessions = () => {
   const handleStopSession = async (session: Session) => {
     await stopSession(session);
   };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshSessions();
+      toast({
+        title: "Success",
+        description: "Session logs refreshed",
+      });
+    } catch (error) {
+      console.error("Error refreshing sessions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh sessions",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
   
   const confirmEdit = async () => {
     if (!selectedSession || !editEndDate) return;
@@ -197,14 +220,29 @@ const Sessions = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h1 className="text-2xl md:text-3xl font-bold">Session Logs</h1>
-          <Button
-            onClick={handleExport}
-            className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
-            disabled={loading}
-          >
-            <Download size={16} />
-            Export to CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              disabled={loading || refreshing}
+              className="flex items-center gap-2"
+            >
+              {refreshing ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <RefreshCw size={16} />
+              )}
+              Refresh
+            </Button>
+            <Button
+              onClick={handleExport}
+              className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
+              disabled={loading}
+            >
+              <Download size={16} />
+              Export to CSV
+            </Button>
+          </div>
         </div>
         
         <SessionFilters

@@ -19,45 +19,46 @@ export const useSessions = (
   const { interviewers, projects } = useDataFetching();
   const { selectedProject, selectedIsland } = useFilter();
   
+  // Function to load sessions data
+  const loadSessions = async () => {
+    try {
+      setLoading(true);
+      
+      let query = supabase
+        .from('sessions')
+        .select('*');
+        
+      if (interviewerId) {
+        query = query.eq('interviewer_id', interviewerId);
+      }
+      
+      if (startDate) {
+        query = query.gte('start_time', `${startDate}T00:00:00`);
+      }
+      
+      if (endDate) {
+        query = query.lte('start_time', `${endDate}T23:59:59`);
+      }
+      
+      const { data, error } = await query.order('start_time', { ascending: false });
+        
+      if (error) throw error;
+      
+      setSessions(data || []);
+    } catch (error) {
+      console.error("Error loading sessions:", error);
+      toast({
+        title: "Error",
+        description: "Could not load sessions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   // Set up real-time listener for sessions
   useEffect(() => {
-    const loadSessions = async () => {
-      try {
-        setLoading(true);
-        
-        let query = supabase
-          .from('sessions')
-          .select('*');
-          
-        if (interviewerId) {
-          query = query.eq('interviewer_id', interviewerId);
-        }
-        
-        if (startDate) {
-          query = query.gte('start_time', `${startDate}T00:00:00`);
-        }
-        
-        if (endDate) {
-          query = query.lte('start_time', `${endDate}T23:59:59`);
-        }
-        
-        const { data, error } = await query.order('start_time', { ascending: false });
-          
-        if (error) throw error;
-        
-        setSessions(data || []);
-      } catch (error) {
-        console.error("Error loading sessions:", error);
-        toast({
-          title: "Error",
-          description: "Could not load sessions",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     loadSessions();
     
     // Set up real-time listener for new sessions
@@ -88,6 +89,11 @@ export const useSessions = (
       supabase.removeChannel(channel);
     };
   }, [interviewerId, startDate, endDate, toast]);
+  
+  // Function to manually refresh sessions
+  const refreshSessions = async () => {
+    await loadSessions();
+  };
   
   // Initialize session filters
   const {
@@ -163,6 +169,7 @@ export const useSessions = (
     resetFilters: resetSessionFilters,
     stopSession,
     updateSession,
-    deleteSession
+    deleteSession,
+    refreshSessions
   };
 };
