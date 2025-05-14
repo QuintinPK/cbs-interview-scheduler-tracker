@@ -34,8 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Verify password against stored hash or default
   const verifyPassword = async (password: string): Promise<boolean> => {
     try {
-      console.log("Verifying password");
-      
       // Fetch the password hash from the database - use anonymous access
       const { data, error } = await supabase
         .from('app_settings')
@@ -45,42 +43,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
         console.error("Error fetching password hash:", error);
-        // If no password hash found yet, check against the default
-        return password === "admin123";
-      }
-      
-      console.log("Retrieved password data:", data);
-      
-      // If no data found, use the default
-      if (!data) {
-        console.log("No data found, checking against default password");
-        return password === "admin123";
+        // Instead of defaulting to plain text comparison, use timing-safe comparison
+        return await secureCompare(password, "admin123");
       }
       
       // Safely access the hash property, handling different types of values
       let storedHash = '';
-      if (typeof data.value === 'object' && data.value !== null) {
+      if (typeof data?.value === 'object' && data.value !== null) {
         storedHash = (data.value as any).hash || '';
       }
       
-      // If there's no stored hash, use the default
+      // If there's no stored hash, use secure comparison for the default
       if (!storedHash) {
-        console.log("No stored hash found, using default password");
-        return password === "admin123";
+        return await secureCompare(password, "admin123");
       }
       
-      // Hash the input password and compare with stored hash
+      // Hash the input password and compare with stored hash using timing-safe comparison
       const inputHash = await simpleHash(password);
-      console.log("Comparing hashes");
-      return inputHash === storedHash;
+      return await secureCompare(inputHash, storedHash);
     } catch (error) {
       console.error("Error verifying password:", error);
-      // Fallback to default for demo
-      return password === "admin123";
+      // Use secure comparison even in error cases
+      return await secureCompare(password, "admin123");
     }
   };
   
-  // Simple hash function for demo purposes
+  // Secure comparison function to prevent timing attacks
+  const secureCompare = async (a: string, b: string): Promise<boolean> => {
+    // Convert strings to Uint8Arrays for constant-time comparison
+    const encoder = new TextEncoder();
+    const aBytes = encoder.encode(a);
+    const bBytes = encoder.encode(b);
+    
+    // If lengths are different, return false but still take the same amount of time
+    if (aBytes.length !== bBytes.length) {
+      // Perform comparison anyway to maintain constant time
+      let result = 0;
+      const minLength = Math.min(aBytes.length, bBytes.length);
+      for (let i = 0; i < minLength; i++) {
+        result |= aBytes[i] ^ bBytes[i];
+      }
+      return false;
+    }
+    
+    // Constant-time comparison
+    let result = 0;
+    for (let i = 0; i < aBytes.length; i++) {
+      result |= aBytes[i] ^ bBytes[i];
+    }
+    return result === 0;
+  };
+  
+  // Simple hash function using SHA-256
   const simpleHash = async (text: string): Promise<string> => {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
@@ -133,10 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const updatePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
     try {
-      console.log("Attempting to update password");
       // First verify the current password
       const isValidPassword = await verifyPassword(currentPassword);
-      console.log("Current password valid:", isValidPassword);
       
       if (!isValidPassword) {
         return false;
@@ -144,7 +156,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Hash the new password
       const newPasswordHash = await simpleHash(newPassword);
-      console.log("Generated new password hash");
       
       // Store the new password hash in the database using the edge function
       const { data, error } = await supabase.functions.invoke('admin-functions', {
@@ -161,7 +172,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
       
-      console.log("Password updated successfully");
       return true;
     } catch (error) {
       console.error("Error updating password:", error);
