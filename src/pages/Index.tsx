@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -31,8 +32,7 @@ const Index = () => {
     endSession,
     startSession,
     offlineSessionId,
-    validateInterviewerCode,
-    dbInitialized
+    validateInterviewerCode
   } = useActiveSession();
   
   useEffect(() => {
@@ -45,8 +45,7 @@ const Index = () => {
     console.log("Index - isPrimaryUser:", isPrimaryUser);
     console.log("Index - interviewerCode:", interviewerCode);
     console.log("Index - validateInterviewerCode available:", !!validateInterviewerCode);
-    console.log("Index - dbInitialized:", dbInitialized);
-  }, [isPrimaryUser, interviewerCode, validateInterviewerCode, dbInitialized]);
+  }, [isPrimaryUser, interviewerCode, validateInterviewerCode]);
 
   // Additional debug logging for the login function
   useEffect(() => {
@@ -233,7 +232,6 @@ const Index = () => {
           startSession={startSession}
           offlineSessionId={offlineSessionId}
           validateInterviewerCode={validateInterviewerCode}
-          dbInitialized={dbInitialized}
         />
         
         {interviewerCode && (

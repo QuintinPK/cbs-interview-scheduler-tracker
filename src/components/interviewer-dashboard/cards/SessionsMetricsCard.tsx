@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Award, Activity, Timer } from "lucide-react";
 import {
@@ -5,7 +6,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@radix-ui/react-tooltip";
+} from "@/components/ui/tooltip";
 
 interface SessionsMetricsCardProps {
   sessionsInPlanTime: number;

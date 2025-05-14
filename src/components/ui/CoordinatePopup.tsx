@@ -14,7 +14,7 @@ import { useGoogleMapsApiKey } from "@/hooks/useGoogleMapsApiKey";
 interface CoordinatePopupProps {
   isOpen: boolean;
   onClose: () => void;
-  coordinate: { lat: number; lng: number } | { latitude: number; longitude: number } | null;
+  coordinate: { lat: number; lng: number } | null;
 }
 
 const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
@@ -26,10 +26,7 @@ const CoordinatePopup: React.FC<CoordinatePopupProps> = ({
   
   if (!coordinate) return null;
 
-  // Extract lat/lng regardless of which format was provided
-  const lat = 'lat' in coordinate ? coordinate.lat : coordinate.latitude;
-  const lng = 'lng' in coordinate ? coordinate.lng : coordinate.longitude;
-  
+  const { lat, lng } = coordinate;
   const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
   
   const openInGoogleMaps = () => {

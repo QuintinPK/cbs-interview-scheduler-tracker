@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Session } from "@/types";
 import { formatDateTime } from "@/lib/utils";
@@ -7,7 +8,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@radix-ui/react-tooltip";
+} from "@/components/ui/tooltip";
 
 interface RecentActivityCardProps {
   sessions: Session[];

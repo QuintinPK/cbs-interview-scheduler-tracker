@@ -1,3 +1,4 @@
+
 import React from "react";
 import { TrendingUp, Activity, Users } from "lucide-react";
 import { Session } from "@/types";
@@ -6,7 +7,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@radix-ui/react-tooltip";
+} from "@/components/ui/tooltip";
 
 interface StatusSummaryCardProps {
   activeSessions: Session[];

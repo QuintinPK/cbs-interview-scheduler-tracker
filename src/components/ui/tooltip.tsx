@@ -1,4 +1,3 @@
-
 import * as React from "react"
 import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 
@@ -26,6 +25,4 @@ const TooltipContent = React.forwardRef<
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
-// Make sure we wrap the app with TooltipProvider at the top level
-// This is a convenience export to ensure proper context setup
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

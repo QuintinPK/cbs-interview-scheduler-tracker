@@ -1,161 +1,293 @@
 
-import { register } from 'register-service-worker';
-import { logSync } from './lib/offlineDB';
-
-// Define the type for sync event types to avoid deep instantiations
-type SyncEventType = 'ServiceWorker' | 'Session' | 'Interview' | 'Data';
-
-// Register service worker for production
 export function registerServiceWorker() {
-  if (process.env.NODE_ENV === 'production') {
-    register(`${process.env.BASE_URL || ''}service-worker.js`, {
-      ready () {
-        console.log(
-          'App is being served from cache by service worker.\n' +
-          'For more details, visit https://goo.gl/AFskqB'
-        );
-      },
-      registered () {
-        console.log('Service worker has been registered.');
-      },
-      cached () {
-        console.log('Content has been cached for offline use.');
-      },
-      updatefound () {
-        console.log('New content is downloading.');
-      },
-      updated () {
-        console.log('New content is available; please refresh.');
-      },
-      offline () {
-        console.log('No internet connection found. App is running in offline mode.');
-      },
-      error (error) {
-        console.error('Error during service worker registration:', error);
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('ServiceWorker registration successful with scope:', registration.scope);
+        
+        // Check if there's an update and force activation if needed
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed') {
+                if (navigator.serviceWorker.controller) {
+                  // New service worker available, notify user
+                  console.log('New service worker installed and ready for use');
+                  
+                  // Force the waiting service worker to become active
+                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                }
+              }
+            });
+          }
+        });
+      } catch (err) {
+        console.error('ServiceWorker registration failed:', err);
+      }
+    });
+    
+    // When a service worker takes over, refresh the page to ensure
+    // the new service worker controls the page
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        console.log('New service worker activated, reloading for a fresh start');
+        window.location.reload();
       }
     });
   }
-
-  // Register service worker for development too
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(registration => {
-        console.log('Service worker registered successfully:', registration);
-        logSync('ServiceWorker', 'RegisterSuccess', 'success', 'Service worker registered successfully');
-
-        // Listen for updates to the service worker
-        registration.addEventListener('updatefound', () => {
-          console.log('New service worker found, installing.');
-          logSync('ServiceWorker', 'UpdateFound', 'success', 'New service worker found, installing.');
-
-          const installingWorker = registration.installing;
-          if (installingWorker == null) {
-            return;
-          }
-
-          installingWorker.addEventListener('statechange', () => {
-            if (installingWorker.state === 'installed') {
-              console.log('Service worker installed.');
-              logSync('ServiceWorker', 'Installed', 'success', 'Service worker installed.');
-
-              if (navigator.serviceWorker.controller) {
-                console.log('New content is available; please refresh.');
-                logSync('ServiceWorker', 'NewContentAvailable', 'success', 'New content is available; please refresh.');
-              } else {
-                console.log('Content is cached for offline use.');
-                logSync('ServiceWorker', 'ContentCached', 'success', 'Content is cached for offline use.');
-              }
-            }
-          });
-        });
-      })
-      .catch(error => {
-        console.error('Service worker registration failed:', error);
-        logSync('ServiceWorker', 'RegisterFailed', 'error', `Service worker registration failed: ${error}`);
-      });
-  }
 }
 
-// Function to request a background sync
-export async function requestSync(): Promise<string | undefined> {
-  if (!('serviceWorker' in navigator && 'SyncManager' in window)) {
-    console.warn('SyncManager not available');
-    return undefined;
-  }
-  
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    
-    // Generate a unique tag for this sync
-    const syncTag = `sync-sessions-${Date.now()}`;
-    
-    // Request the sync
-    await registration.sync.register(syncTag);
-    
-    console.log('Sync requested with tag:', syncTag);
-    await logSync('ServiceWorker', 'SyncRequested', 'success', `Background sync requested with tag: ${syncTag}`);
-    
-    return syncTag;
-  } catch (error) {
-    console.error('Error requesting sync:', error);
-    await logSync('ServiceWorker', 'SyncError', 'error', `Error requesting background sync: ${error}`);
-    return undefined;
-  }
-}
+// Track sync operations to prevent duplicate processing
+const processedSyncIds = new Set();
 
-// Listen for messages from the service worker
+// Enhanced listener for service worker messages with timeouts and deduplication
 export function listenForSWMessages() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', event => {
-      console.log("Main thread received message:", event.data);
-    });
-    
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('A new service worker has taken control.');
-      logSync('ServiceWorker', 'ControllerChange', 'success', 'A new service worker has taken control.');
-    });
-
-    // Detect when a new service worker is waiting to activate
-    navigator.serviceWorker.addEventListener('waiting', (event) => {
-      console.log('Service worker waiting to activate.');
-      logSync('ServiceWorker', 'WaitingToActivate', 'success', 'Service worker waiting to activate.');
-    });
-
-    // Detect when a service worker becomes redundant
-    navigator.serviceWorker.addEventListener('redundant', (event) => {
-      console.log('Service worker became redundant.');
-      logSync('ServiceWorker', 'Redundant', 'success', 'Service worker became redundant.');
-    });
-
-    // Detect when a service worker is activated
-    navigator.serviceWorker.addEventListener('activate', (event) => {
-      console.log('Service worker activated.');
-      logSync('ServiceWorker', 'Activated', 'success', 'Service worker activated.');
-    });
-
-    // Detect when a service worker is installed
-    navigator.serviceWorker.addEventListener('install', (event) => {
-      console.log('Service worker installed.');
-      logSync('ServiceWorker', 'Installed', 'success', 'Service worker installed.');
-    });
-
-    // Detect when a service worker is controlled
-    navigator.serviceWorker.addEventListener('controllerchange', (event) => {
-      console.log('Service worker controlled.');
-      logSync('ServiceWorker', 'Controlled', 'success', 'Service worker controlled.');
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+      if (event.data && event.data.type === 'SYNC_SESSIONS') {
+        // Check if we've already processed this sync ID
+        const syncId = event.data.syncId || 'unknown';
+        if (processedSyncIds.has(syncId)) {
+          console.log(`Already processed sync request with ID: ${syncId}, skipping`);
+          return;
+        }
+        
+        // Add to processed IDs set with expiration (clear after 5 minutes)
+        processedSyncIds.add(syncId);
+        setTimeout(() => {
+          processedSyncIds.delete(syncId);
+        }, 5 * 60 * 1000);
+        
+        try {
+          console.log('Received sync request from service worker:', event.data);
+          // Import dynamically to avoid circular dependencies
+          const { syncOfflineSessions, getSyncStatus } = await import('./lib/offlineDB');
+          
+          // Check if there's anything to sync
+          const status = await getSyncStatus();
+          if (status.sessionsUnsynced === 0 && status.interviewsUnsynced === 0) {
+            console.log('No unsynced items found, skipping sync operation');
+            
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(registration => {
+                const activeWorker = registration.active;
+                if (activeWorker) {
+                  activeWorker.postMessage({
+                    type: 'SYNC_COMPLETE',
+                    timestamp: new Date().toISOString()
+                  });
+                }
+              });
+            }
+            
+            return;
+          }
+          
+          // Use AbortController to allow timeout
+          const abortController = new AbortController();
+          const timeoutId = setTimeout(() => abortController.abort(), 4 * 60 * 1000); // 4 minute timeout
+          
+          try {
+            // Wrap in timeout to prevent long-running sync
+            await Promise.race([
+              syncOfflineSessions(),
+              new Promise((_, reject) => {
+                abortController.signal.addEventListener('abort', () => {
+                  reject(new Error('Sync operation timed out'));
+                });
+              })
+            ]);
+            console.log('Background sync completed successfully');
+            
+            // Notify service worker that sync is complete
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(registration => {
+                const activeWorker = registration.active;
+                if (activeWorker) {
+                  activeWorker.postMessage({
+                    type: 'SYNC_COMPLETE',
+                    timestamp: new Date().toISOString(),
+                    syncId: syncId
+                  });
+                }
+              });
+            }
+          } catch (error) {
+            if (error.name === 'AbortError') {
+              console.warn('Sync operation took too long and was aborted');
+            } else {
+              throw error;
+            }
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        } catch (error) {
+          console.error('Error syncing from SW message:', error);
+        }
+      }
     });
   }
 }
 
-// Setup online status listener
+// Request sync immediately with unique ID
+export function requestSync() {
+  if ('serviceWorker' in navigator) {
+    const syncId = `manual-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    
+    navigator.serviceWorker.ready.then(registration => {
+      registration.active?.postMessage({ 
+        type: 'SYNC_NOW',
+        syncId: syncId
+      });
+    });
+    
+    return syncId;
+  }
+  return null;
+}
+
+// Enhanced background sync registration with retry logic
+export function registerBackgroundSync() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(registration => {
+      // Register periodic sync if available (Chrome origin trial)
+      if ('periodicSync' in registration) {
+        const periodicSync = registration.periodicSync as unknown as {
+          register: (options: { tag: string; minInterval: number }) => Promise<void>;
+          getTags: () => Promise<string[]>;
+          unregister: (tag: string) => Promise<void>;
+        };
+        
+        if (periodicSync) {
+          // Check if already registered first
+          periodicSync.getTags().then(tags => {
+            if (!tags.includes('sync-sessions')) {
+              periodicSync.register({
+                tag: 'sync-sessions',
+                minInterval: 15 * 60 * 1000 // Sync every 15 minutes
+              }).catch(error => {
+                console.log('Periodic background sync failed to register:', error);
+              });
+            }
+          });
+        }
+      }
+      
+      // Register one-time sync if available
+      if ('sync' in registration) {
+        const sync = registration.sync as unknown as {
+          register: (tag: string) => Promise<void>;
+        };
+        
+        sync.register('sync-sessions').catch(error => {
+          console.log('Background sync failed to register:', error);
+          
+          // Try to register a retry sync
+          setTimeout(() => {
+            if ('sync' in registration) {
+              const sync = registration.sync as unknown as {
+                register: (tag: string) => Promise<void>;
+              };
+              sync.register('sync-sessions-retry').catch(error => {
+                console.log('Background sync retry failed to register:', error);
+              });
+            }
+          }, 60000);
+        });
+      }
+    });
+  }
+}
+
+// Trigger manual sync when online with debounce and backoff
+let syncTimeout: number | null = null;
+let syncAttempts = 0;
+const MAX_SYNC_ATTEMPTS = 5;
+
 export function setupOnlineListener() {
   window.addEventListener('online', () => {
-    console.log('App is online');
-    document.dispatchEvent(new CustomEvent('app-online'));
+    // Reset attempts counter when we come back online
+    syncAttempts = 0;
+    
+    // Debounce to prevent multiple syncs when the connection is unstable
+    if (syncTimeout) {
+      window.clearTimeout(syncTimeout);
+    }
+    
+    const attemptSync = () => {
+      if (syncAttempts >= MAX_SYNC_ATTEMPTS) {
+        console.log(`Maximum sync attempts (${MAX_SYNC_ATTEMPTS}) reached, stopping automatic retries`);
+        return;
+      }
+      
+      syncAttempts++;
+      
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+          // First try using background sync API
+          if ('sync' in registration) {
+            const sync = registration.sync as unknown as {
+              register: (tag: string) => Promise<void>;
+            };
+            
+            sync.register('sync-sessions').catch(async error => {
+              console.log('Background sync failed to register:', error);
+              
+              // Fall back to manual sync if background sync fails
+              try {
+                const { syncOfflineSessions, getSyncStatus } = await import('./lib/offlineDB');
+                const status = await getSyncStatus();
+                
+                if (status.sessionsUnsynced > 0 || status.interviewsUnsynced > 0) {
+                  await syncOfflineSessions();
+                }
+              } catch (err) {
+                console.error('Manual sync fallback failed:', err);
+                
+                // If we still have unsynced items, try again with exponential backoff
+                const { getUnsyncedSessionsCount, getUnsyncedInterviewsCount } = await import('./lib/offlineDB');
+                const unsyncedSessions = await getUnsyncedSessionsCount();
+                const unsyncedInterviews = await getUnsyncedInterviewsCount();
+                
+                if (unsyncedSessions > 0 || unsyncedInterviews > 0) {
+                  const backoffDelay = Math.min(30000, Math.pow(2, syncAttempts) * 1000);
+                  console.log(`Scheduling retry #${syncAttempts+1} in ${backoffDelay/1000} seconds`);
+                  
+                  syncTimeout = window.setTimeout(() => {
+                    attemptSync();
+                  }, backoffDelay);
+                }
+              }
+            });
+          } else {
+            // Fall back to manual sync if background sync is not supported
+            import('./lib/offlineDB').then(async ({ syncOfflineSessions, getSyncStatus }) => {
+              const status = await getSyncStatus();
+              if (status.sessionsUnsynced > 0 || status.interviewsUnsynced > 0) {
+                await syncOfflineSessions();
+              }
+            }).catch(err => {
+              console.error('Manual sync failed:', err);
+            });
+          }
+        });
+      }
+    };
+    
+    syncTimeout = window.setTimeout(() => {
+      attemptSync();
+    }, 2000); // Wait 2 seconds after coming online before syncing
   });
-  
-  window.addEventListener('offline', () => {
-    console.log('App is offline');
-    document.dispatchEvent(new CustomEvent('app-offline'));
-  });
+}
+
+// Initialize all service worker functionality
+export function initServiceWorkers() {
+  registerServiceWorker();
+  listenForSWMessages();
+  registerBackgroundSync();
+  setupOnlineListener();
 }
