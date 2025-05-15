@@ -42,7 +42,19 @@ export interface QueryConfig {
   values: FieldDefinition[];
 }
 
-// Definition of a saved report
+// Definition of a saved report from database
+export interface SavedReportDB {
+  id: string;
+  name: string;
+  data_source: DataSourceType;
+  query_config: QueryConfig;
+  chart_type: ChartType;
+  created_at?: string;
+  updated_at?: string;
+  favorite?: boolean;
+}
+
+// Definition of a saved report (used in components)
 export interface SavedReport {
   id: string;
   name: string;
@@ -51,6 +63,19 @@ export interface SavedReport {
   chartType: ChartType;
   createdAt: string;
   updatedAt: string;
-  createdBy?: string;
   favorite: boolean;
+}
+
+// Function to convert database format to component format
+export function convertDBReportToReport(dbReport: SavedReportDB): SavedReport {
+  return {
+    id: dbReport.id,
+    name: dbReport.name,
+    dataSource: dbReport.data_source,
+    queryConfig: dbReport.query_config,
+    chartType: dbReport.chart_type,
+    createdAt: dbReport.created_at || new Date().toISOString(),
+    updatedAt: dbReport.updated_at || new Date().toISOString(),
+    favorite: dbReport.favorite || false
+  };
 }

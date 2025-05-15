@@ -91,7 +91,7 @@ const filterOperatorToSql = (operator: string) => {
 // Generate the query parameters based on the data source and query configuration
 export const getDataSourceQuery = (dataSource: DataSourceType, queryConfig: QueryConfig) => {
   // Map data sources to appropriate database functions
-  const functionMapping = {
+  const functionMapping: Record<DataSourceType, string> = {
     interviewers_sessions: 'get_interviewers_sessions_data',
     projects_interviewers: 'get_projects_interviewers_data',
     sessions_duration: 'get_sessions_duration_data',

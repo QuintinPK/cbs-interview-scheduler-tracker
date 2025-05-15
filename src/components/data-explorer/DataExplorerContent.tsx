@@ -4,7 +4,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import DataSourceSelector from "./DataSourceSelector";
 import FieldSelectionPanel from "./FieldSelectionPanel";
 import ResultsDisplay from "./ResultsDisplay";
-import { DataSourceType, FieldDefinition, QueryConfig, ChartType, SavedReport } from "@/types/data-explorer";
+import { DataSourceType, FieldDefinition, QueryConfig, ChartType, SavedReport, SavedReportDB, convertDBReportToReport } from "@/types/data-explorer";
 import SavedReportsPanel from "./SavedReportsPanel";
 import { Button } from "@/components/ui/button";
 import { Save, Download } from "lucide-react";
@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { getDataSourceQuery } from "@/utils/data-explorer-utils";
+import * as XLSX from 'xlsx';
 
 const DataExplorerContent = () => {
   const [selectedDataSource, setSelectedDataSource] = useState<DataSourceType | null>(null);
@@ -43,7 +44,9 @@ const DataExplorerContent = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        setSavedReports(data as SavedReport[]);
+        // Convert DB format to component format
+        const reports = data.map((item: SavedReportDB) => convertDBReportToReport(item));
+        setSavedReports(reports);
       }
     } catch (error) {
       console.error("Error fetching saved reports:", error);
@@ -68,7 +71,9 @@ const DataExplorerContent = () => {
       
       if (error) throw error;
       
-      setResults(data || []);
+      // Parse JSON result
+      const parsedData = Array.isArray(data) ? data : [];
+      setResults(parsedData);
     } catch (error) {
       console.error("Error running query:", error);
       toast({
@@ -136,11 +141,18 @@ const DataExplorerContent = () => {
     }
     
     try {
-      // Convert results to CSV or Excel format
+      const filename = `${reportName || 'export'}_${new Date().toISOString().split('T')[0]}`;
+      
       if (format === 'csv') {
         // Convert to CSV
         const headers = Object.keys(results[0]).join(',');
-        const rows = results.map(row => Object.values(row).join(',')).join('\n');
+        const rows = results.map(row => 
+          Object.values(row).map(value => 
+            value === null ? '' : 
+            typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : 
+            String(value)
+          ).join(',')
+        ).join('\n');
         const csv = `${headers}\n${rows}`;
         
         // Create download link
@@ -148,19 +160,24 @@ const DataExplorerContent = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `${reportName || 'export'}.csv`;
+        link.download = `${filename}.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-      } else {
-        // For Excel, we'd need a library like xlsx
-        // This is a placeholder - in a real implementation, you'd use a library
-        toast({
-          title: "Feature Not Available",
-          description: "Excel export requires additional libraries",
-          variant: "destructive"
-        });
+      } else if (format === 'excel') {
+        // Create a workbook with a worksheet containing the data
+        const worksheet = XLSX.utils.json_to_sheet(results);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+        
+        // Generate Excel file and trigger download
+        XLSX.writeFile(workbook, `${filename}.xlsx`);
       }
+      
+      toast({
+        title: "Success",
+        description: `Data exported as ${format.toUpperCase()} successfully`,
+      });
     } catch (error) {
       console.error(`Error exporting as ${format}:`, error);
       toast({
@@ -186,7 +203,7 @@ const DataExplorerContent = () => {
 
   return (
     <div className="h-[calc(100vh-200px)] flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -220,14 +237,12 @@ const DataExplorerContent = () => {
       
       <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border">
         {/* Left sidebar for saved reports */}
-        <ResizablePanel defaultSize={20} minSize={15}>
-          <ScrollArea className="h-full">
-            <SavedReportsPanel 
-              onSelectReport={handleReportSelect} 
-              savedReports={savedReports}
-              onReportsChange={fetchSavedReports}
-            />
-          </ScrollArea>
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+          <SavedReportsPanel 
+            onSelectReport={handleReportSelect} 
+            savedReports={savedReports}
+            onReportsChange={fetchSavedReports}
+          />
         </ResizablePanel>
         
         <ResizableHandle withHandle />
@@ -236,7 +251,7 @@ const DataExplorerContent = () => {
         <ResizablePanel defaultSize={80}>
           <ResizablePanelGroup direction="vertical">
             {/* Top section - Data Source Selector and Field Selection */}
-            <ResizablePanel defaultSize={45} minSize={30}>
+            <ResizablePanel defaultSize={45} minSize={30} maxSize={70}>
               <ScrollArea className="h-full">
                 <div className="p-4">
                   <DataSourceSelector 

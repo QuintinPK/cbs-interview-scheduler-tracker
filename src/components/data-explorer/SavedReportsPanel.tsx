@@ -27,19 +27,19 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({
     }
   };
 
-  const toggleFavorite = async (reportId: string, favorite: boolean, event: React.MouseEvent) => {
+  const toggleFavorite = async (reportId: string, currentFavorite: boolean, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent triggering report selection
     
     try {
       const { error } = await supabase
         .from('data_explorer_reports')
-        .update({ favorite: !favorite })
+        .update({ favorite: !currentFavorite })
         .eq('id', reportId);
         
       if (error) throw error;
       
       toast({
-        description: `Report ${favorite ? 'removed from' : 'added to'} favorites`,
+        description: `Report ${currentFavorite ? 'removed from' : 'added to'} favorites`,
       });
       
       // Trigger refresh of reports
@@ -81,55 +81,67 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({
     }
   };
 
+  // Sort reports - favorites first, then by date
+  const sortedReports = [...savedReports].sort((a, b) => {
+    if (a.favorite && !b.favorite) return -1;
+    if (!a.favorite && b.favorite) return 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
   return (
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Saved Reports</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          {savedReports.map((report) => (
-            <div
-              key={report.id}
-              className="group p-2 rounded-md hover:bg-gray-100 cursor-pointer flex items-center justify-between"
-              onClick={() => onSelectReport(report)}
-            >
-              <div className="flex items-center space-x-2">
-                {getIconForReportType(report.chartType)}
-                <div>
-                  <div className="font-medium text-sm">{report.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(report.updatedAt).toLocaleDateString()}
+        <ScrollArea className="h-[calc(100vh-300px)]">
+          <div className="space-y-2">
+            {sortedReports.map((report) => (
+              <div
+                key={report.id}
+                className="group p-2 rounded-md hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                onClick={() => onSelectReport(report)}
+              >
+                <div className="flex items-center space-x-2">
+                  {getIconForReportType(report.chartType)}
+                  <div>
+                    <div className="font-medium text-sm">{report.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(report.updatedAt).toLocaleDateString()}
+                    </div>
                   </div>
                 </div>
+                <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-7 w-7 p-0"
+                    onClick={(e) => toggleFavorite(report.id, report.favorite, e)}
+                  >
+                    {report.favorite ? 
+                      <Star className="h-3.5 w-3.5 text-yellow-500" /> : 
+                      <StarOff className="h-3.5 w-3.5" />
+                    }
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="h-7 w-7 p-0"
+                    onClick={(e) => deleteReport(report.id, e)}
+                  >
+                    <Trash className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-7 w-7 p-0"
-                  onClick={(e) => toggleFavorite(report.id, report.favorite, e)}
-                >
-                  {report.favorite ? <Star className="h-3.5 w-3.5 text-yellow-500" /> : <StarOff className="h-3.5 w-3.5" />}
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  className="h-7 w-7 p-0"
-                  onClick={(e) => deleteReport(report.id, e)}
-                >
-                  <Trash className="h-3.5 w-3.5" />
-                </Button>
+            ))}
+            
+            {savedReports.length === 0 && (
+              <div className="text-sm text-muted-foreground text-center py-4">
+                No saved reports yet
               </div>
-            </div>
-          ))}
-          
-          {savedReports.length === 0 && (
-            <div className="text-sm text-muted-foreground text-center py-4">
-              No saved reports yet
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   );

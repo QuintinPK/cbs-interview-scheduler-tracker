@@ -33,6 +33,39 @@ export type Database = {
         }
         Relationships: []
       }
+      data_explorer_reports: {
+        Row: {
+          chart_type: string
+          created_at: string | null
+          data_source: string
+          favorite: boolean | null
+          id: string
+          name: string
+          query_config: Json
+          updated_at: string | null
+        }
+        Insert: {
+          chart_type: string
+          created_at?: string | null
+          data_source: string
+          favorite?: boolean | null
+          id?: string
+          name: string
+          query_config: Json
+          updated_at?: string | null
+        }
+        Update: {
+          chart_type?: string
+          created_at?: string | null
+          data_source?: string
+          favorite?: boolean | null
+          id?: string
+          name?: string
+          query_config?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       evaluation_tags: {
         Row: {
           category: string
@@ -486,7 +519,42 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_interviewers_sessions_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_interviews_results_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_projects_interviewers_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_sessions_duration_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       island: "Bonaire" | "Saba" | "Sint Eustatius"
