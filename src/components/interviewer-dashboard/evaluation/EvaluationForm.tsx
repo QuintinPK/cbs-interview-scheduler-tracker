@@ -34,7 +34,7 @@ export function EvaluationForm({
     defaultValues: {
       rating: evaluation?.rating || 3,
       remarks: evaluation?.remarks || "",
-      project_id: evaluation?.project_id || "",
+      project_id: evaluation?.project_id || "no-project",
     },
   });
 
@@ -44,7 +44,13 @@ export function EvaluationForm({
       form.reset({
         rating: evaluation.rating,
         remarks: evaluation.remarks || "",
-        project_id: evaluation.project_id || "",
+        project_id: evaluation.project_id || "no-project",
+      });
+    } else {
+      form.reset({
+        rating: 3,
+        remarks: "",
+        project_id: "no-project",
       });
     }
   }, [evaluation, form]);

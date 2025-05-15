@@ -42,6 +42,11 @@ export function AddEditEvaluationDialog({
           setTagsLoaded(true);
         } catch (error) {
           console.error("Failed to load evaluation tags:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load evaluation tags",
+            variant: "destructive",
+          });
         } finally {
           setLoading(false);
         }
@@ -58,7 +63,7 @@ export function AddEditEvaluationDialog({
     if (!open) {
       setTagsLoaded(false);
     }
-  }, [open, loadEvaluationTags, tagsLoaded, tags.length]);
+  }, [open, loadEvaluationTags, tagsLoaded, tags.length, toast]);
   
   // Initialize selected tags if editing
   useEffect(() => {
@@ -82,11 +87,18 @@ export function AddEditEvaluationDialog({
 
   const onSubmit = async (data: any) => {
     try {
+      console.log("Submitting evaluation form with data:", {
+        rating: selectedRating,
+        remarks: data.remarks,
+        project_id: data.project_id === "no-project" ? undefined : data.project_id,
+        tag_ids: selectedTags.map(tag => tag.id)
+      });
+      
       if (evaluation) {
         await updateEvaluation(evaluation.id, {
           rating: selectedRating,
           remarks: data.remarks,
-          project_id: data.project_id || undefined,
+          project_id: data.project_id === "no-project" ? undefined : data.project_id,
           tag_ids: selectedTags.map(tag => tag.id),
         });
       } else {
@@ -94,7 +106,7 @@ export function AddEditEvaluationDialog({
           interviewer_id: interviewerId,
           rating: selectedRating,
           remarks: data.remarks,
-          project_id: data.project_id || undefined,
+          project_id: data.project_id === "no-project" ? undefined : data.project_id,
           tag_ids: selectedTags.map(tag => tag.id),
         });
       }
@@ -110,11 +122,7 @@ export function AddEditEvaluationDialog({
       onSuccess();
     } catch (error) {
       console.error("Error saving evaluation:", error);
-      toast({
-        title: "Error",
-        description: `Failed to ${evaluation ? 'update' : 'add'} evaluation`,
-        variant: "destructive",
-      });
+      // Toast notification is already handled in useEvaluationActions
     }
   };
 

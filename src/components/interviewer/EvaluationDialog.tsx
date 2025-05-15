@@ -48,8 +48,17 @@ const EvaluationDialog = ({
   useEffect(() => {
     if (open && !tagsLoaded) {
       const fetchTags = async () => {
-        await loadEvaluationTags();
-        setTagsLoaded(true);
+        try {
+          await loadEvaluationTags();
+          setTagsLoaded(true);
+        } catch (error) {
+          console.error("Failed to load evaluation tags:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load evaluation tags",
+            variant: "destructive",
+          });
+        }
       };
       fetchTags();
     }
@@ -57,7 +66,7 @@ const EvaluationDialog = ({
     if (!open) {
       setTagsLoaded(false);
     }
-  }, [open, loadEvaluationTags, tagsLoaded]);
+  }, [open, loadEvaluationTags, tagsLoaded, toast]);
 
   // Reset form state when dialog opens
   useEffect(() => {
@@ -124,11 +133,7 @@ const EvaluationDialog = ({
       onOpenChange(false);
     } catch (error) {
       console.error("Error submitting evaluation:", error);
-      toast({
-        title: "Error",
-        description: "Failed to submit evaluation",
-        variant: "destructive",
-      });
+      // Toast notification is already handled in useEvaluationActions
     }
   };
 
