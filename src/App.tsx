@@ -21,8 +21,6 @@ import Projects from "./pages/admin/Projects";
 import ProjectAssign from "./pages/admin/ProjectAssign";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
-
 // Protected route component needs to be inside the AuthProvider context
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
@@ -73,19 +71,24 @@ const AppRoutes = () => {
   );
 };
 
-// App component - Ensure TooltipProvider wraps the entire application content
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+// Create a new QueryClient instance outside of component rendering
+const queryClient = new QueryClient();
+
+// App component with correct provider nesting order
+const App = () => {
+  return (
     <BrowserRouter>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AppRoutes />
-        </TooltipProvider>
-      </AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <AppRoutes />
+            <Toaster />
+            <Sonner />
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </BrowserRouter>
-  </QueryClientProvider>
-);
+  );
+};
 
 export default App;

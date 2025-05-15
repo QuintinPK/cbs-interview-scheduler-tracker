@@ -9,4 +9,8 @@ registerServiceWorker();
 listenForSWMessages();
 setupOnlineListener();
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Create root and render App
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  createRoot(rootElement).render(<App />);
+}
