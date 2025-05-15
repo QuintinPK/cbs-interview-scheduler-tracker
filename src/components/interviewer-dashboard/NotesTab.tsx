@@ -43,11 +43,11 @@ export const NotesTab: React.FC<NotesTabProps> = ({
         title: "Note deleted",
         description: "The note has been removed successfully."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting note:", error);
       toast({
         title: "Error",
-        description: "Failed to delete note.",
+        description: `Failed to delete note: ${error?.message || "Unknown error"}`,
         variant: "destructive"
       });
     }
@@ -59,14 +59,17 @@ export const NotesTab: React.FC<NotesTabProps> = ({
       
       // Log the note data for debugging
       console.log("Saving note:", note);
+      console.log("Current interviewer ID:", interviewerId);
       
       if (editingNote) {
+        console.log("Updating existing note with ID:", editingNote.id);
         await updateNote(editingNote.id, note);
         toast({
           title: "Note updated",
           description: "The note has been updated successfully."
         });
       } else {
+        console.log("Adding new note for interviewer:", interviewerId);
         await addNote({
           ...note,
           interviewer_id: interviewerId,

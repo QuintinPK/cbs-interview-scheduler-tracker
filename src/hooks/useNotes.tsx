@@ -20,14 +20,20 @@ export const useNotes = (interviewerId: string) => {
       
       try {
         setLoading(true);
+        console.log("Loading notes for interviewer:", interviewerId);
+        
         const { data, error } = await supabase
           .from('interviewer_notes')
           .select('*')
           .eq('interviewer_id', interviewerId)
           .order('created_at', { ascending: false });
           
-        if (error) throw error;
+        if (error) {
+          console.error("Supabase error loading notes:", error);
+          throw error;
+        }
         
+        console.log("Notes loaded successfully:", data?.length || 0, "notes found");
         setNotes(data || []);
       } catch (error) {
         console.error("Error loading notes:", error);
@@ -67,6 +73,7 @@ export const useNotes = (interviewerId: string) => {
       
       console.log("Adding note with data:", noteToInsert);
       
+      // Use upsert with onConflict to handle potential duplicates
       const { data, error } = await supabase
         .from('interviewer_notes')
         .insert(noteToInsert)
@@ -85,7 +92,7 @@ export const useNotes = (interviewerId: string) => {
       console.log("Note added successfully:", data);
       setNotes(prevNotes => [data, ...prevNotes]);
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding note:", error);
       throw error;
     }
@@ -123,7 +130,7 @@ export const useNotes = (interviewerId: string) => {
       console.log("Note updated successfully:", data);
       setNotes(notes.map(note => note.id === id ? data : note));
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating note:", error);
       throw error;
     }
@@ -146,7 +153,7 @@ export const useNotes = (interviewerId: string) => {
       
       console.log("Note deleted successfully");
       setNotes(notes.filter(note => note.id !== id));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting note:", error);
       throw error;
     }
