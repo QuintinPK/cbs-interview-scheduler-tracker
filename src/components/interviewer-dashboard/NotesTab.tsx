@@ -77,11 +77,11 @@ export const NotesTab: React.FC<NotesTabProps> = ({
         });
       }
       setDialogOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving note:", error);
       toast({
         title: "Error",
-        description: "Failed to save note.",
+        description: `Failed to save note: ${error?.message || "Unknown error"}`,
         variant: "destructive"
       });
     } finally {

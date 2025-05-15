@@ -52,16 +52,20 @@ export const useNotes = (interviewerId: string) => {
         throw new Error("Note content is required");
       }
       
+      if (!interviewerId) {
+        throw new Error("Interviewer ID is required");
+      }
+      
       // Make sure interviewer_id is included and set
       const noteToInsert = {
         interviewer_id: interviewerId,
         content: note.content,
-        title: note.title || null,
-        project_id: note.project_id || null,
+        title: note.title,
+        project_id: note.project_id,
         created_by: "admin" // You can change this to the current user's username or ID
       };
       
-      console.log("Adding note:", noteToInsert);
+      console.log("Adding note with data:", noteToInsert);
       
       const { data, error } = await supabase
         .from('interviewer_notes')

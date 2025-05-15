@@ -30,13 +30,15 @@ export const NoteDialog: React.FC<NoteDialogProps> = ({
   projects,
   onSave,
 }) => {
-  const { register, handleSubmit, setValue, reset, formState: { errors, isSubmitting } } = useForm<NoteFormValues>({
+  const { register, handleSubmit, setValue, reset, watch, formState: { errors, isSubmitting } } = useForm<NoteFormValues>({
     defaultValues: {
       title: "",
       content: "",
       project_id: null
     }
   });
+  
+  const selectedProject = watch("project_id");
   
   // Reset form when note changes or dialog opens/closes
   useEffect(() => {
@@ -45,23 +47,32 @@ export const NoteDialog: React.FC<NoteDialogProps> = ({
         reset({
           title: note.title || "",
           content: note.content,
-          project_id: note.project_id || null
+          project_id: note.project_id || "none"
         });
       } else {
         reset({
           title: "",
           content: "",
-          project_id: null
+          project_id: "none"
         });
       }
     }
   }, [note, open, reset]);
   
   const onSubmit = (data: NoteFormValues) => {
+    // Convert "none" to null for project_id
+    const projectId = data.project_id === "none" ? null : data.project_id;
+    
+    console.log("Form submission data:", {
+      title: data.title.trim() || null,
+      content: data.content.trim(),
+      project_id: projectId
+    });
+    
     onSave({
       title: data.title.trim() || null,
-      content: data.content,
-      project_id: data.project_id === "none" ? null : data.project_id
+      content: data.content.trim(),
+      project_id: projectId
     });
   };
   
@@ -98,8 +109,9 @@ export const NoteDialog: React.FC<NoteDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="project">Associated Project (Optional)</Label>
             <Select 
-              onValueChange={(value) => setValue("project_id", value === "none" ? null : value)}
-              defaultValue={note?.project_id || "none"}
+              onValueChange={(value) => setValue("project_id", value)}
+              value={selectedProject || "none"}
+              defaultValue="none"
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a project (optional)" />
