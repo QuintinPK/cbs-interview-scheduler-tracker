@@ -61,7 +61,7 @@ export const NoteDialog: React.FC<NoteDialogProps> = ({
     onSave({
       title: data.title.trim() || null,
       content: data.content,
-      project_id: data.project_id
+      project_id: data.project_id === "none" ? null : data.project_id
     });
   };
   
@@ -98,14 +98,14 @@ export const NoteDialog: React.FC<NoteDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="project">Associated Project (Optional)</Label>
             <Select 
-              onValueChange={(value) => setValue("project_id", value || null)}
-              defaultValue={note?.project_id || ""}
+              onValueChange={(value) => setValue("project_id", value === "none" ? null : value)}
+              defaultValue={note?.project_id || "none"}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a project (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">No Project</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
