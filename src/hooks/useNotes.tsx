@@ -52,9 +52,10 @@ export const useNotes = (interviewerId: string) => {
         throw new Error("Note content is required");
       }
       
+      // Make sure interviewer_id is included and set
       const noteToInsert = {
-        interviewer_id: interviewerId, // Make sure this is always set
-        content: note.content, // Required field
+        interviewer_id: interviewerId,
+        content: note.content,
         title: note.title || null,
         project_id: note.project_id || null,
         created_by: "admin" // You can change this to the current user's username or ID
