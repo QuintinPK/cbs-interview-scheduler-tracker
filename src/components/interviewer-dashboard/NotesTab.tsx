@@ -1,0 +1,114 @@
+
+import React, { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus, Edit, Trash2, Calendar } from "lucide-react";
+import { NotesList } from "./notes/NotesList";
+import { NoteDialog } from "./notes/NoteDialog";
+import { useNotes } from "@/hooks/useNotes";
+import { Note, Project } from "@/types";
+import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+
+interface NotesTabProps {
+  interviewerId: string;
+  projects: Project[];
+  getProjectName: (projectId: string | null | undefined) => string;
+}
+
+export const NotesTab: React.FC<NotesTabProps> = ({
+  interviewerId,
+  projects,
+  getProjectName,
+}) => {
+  const { notes, loading, addNote, updateNote, deleteNote } = useNotes(interviewerId);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const { toast } = useToast();
+  
+  const handleAddNote = () => {
+    setEditingNote(null);
+    setDialogOpen(true);
+  };
+  
+  const handleEditNote = (note: Note) => {
+    setEditingNote(note);
+    setDialogOpen(true);
+  };
+  
+  const handleDeleteNote = async (note: Note) => {
+    try {
+      await deleteNote(note.id);
+      toast({
+        title: "Note deleted",
+        description: "The note has been removed successfully."
+      });
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete note.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  const handleSaveNote = async (note: Partial<Note>) => {
+    try {
+      if (editingNote) {
+        await updateNote(editingNote.id, note);
+        toast({
+          title: "Note updated",
+          description: "The note has been updated successfully."
+        });
+      } else {
+        await addNote({
+          ...note,
+          interviewer_id: interviewerId,
+        });
+        toast({
+          title: "Note added",
+          description: "The note has been added successfully."
+        });
+      }
+      setDialogOpen(false);
+    } catch (error) {
+      console.error("Error saving note:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save note.",
+        variant: "destructive"
+      });
+    }
+  };
+  
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-xl">Interviewer Notes</CardTitle>
+          <Button onClick={handleAddNote} size="sm" className="h-9">
+            <Plus className="h-4 w-4 mr-1" /> Add Note
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <NotesList 
+            notes={notes}
+            loading={loading}
+            getProjectName={getProjectName}
+            onEdit={handleEditNote}
+            onDelete={handleDeleteNote}
+          />
+        </CardContent>
+      </Card>
+      
+      <NoteDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        note={editingNote}
+        projects={projects}
+        onSave={handleSaveNote}
+      />
+    </>
+  );
+};

@@ -5,9 +5,10 @@ import { InterviewerHeader } from "@/components/interviewer-dashboard/Interviewe
 import { InterviewerQuickStats } from "@/components/interviewer-dashboard/InterviewerQuickStats";
 import { OverviewTab } from "@/components/interviewer-dashboard/OverviewTab";
 import { SessionsTab } from "@/components/interviewer-dashboard/SessionsTab";
-import { ProjectsTab } from "@/components/interviewer-dashboard/ProjectsTab"; // Import the new ProjectsTab
+import { ProjectsTab } from "@/components/interviewer-dashboard/ProjectsTab";
 import { PerformanceTab } from "@/components/interviewer-dashboard/PerformanceTab";
 import { EvaluationsTab } from "@/components/interviewer-dashboard/EvaluationsTab";
+import { NotesTab } from "@/components/interviewer-dashboard/NotesTab";
 import { ContactInformation } from "@/components/interviewer-dashboard/ContactInformation";
 import { InterviewerSchedulingTab } from "@/components/interviewer-dashboard/InterviewerSchedulingTab";
 import { DateRangePicker } from "@/components/ui/date-range-picker"; 
@@ -123,6 +124,12 @@ const InterviewerDashboard = () => {
               Evaluations
             </TabsTrigger>
             <TabsTrigger 
+              value="notes" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
+            >
+              Notes
+            </TabsTrigger>
+            <TabsTrigger 
               value="contact" 
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10 px-4"
             >
@@ -182,6 +189,16 @@ const InterviewerDashboard = () => {
               interviewer={interviewer}
               getProjectName={getProjectName}
             />
+          </TabsContent>
+          
+          <TabsContent value="notes" className="m-0 p-0">
+            {interviewer && (
+              <NotesTab
+                interviewerId={interviewer.id}
+                projects={assignedProjects}
+                getProjectName={getProjectName}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="contact" className="m-0 p-0">

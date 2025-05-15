@@ -139,6 +139,54 @@ export type Database = {
           },
         ]
       }
+      interviewer_notes: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          interviewer_id: string
+          project_id: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interviewer_id: string
+          project_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interviewer_id?: string
+          project_id?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interviewer_notes_interviewer_id_fkey"
+            columns: ["interviewer_id"]
+            isOneToOne: false
+            referencedRelation: "interviewers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interviewer_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interviewers: {
         Row: {
           code: string

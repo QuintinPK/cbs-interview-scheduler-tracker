@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   first_name: string;
@@ -127,4 +126,15 @@ export interface Schedule {
   status: 'scheduled' | 'completed' | 'canceled';  // Using American spelling "canceled" consistently
   notes?: string;
   created_at?: string;
+}
+
+export interface Note {
+  id: string;
+  interviewer_id: string;
+  project_id: string | null;
+  title: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
 }
