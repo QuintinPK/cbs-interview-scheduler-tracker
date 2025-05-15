@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Upload } from "lucide-react";
 import { parseInterviewersCsv, CsvInterviewer } from "@/utils/csvUtils";
 
