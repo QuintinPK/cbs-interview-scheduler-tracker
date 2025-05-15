@@ -37,7 +37,14 @@ export const useEvaluationActions = () => {
         
       if (error) {
         console.error("Error inserting evaluation:", error);
-        setError("Failed to create evaluation");
+        setError(`Failed to create evaluation: ${error.message}`);
+        
+        // Show more detailed error message to help debugging
+        toast({
+          title: "Error",
+          description: `Could not add evaluation: ${error.message}`,
+          variant: "destructive",
+        });
         throw error;
       }
       
@@ -122,7 +129,12 @@ export const useEvaluationActions = () => {
         
       if (error) {
         console.error("Error updating evaluation:", error);
-        setError("Failed to update evaluation");
+        setError(`Failed to update evaluation: ${error.message}`);
+        toast({
+          title: "Error",
+          description: `Could not update evaluation: ${error.message}`,
+          variant: "destructive",
+        });
         throw error;
       }
       
@@ -137,7 +149,7 @@ export const useEvaluationActions = () => {
             
           if (deleteError) {
             console.error("Error deleting tags:", deleteError);
-            setError("Evaluation updated but failed to update tags");
+            setError(`Evaluation updated but failed to update tags: ${deleteError.message}`);
             return data && data.length > 0 ? data[0] : null;
           }
           
@@ -154,7 +166,7 @@ export const useEvaluationActions = () => {
               
             if (insertError) {
               console.error("Error inserting new tags:", insertError);
-              setError("Evaluation updated but failed to add new tags");
+              setError(`Evaluation updated but failed to add new tags: ${insertError.message}`);
               return data && data.length > 0 ? data[0] : null;
             }
           }

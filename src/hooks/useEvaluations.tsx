@@ -32,31 +32,51 @@ export const useEvaluations = () => {
 
   // Memoize the combined error state
   const error = useMemo(() => {
+    if (baseError) console.error("Base error:", baseError);
+    if (actionError) console.error("Action error:", actionError);
+    if (loaderError) console.error("Loader error:", loaderError);
+    if (statsError) console.error("Stats error:", statsError);
+    
     return baseError || actionError || loaderError || statsError;
   }, [baseError, actionError, loaderError, statsError]);
 
   // Enhance loadEvaluationsByInterviewer to accept force refresh parameter
   const loadEvaluations = useCallback(async (interviewerId: string, forceRefresh = false) => {
     console.log("useEvaluations - loadEvaluations called for:", interviewerId, "forceRefresh:", forceRefresh);
-    const result = await loadEvaluationsByInterviewer(interviewerId, forceRefresh);
-    console.log("useEvaluations - loadEvaluations result:", result ? result.length : 0, "evaluations");
-    return result;
+    try {
+      const result = await loadEvaluationsByInterviewer(interviewerId, forceRefresh);
+      console.log("useEvaluations - loadEvaluations result:", result ? result.length : 0, "evaluations");
+      return result;
+    } catch (err) {
+      console.error("Error loading evaluations:", err);
+      return [];
+    }
   }, [loadEvaluationsByInterviewer]);
   
   // Enhance getAverageRating to accept force refresh parameter
   const getAvgRating = useCallback(async (interviewerId: string, forceRefresh = false) => {
     console.log("useEvaluations - getAvgRating called for:", interviewerId, "forceRefresh:", forceRefresh);
-    const result = await getAverageRating(interviewerId, forceRefresh);
-    console.log("useEvaluations - getAvgRating result:", result);
-    return result;
+    try {
+      const result = await getAverageRating(interviewerId, forceRefresh);
+      console.log("useEvaluations - getAvgRating result:", result);
+      return result;
+    } catch (err) {
+      console.error("Error getting average rating:", err);
+      return null;
+    }
   }, [getAverageRating]);
   
   // Enhance getAllAverageRatings to accept force refresh parameter
   const getAllAvgRatings = useCallback(async (forceRefresh = false) => {
     console.log("useEvaluations - getAllAvgRatings called, forceRefresh:", forceRefresh);
-    const result = await getAllAverageRatings(forceRefresh);
-    console.log("useEvaluations - getAllAvgRatings result:", Object.keys(result).length, "ratings");
-    return result;
+    try {
+      const result = await getAllAverageRatings(forceRefresh);
+      console.log("useEvaluations - getAllAvgRatings result:", Object.keys(result).length, "ratings");
+      return result;
+    } catch (err) {
+      console.error("Error getting all average ratings:", err);
+      return {};
+    }
   }, [getAllAverageRatings]);
 
   // Debug the current state
