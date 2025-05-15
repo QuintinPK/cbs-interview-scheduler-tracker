@@ -19,6 +19,7 @@ import Costs from "./pages/admin/Costs";
 import Settings from "./pages/admin/Settings";
 import Projects from "./pages/admin/Projects"; 
 import ProjectAssign from "./pages/admin/ProjectAssign";
+import DataExplorer from "./pages/admin/DataExplorer";
 import NotFound from "./pages/NotFound";
 
 // Protected route component needs to be inside the AuthProvider context
@@ -55,6 +56,7 @@ const AppRoutes = () => {
                 <Route path="projects" element={<Projects />} />
                 <Route path="projects/assign/:projectId" element={<ProjectAssign />} />
                 <Route path="costs" element={<Costs />} />
+                <Route path="data-explorer" element={<DataExplorer />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="scheduling" element={<InteractiveScheduling />} />
                 <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
