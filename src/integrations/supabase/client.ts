@@ -15,7 +15,7 @@ const supabaseOptions = {
   },
   global: {
     // Add request/response logging in development to help debug issues
-    fetch: (...args: any[]) => {
+    fetch: (...args: Parameters<typeof fetch>) => {
       // Log the request
       console.log('Supabase request:', args[0]);
       
