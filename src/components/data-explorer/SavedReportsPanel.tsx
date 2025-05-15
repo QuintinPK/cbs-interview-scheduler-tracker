@@ -6,6 +6,7 @@ import { Star, StarOff, Trash, FileSpreadsheet, ChartBar, ChartLine, ChartPie } 
 import { SavedReport } from "@/types/data-explorer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SavedReportsPanelProps {
   onSelectReport: (report: SavedReport) => void;

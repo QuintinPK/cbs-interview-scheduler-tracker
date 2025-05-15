@@ -13,6 +13,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { getDataSourceQuery } from "@/utils/data-explorer-utils";
 import * as XLSX from 'xlsx';
+import { Json } from "@/integrations/supabase/types";
+
+// Define a type to match the Supabase database structure
+interface SupabaseSavedReportDB {
+  id: string;
+  name: string;
+  data_source: string;
+  query_config: Json;
+  chart_type: string;
+  created_at?: string;
+  updated_at?: string;
+  favorite?: boolean;
+}
 
 const DataExplorerContent = () => {
   const [selectedDataSource, setSelectedDataSource] = useState<DataSourceType | null>(null);
@@ -44,8 +57,19 @@ const DataExplorerContent = () => {
       if (error) throw error;
       
       if (data && data.length > 0) {
-        // Convert DB format to component format
-        const reports = data.map((item: SavedReportDB) => convertDBReportToReport(item));
+        // Convert DB format to component format, ensuring proper typing
+        const reports = data.map((item: SupabaseSavedReportDB) => 
+          convertDBReportToReport({
+            id: item.id,
+            name: item.name,
+            data_source: item.data_source as DataSourceType,
+            query_config: item.query_config as unknown as QueryConfig,
+            chart_type: item.chart_type as ChartType,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            favorite: item.favorite
+          })
+        );
         setSavedReports(reports);
       }
     } catch (error) {
@@ -66,8 +90,13 @@ const DataExplorerContent = () => {
       // Get the appropriate query for the selected data source
       const query = getDataSourceQuery(selectedDataSource, queryConfig);
       
-      // Execute the query
-      const { data, error } = await supabase.rpc(query.function, query.params);
+      // Execute the query with the specified function name
+      const functionName = query.function as "get_interviewers_sessions_data" | 
+                                           "get_projects_interviewers_data" | 
+                                           "get_sessions_duration_data" | 
+                                           "get_interviews_results_data";
+      
+      const { data, error } = await supabase.rpc(functionName, query.params);
       
       if (error) throw error;
       
@@ -98,10 +127,12 @@ const DataExplorerContent = () => {
     }
     
     try {
+      // Convert QueryConfig to Json by casting through the JSON stringify/parse cycle
+      // This ensures proper serialization for database storage
       const reportData = {
         name: reportName,
         data_source: selectedDataSource,
-        query_config: queryConfig,
+        query_config: JSON.parse(JSON.stringify(queryConfig)) as Json,
         chart_type: selectedChart,
         favorite: false
       };
