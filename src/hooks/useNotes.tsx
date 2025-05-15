@@ -47,12 +47,22 @@ export const useNotes = (interviewerId: string) => {
   // Add a new note
   const addNote = async (note: Partial<Note>): Promise<Note> => {
     try {
+      // Ensure required fields are present
+      if (!note.content) {
+        throw new Error("Note content is required");
+      }
+      
+      const noteToInsert = {
+        interviewer_id: interviewerId, // Make sure this is always set
+        content: note.content, // Required field
+        title: note.title || null,
+        project_id: note.project_id || null,
+        created_by: "admin" // You can change this to the current user's username or ID
+      };
+      
       const { data, error } = await supabase
         .from('interviewer_notes')
-        .insert([{
-          ...note,
-          created_by: "admin", // You can change this to the current user's username or ID
-        }])
+        .insert(noteToInsert)
         .select()
         .single();
         
@@ -69,12 +79,17 @@ export const useNotes = (interviewerId: string) => {
   // Update an existing note
   const updateNote = async (id: string, updates: Partial<Note>): Promise<Note> => {
     try {
+      // Ensure we're not trying to update the interviewer_id
+      const { interviewer_id, ...updateData } = updates;
+      
+      const noteUpdates = {
+        ...updateData,
+        updated_at: new Date().toISOString(),
+      };
+      
       const { data, error } = await supabase
         .from('interviewer_notes')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString(),
-        })
+        .update(noteUpdates)
         .eq('id', id)
         .select()
         .single();
