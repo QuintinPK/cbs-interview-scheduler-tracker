@@ -1,5 +1,5 @@
 
-import { DataSourceType, FieldDefinition } from "@/types/data-explorer";
+import { DataSourceType, FieldDefinition, QueryConfig, FilterCondition } from "@/types/data-explorer";
 
 // This function returns the available fields for a given data source
 export const getFieldsForDataSource = (dataSource: DataSourceType): FieldDefinition[] => {
@@ -72,4 +72,51 @@ export const getFieldsForDataSource = (dataSource: DataSourceType): FieldDefinit
     default:
       return [];
   }
+};
+
+// Convert filter operator to SQL operator
+const filterOperatorToSql = (operator: string) => {
+  switch (operator) {
+    case 'equals': return '=';
+    case 'not_equals': return '!=';
+    case 'contains': return 'LIKE';
+    case 'greater_than': return '>';
+    case 'less_than': return '<';
+    case 'between': return 'BETWEEN';
+    case 'in': return 'IN';
+    default: return '=';
+  }
+};
+
+// Generate the query parameters based on the data source and query configuration
+export const getDataSourceQuery = (dataSource: DataSourceType, queryConfig: QueryConfig) => {
+  // Map data sources to appropriate database functions
+  const functionMapping = {
+    interviewers_sessions: 'get_interviewers_sessions_data',
+    projects_interviewers: 'get_projects_interviewers_data',
+    sessions_duration: 'get_sessions_duration_data',
+    interviews_results: 'get_interviews_results_data'
+  };
+
+  // Extract fields for the query
+  const rowFields = queryConfig.rows.map(field => field.id);
+  const columnFields = queryConfig.columns.map(field => field.id);
+  const valueFields = queryConfig.values.map(field => field.id);
+  
+  // Build filters
+  const filters = queryConfig.filters.map(filter => ({
+    field: filter.field.id,
+    operator: filterOperatorToSql(filter.operator),
+    value: filter.value
+  }));
+
+  return {
+    function: functionMapping[dataSource],
+    params: {
+      p_rows: rowFields,
+      p_columns: columnFields,
+      p_values: valueFields,
+      p_filters: filters
+    }
+  };
 };

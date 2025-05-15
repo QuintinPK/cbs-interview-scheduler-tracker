@@ -4,76 +4,20 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, StarOff, Trash, FileSpreadsheet, ChartBar, ChartLine, ChartPie } from "lucide-react";
 import { SavedReport } from "@/types/data-explorer";
-
-// Mock data for saved reports
-const MOCK_SAVED_REPORTS: SavedReport[] = [
-  { 
-    id: "1", 
-    name: "Interviewer Performance", 
-    chartType: "bar", 
-    favorite: true,
-    createdAt: "2025-05-10",
-    updatedAt: "2025-05-10",
-    dataSource: "interviewers_sessions",
-    queryConfig: {
-      rows: [{ id: "interviewer_name", label: "Interviewer Name", type: "text" }],
-      columns: [],
-      values: [{ id: "sessions_count", label: "Sessions Count", type: "number", aggregate: true }],
-      filters: []
-    }
-  },
-  { 
-    id: "2", 
-    name: "Project Completion Rates", 
-    chartType: "line", 
-    favorite: false,
-    createdAt: "2025-05-09",
-    updatedAt: "2025-05-09",
-    dataSource: "projects_interviewers",
-    queryConfig: {
-      rows: [{ id: "project_name", label: "Project Name", type: "text" }],
-      columns: [],
-      values: [{ id: "response_rate", label: "Response Rate", type: "number" }],
-      filters: []
-    }
-  },
-  { 
-    id: "3", 
-    name: "Island Distribution", 
-    chartType: "pie", 
-    favorite: true,
-    createdAt: "2025-05-08",
-    updatedAt: "2025-05-08",
-    dataSource: "interviewers_sessions",
-    queryConfig: {
-      rows: [{ id: "island", label: "Island", type: "text" }],
-      columns: [],
-      values: [{ id: "interviewers_count", label: "Interviewers Count", type: "number", aggregate: true }],
-      filters: []
-    }
-  },
-  { 
-    id: "4", 
-    name: "Session Details", 
-    chartType: "table", 
-    favorite: false,
-    createdAt: "2025-05-07",
-    updatedAt: "2025-05-07",
-    dataSource: "sessions_duration",
-    queryConfig: {
-      rows: [{ id: "interview_date", label: "Interview Date", type: "date" }],
-      columns: [],
-      values: [{ id: "total_sessions", label: "Total Sessions", type: "number", aggregate: true }],
-      filters: []
-    }
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 interface SavedReportsPanelProps {
   onSelectReport: (report: SavedReport) => void;
+  savedReports: SavedReport[];
+  onReportsChange: () => void;
 }
 
-const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ onSelectReport }) => {
+const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ 
+  onSelectReport, 
+  savedReports, 
+  onReportsChange 
+}) => {
   const getIconForReportType = (type: SavedReport["chartType"]) => {
     switch (type) {
       case "bar": return <ChartBar className="h-4 w-4" />;
@@ -83,14 +27,58 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ onSelectReport })
     }
   };
 
-  const toggleFavorite = (reportId: string, event: React.MouseEvent) => {
+  const toggleFavorite = async (reportId: string, favorite: boolean, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent triggering report selection
-    console.log("Toggling favorite for report:", reportId);
+    
+    try {
+      const { error } = await supabase
+        .from('data_explorer_reports')
+        .update({ favorite: !favorite })
+        .eq('id', reportId);
+        
+      if (error) throw error;
+      
+      toast({
+        description: `Report ${favorite ? 'removed from' : 'added to'} favorites`,
+      });
+      
+      // Trigger refresh of reports
+      onReportsChange();
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive"
+      });
+    }
   };
 
-  const deleteReport = (reportId: string, event: React.MouseEvent) => {
+  const deleteReport = async (reportId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent triggering report selection
-    console.log("Deleting report:", reportId);
+    
+    try {
+      const { error } = await supabase
+        .from('data_explorer_reports')
+        .delete()
+        .eq('id', reportId);
+        
+      if (error) throw error;
+      
+      toast({
+        description: "Report deleted successfully",
+      });
+      
+      // Trigger refresh of reports
+      onReportsChange();
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete report",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -100,7 +88,7 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ onSelectReport })
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {MOCK_SAVED_REPORTS.map((report) => (
+          {savedReports.map((report) => (
             <div
               key={report.id}
               className="group p-2 rounded-md hover:bg-gray-100 cursor-pointer flex items-center justify-between"
@@ -110,7 +98,9 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ onSelectReport })
                 {getIconForReportType(report.chartType)}
                 <div>
                   <div className="font-medium text-sm">{report.name}</div>
-                  <div className="text-xs text-muted-foreground">{report.updatedAt}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(report.updatedAt).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
               <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -118,9 +108,9 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ onSelectReport })
                   size="sm" 
                   variant="ghost" 
                   className="h-7 w-7 p-0"
-                  onClick={(e) => toggleFavorite(report.id, e)}
+                  onClick={(e) => toggleFavorite(report.id, report.favorite, e)}
                 >
-                  {report.favorite ? <Star className="h-3.5 w-3.5" /> : <StarOff className="h-3.5 w-3.5" />}
+                  {report.favorite ? <Star className="h-3.5 w-3.5 text-yellow-500" /> : <StarOff className="h-3.5 w-3.5" />}
                 </Button>
                 <Button 
                   size="sm" 
@@ -134,7 +124,7 @@ const SavedReportsPanel: React.FC<SavedReportsPanelProps> = ({ onSelectReport })
             </div>
           ))}
           
-          {MOCK_SAVED_REPORTS.length === 0 && (
+          {savedReports.length === 0 && (
             <div className="text-sm text-muted-foreground text-center py-4">
               No saved reports yet
             </div>

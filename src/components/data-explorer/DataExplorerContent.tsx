@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import DataSourceSelector from "./DataSourceSelector";
 import FieldSelectionPanel from "./FieldSelectionPanel";
@@ -9,6 +9,9 @@ import SavedReportsPanel from "./SavedReportsPanel";
 import { Button } from "@/components/ui/button";
 import { Save, Download } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/components/ui/use-toast";
+import { getDataSourceQuery } from "@/utils/data-explorer-utils";
 
 const DataExplorerContent = () => {
   const [selectedDataSource, setSelectedDataSource] = useState<DataSourceType | null>(null);
@@ -23,39 +26,149 @@ const DataExplorerContent = () => {
   const [selectedChart, setSelectedChart] = useState<ChartType>("table");
   const [reportName, setReportName] = useState<string>("");
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+
+  // Fetch saved reports on component mount
+  useEffect(() => {
+    fetchSavedReports();
+  }, []);
+
+  const fetchSavedReports = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('data_explorer_reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setSavedReports(data as SavedReport[]);
+      }
+    } catch (error) {
+      console.error("Error fetching saved reports:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch saved reports",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleRunQuery = async () => {
     if (!selectedDataSource) return;
     
     setIsLoading(true);
     try {
-      // This is where we would build and execute the query based on the configuration
-      // For now, we'll just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Get the appropriate query for the selected data source
+      const query = getDataSourceQuery(selectedDataSource, queryConfig);
       
-      // Simulate some results
-      const mockResults = Array.from({ length: 10 }, (_, i) => ({
-        id: i + 1,
-        interviewer: `Interviewer ${i + 1}`,
-        sessions: Math.floor(Math.random() * 100),
-        avgDuration: Math.floor(Math.random() * 120) + 30,
-        project: `Project ${(i % 3) + 1}`,
-        date: new Date(2025, 0, i + 1).toISOString().split('T')[0]
-      }));
+      // Execute the query
+      const { data, error } = await supabase.rpc(query.function, query.params);
       
-      setResults(mockResults);
+      if (error) throw error;
+      
+      setResults(data || []);
+    } catch (error) {
+      console.error("Error running query:", error);
+      toast({
+        title: "Query Error",
+        description: "Failed to run the query. Please check your configuration.",
+        variant: "destructive"
+      });
+      setResults([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSaveReport = () => {
-    // This would save the current query configuration and chart type
-    console.log("Saving report", reportName, queryConfig, selectedChart);
+  const handleSaveReport = async () => {
+    if (!reportName || !selectedDataSource) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a report name and select a data source",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const reportData = {
+        name: reportName,
+        data_source: selectedDataSource,
+        query_config: queryConfig,
+        chart_type: selectedChart,
+        favorite: false
+      };
+      
+      const { data, error } = await supabase
+        .from('data_explorer_reports')
+        .insert(reportData)
+        .select();
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Report saved successfully",
+      });
+      
+      // Refresh the saved reports list
+      fetchSavedReports();
+    } catch (error) {
+      console.error("Error saving report:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save the report",
+        variant: "destructive"
+      });
+    }
   };
   
   const handleExport = (format: 'csv' | 'excel') => {
-    console.log(`Exporting as ${format}`, results);
+    if (!results || results.length === 0) {
+      toast({
+        title: "Export Error",
+        description: "No data to export",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Convert results to CSV or Excel format
+      if (format === 'csv') {
+        // Convert to CSV
+        const headers = Object.keys(results[0]).join(',');
+        const rows = results.map(row => Object.values(row).join(',')).join('\n');
+        const csv = `${headers}\n${rows}`;
+        
+        // Create download link
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${reportName || 'export'}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For Excel, we'd need a library like xlsx
+        // This is a placeholder - in a real implementation, you'd use a library
+        toast({
+          title: "Feature Not Available",
+          description: "Excel export requires additional libraries",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error(`Error exporting as ${format}:`, error);
+      toast({
+        title: "Export Error",
+        description: `Failed to export as ${format}`,
+        variant: "destructive"
+      });
+    }
   };
   
   const handleReportSelect = (report: SavedReport) => {
@@ -107,19 +220,23 @@ const DataExplorerContent = () => {
       
       <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border">
         {/* Left sidebar for saved reports */}
-        <ResizablePanel defaultSize={15} minSize={10}>
+        <ResizablePanel defaultSize={20} minSize={15}>
           <ScrollArea className="h-full">
-            <SavedReportsPanel onSelectReport={handleReportSelect} />
+            <SavedReportsPanel 
+              onSelectReport={handleReportSelect} 
+              savedReports={savedReports}
+              onReportsChange={fetchSavedReports}
+            />
           </ScrollArea>
         </ResizablePanel>
         
         <ResizableHandle withHandle />
         
         {/* Main content area */}
-        <ResizablePanel defaultSize={85}>
+        <ResizablePanel defaultSize={80}>
           <ResizablePanelGroup direction="vertical">
             {/* Top section - Data Source Selector and Field Selection */}
-            <ResizablePanel defaultSize={45}>
+            <ResizablePanel defaultSize={45} minSize={30}>
               <ScrollArea className="h-full">
                 <div className="p-4">
                   <DataSourceSelector 
@@ -142,7 +259,7 @@ const DataExplorerContent = () => {
             <ResizableHandle withHandle />
             
             {/* Bottom section - Results Display */}
-            <ResizablePanel defaultSize={55}>
+            <ResizablePanel defaultSize={55} minSize={30}>
               <ScrollArea className="h-full">
                 <div className="p-4">
                   <ResultsDisplay
