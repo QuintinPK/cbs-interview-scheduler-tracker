@@ -1,13 +1,12 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit, Trash2, Calendar } from "lucide-react";
+import { Plus } from "lucide-react";
 import { NotesList } from "./notes/NotesList";
 import { NoteDialog } from "./notes/NoteDialog";
 import { useNotes } from "@/hooks/useNotes";
 import { Note, Project } from "@/types";
-import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 interface NotesTabProps {
@@ -24,6 +23,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   const { notes, loading, addNote, updateNote, deleteNote } = useNotes(interviewerId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [saveInProgress, setSaveInProgress] = useState(false);
   const { toast } = useToast();
   
   const handleAddNote = () => {
@@ -55,6 +55,11 @@ export const NotesTab: React.FC<NotesTabProps> = ({
   
   const handleSaveNote = async (note: Partial<Note>) => {
     try {
+      setSaveInProgress(true);
+      
+      // Log the note data for debugging
+      console.log("Saving note:", note);
+      
       if (editingNote) {
         await updateNote(editingNote.id, note);
         toast({
@@ -79,6 +84,8 @@ export const NotesTab: React.FC<NotesTabProps> = ({
         description: "Failed to save note.",
         variant: "destructive"
       });
+    } finally {
+      setSaveInProgress(false);
     }
   };
   
@@ -104,7 +111,11 @@ export const NotesTab: React.FC<NotesTabProps> = ({
       
       <NoteDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(open) => {
+          if (!saveInProgress) {
+            setDialogOpen(open);
+          }
+        }}
         note={editingNote}
         projects={projects}
         onSave={handleSaveNote}
