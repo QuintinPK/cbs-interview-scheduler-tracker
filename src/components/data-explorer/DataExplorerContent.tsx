@@ -4,10 +4,11 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import DataSourceSelector from "./DataSourceSelector";
 import FieldSelectionPanel from "./FieldSelectionPanel";
 import ResultsDisplay from "./ResultsDisplay";
-import { DataSourceType, FieldDefinition, QueryConfig, ChartType } from "@/types/data-explorer";
+import { DataSourceType, FieldDefinition, QueryConfig, ChartType, SavedReport } from "@/types/data-explorer";
 import SavedReportsPanel from "./SavedReportsPanel";
 import { Button } from "@/components/ui/button";
 import { Save, Download } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const DataExplorerContent = () => {
   const [selectedDataSource, setSelectedDataSource] = useState<DataSourceType | null>(null);
@@ -21,6 +22,7 @@ const DataExplorerContent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedChart, setSelectedChart] = useState<ChartType>("table");
   const [reportName, setReportName] = useState<string>("");
+  const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null);
 
   const handleRunQuery = async () => {
     if (!selectedDataSource) return;
@@ -54,6 +56,19 @@ const DataExplorerContent = () => {
   
   const handleExport = (format: 'csv' | 'excel') => {
     console.log(`Exporting as ${format}`, results);
+  };
+  
+  const handleReportSelect = (report: SavedReport) => {
+    setSelectedReport(report);
+    setSelectedDataSource(report.dataSource);
+    setQueryConfig(report.queryConfig);
+    setSelectedChart(report.chartType);
+    setReportName(report.name);
+    
+    // After loading the saved report, run the query
+    setTimeout(() => {
+      handleRunQuery();
+    }, 100);
   };
 
   return (
@@ -93,7 +108,9 @@ const DataExplorerContent = () => {
       <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border">
         {/* Left sidebar for saved reports */}
         <ResizablePanel defaultSize={15} minSize={10}>
-          <SavedReportsPanel />
+          <ScrollArea className="h-full">
+            <SavedReportsPanel onSelectReport={handleReportSelect} />
+          </ScrollArea>
         </ResizablePanel>
         
         <ResizableHandle withHandle />
@@ -102,37 +119,41 @@ const DataExplorerContent = () => {
         <ResizablePanel defaultSize={85}>
           <ResizablePanelGroup direction="vertical">
             {/* Top section - Data Source Selector and Field Selection */}
-            <ResizablePanel defaultSize={40}>
-              <div className="p-4 h-full">
-                <DataSourceSelector 
-                  selectedDataSource={selectedDataSource}
-                  onSelectDataSource={setSelectedDataSource}
-                />
-                
-                {selectedDataSource && (
-                  <FieldSelectionPanel
-                    dataSource={selectedDataSource}
-                    queryConfig={queryConfig}
-                    onQueryConfigChange={setQueryConfig}
-                    onRunQuery={handleRunQuery}
+            <ResizablePanel defaultSize={45}>
+              <ScrollArea className="h-full">
+                <div className="p-4">
+                  <DataSourceSelector 
+                    selectedDataSource={selectedDataSource}
+                    onSelectDataSource={setSelectedDataSource}
                   />
-                )}
-              </div>
+                  
+                  {selectedDataSource && (
+                    <FieldSelectionPanel
+                      dataSource={selectedDataSource}
+                      queryConfig={queryConfig}
+                      onQueryConfigChange={setQueryConfig}
+                      onRunQuery={handleRunQuery}
+                    />
+                  )}
+                </div>
+              </ScrollArea>
             </ResizablePanel>
             
             <ResizableHandle withHandle />
             
             {/* Bottom section - Results Display */}
-            <ResizablePanel defaultSize={60}>
-              <div className="p-4 h-full">
-                <ResultsDisplay
-                  results={results}
-                  isLoading={isLoading}
-                  chartType={selectedChart}
-                  onChangeChartType={setSelectedChart}
-                  queryConfig={queryConfig}
-                />
-              </div>
+            <ResizablePanel defaultSize={55}>
+              <ScrollArea className="h-full">
+                <div className="p-4">
+                  <ResultsDisplay
+                    results={results}
+                    isLoading={isLoading}
+                    chartType={selectedChart}
+                    onChangeChartType={setSelectedChart}
+                    queryConfig={queryConfig}
+                  />
+                </div>
+              </ScrollArea>
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
