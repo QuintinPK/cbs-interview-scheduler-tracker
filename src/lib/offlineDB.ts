@@ -1383,7 +1383,7 @@ export const migrateExistingSessions = async (): Promise<void> => {
 migrateExistingSessions().catch(console.error);
 
 /**
- * Sync offline sessions and interviews to the server
+ * Sync offline sessions and interviews to the server using the new sync queue system
  */
 export async function syncOfflineSessions(): Promise<boolean> {
   if (!isOnline()) {

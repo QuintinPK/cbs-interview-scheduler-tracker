@@ -1,4 +1,3 @@
-
 import Dexie from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
@@ -289,11 +288,13 @@ export class SyncQueueManager {
     });
     
     // Update all related operations with the same offline ID
-    await syncQueueDB.syncOperations
-      .where('offlineId')
-      .equals(operation.offlineId || "")
-      .and(op => op.id !== operation.id)
-      .modify({ onlineId: session.id });
+    if (operation.offlineId) {
+      await syncQueueDB.syncOperations
+        .where('offlineId')
+        .equals(operation.offlineId)
+        .and(op => op.id !== operation.id)
+        .modify({ onlineId: session.id });
+    }
     
     return true;
   }
@@ -388,11 +389,13 @@ export class SyncQueueManager {
     });
     
     // Update all related operations with the same offline ID
-    await syncQueueDB.syncOperations
-      .where('offlineId')
-      .equals(operation.offlineId || "")
-      .and(op => op.id !== operation.id)
-      .modify({ onlineId: interview.id });
+    if (operation.offlineId) {
+      await syncQueueDB.syncOperations
+        .where('offlineId')
+        .equals(operation.offlineId)
+        .and(op => op.id !== operation.id)
+        .modify({ onlineId: interview.id });
+    }
     
     return true;
   }
