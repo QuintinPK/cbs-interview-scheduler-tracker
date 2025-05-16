@@ -125,7 +125,7 @@ export class SyncQueueManager {
       // Get operations that need processing, ordered by priority and creation time
       const pendingOperations = await syncQueueDB.syncOperations
         .where('status')
-        .anyOf(...['PENDING', 'FAILED'])
+        .anyOf(['PENDING', 'FAILED']) // Fixed: Pass array directly
         .sortBy(['priority', 'createdAt']);
       
       if (pendingOperations.length === 0) {
@@ -159,7 +159,7 @@ export class SyncQueueManager {
       // Schedule next sync attempt if there are still pending items
       const pendingCount = await syncQueueDB.syncOperations
         .where('status')
-        .anyOf(...['PENDING', 'FAILED'])
+        .anyOf(['PENDING', 'FAILED']) // Fixed: Pass array directly
         .count();
         
       if (pendingCount > 0) {
@@ -460,7 +460,7 @@ export class SyncQueueManager {
   async getPendingCount(): Promise<number> {
     return await syncQueueDB.syncOperations
       .where('status')
-      .anyOf(...['PENDING', 'IN_PROGRESS', 'FAILED'])
+      .anyOf(['PENDING', 'IN_PROGRESS', 'FAILED']) // Fixed: Pass array directly
       .count();
   }
   
@@ -469,7 +469,7 @@ export class SyncQueueManager {
     const statusArray = Array.isArray(status) ? status : [status];
     return await syncQueueDB.syncOperations
       .where('status')
-      .anyOf(...statusArray)
+      .anyOf(statusArray) // Fixed: Pass array directly
       .toArray();
   }
   
