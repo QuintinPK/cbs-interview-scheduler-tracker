@@ -291,7 +291,7 @@ export class SyncQueueManager {
     // Update all related operations with the same offline ID
     await syncQueueDB.syncOperations
       .where('offlineId')
-      .equals(operation.offlineId)
+      .equals(operation.offlineId || "")
       .and(op => op.id !== operation.id)
       .modify({ onlineId: session.id });
     
@@ -390,7 +390,7 @@ export class SyncQueueManager {
     // Update all related operations with the same offline ID
     await syncQueueDB.syncOperations
       .where('offlineId')
-      .equals(operation.offlineId)
+      .equals(operation.offlineId || "")
       .and(op => op.id !== operation.id)
       .modify({ onlineId: interview.id });
     
