@@ -1,16 +1,19 @@
 
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-import { registerServiceWorker, listenForSWMessages, setupOnlineListener } from './registerSW'
+// This might not be the exact file name, adjust as needed
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './index.css';
+import { initializeSync, registerSW } from './registerSW';
 
-// Register Service Worker
-registerServiceWorker();
-listenForSWMessages();
-setupOnlineListener();
+// Initialize sync system
+initializeSync();
 
-// Create root and render App
-const rootElement = document.getElementById("root");
-if (rootElement) {
-  createRoot(rootElement).render(<App />);
-}
+// Register service worker
+registerSW();
+
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

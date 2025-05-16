@@ -1381,3 +1381,47 @@ export const migrateExistingSessions = async (): Promise<void> => {
 
 // Run migrations on database upgrade
 migrateExistingSessions().catch(console.error);
+
+/**
+ * Sync offline sessions and interviews to the server
+ */
+export async function syncOfflineSessions(): Promise<boolean> {
+  if (!isOnline()) {
+    console.warn("Cannot sync while offline");
+    return false;
+  }
+
+  try {
+    // Attempt to get sync lock
+    const syncId = `auto-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const lockAcquired = await acquireSyncLock(syncId);
+    
+    if (!lockAcquired) {
+      console.log("Could not acquire sync lock, another sync is in progress");
+      return false;
+    }
+    
+    await logSync('AutoSync', 'Started', 'success', 'Auto sync started by syncOfflineSessions');
+    
+    // Import the sync queue here to prevent circular imports
+    const { syncQueue } = await import('./syncQueue');
+    
+    // Trigger sync through the sync queue
+    const syncSuccessful = await syncQueue.attemptSync(true);
+    
+    if (syncSuccessful) {
+      await logSync('AutoSync', 'Completed', 'success', 'Auto sync completed successfully');
+    } else {
+      await logSync('AutoSync', 'Failed', 'error', 'Auto sync encountered errors');
+    }
+    
+    // Always release the lock
+    await releaseSyncLock(syncId);
+    
+    return syncSuccessful;
+  } catch (error) {
+    console.error("Error syncing offline sessions:", error);
+    await logSync('AutoSync', 'Error', 'error', `Sync error: ${error}`);
+    return false;
+  }
+}

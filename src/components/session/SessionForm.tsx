@@ -15,6 +15,7 @@ import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
 import SyncStatus from "./SyncStatus";
+import EnhancedSyncStatus from "./EnhancedSyncStatus";
 import { 
   isOnline, 
   syncOfflineSessions, 
@@ -29,6 +30,8 @@ import {
   getSyncStatus,
   logSync
 } from "@/lib/offlineDB";
+import { syncQueue } from "@/lib/syncQueue";
+import { initializeSync } from "@/registerSW";
 
 interface SessionFormProps {
   interviewerCode: string;
@@ -757,10 +760,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
     await debouncedSync();
   };
 
+  // Initialize sync system on component mount
+  useEffect(() => {
+    initializeSync();
+  }, []);
+
   return (
     <div className="w-full space-y-6 bg-white p-6 rounded-xl shadow-md">
-      {/* SyncStatus component */}
-      <SyncStatus />
+      {/* EnhancedSyncStatus component */}
+      <EnhancedSyncStatus />
       
       {/* Keep existing InterviewerCodeInput component */}
       <InterviewerCodeInput

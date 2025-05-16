@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
 import { isOnline, saveOfflineInterview } from "@/lib/offlineDB";
+import { syncQueue } from "@/lib/syncQueue";
 
 /**
  * Hook for starting interviews - optimized for mobile performance
@@ -61,13 +62,13 @@ export const useInterviewStart = (
       // Defer getting location to improve performance - get it in background
       const currentLocationPromise = getCurrentLocation();
       
-      // Check if we're offline and have an offline session
-      if (offlineSessionId !== null) {
+      // Check if we're offline or have an offline session
+      if (!isOnline() || offlineSessionId !== null) {
         // Save interview to offline storage with low-precision location first
         const initialLocation = await currentLocationPromise;
         
         const id = await saveOfflineInterview(
-          offlineSessionId,
+          offlineSessionId || -1, // Use -1 as temporary ID if offlineSessionId is null
           candidateName,
           projectId || null,
           now,
@@ -95,11 +96,35 @@ export const useInterviewStart = (
         
         setActiveInterview(offlineInterview);
         
+        // Queue the interview start for sync when online
+        if (sessionId) {
+          // If we have a valid online session ID, queue the sync operation
+          await syncQueue.queueOperation(
+            'INTERVIEW_START',
+            {
+              session_id: sessionId,
+              project_id: projectId,
+              candidate_name: candidateName,
+              start_time: now,
+              start_latitude: initialLocation?.latitude,
+              start_longitude: initialLocation?.longitude,
+              start_address: initialLocation?.address
+            },
+            {
+              offlineId: id,
+              entityType: 'interview',
+              priority: 2 // High priority
+            }
+          );
+        }
+        
         toast({
           title: "Interview Started",
           description: isOnline() ? "" : "Interview has been saved locally",
         });
         
+        setIsInterviewLoading(false);
+        operationInProgressRef.current = false;
         return;
       }
       
