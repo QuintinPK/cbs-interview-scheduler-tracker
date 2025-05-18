@@ -2,7 +2,7 @@
 import { SyncQueueManager } from './sync/syncManager';
 import { syncQueueDB } from './sync/database';
 import { isOnline } from './offlineDB';
-import { SyncOperation, SyncOperationStatus, SyncOperationType } from './sync/types';
+import { type SyncOperation, type SyncOperationStatus, type SyncOperationType } from './sync/types';
 
 // Export singleton instance
 const syncQueue = new SyncQueueManager();
@@ -33,8 +33,6 @@ async function initializeSyncQueue(): Promise<void> {
 export { 
   syncQueue, 
   syncQueueDB, 
-  initializeSyncQueue, 
-  SyncOperation, 
-  SyncOperationStatus, 
-  SyncOperationType 
+  initializeSyncQueue 
 };
+export type { SyncOperation, SyncOperationStatus, SyncOperationType };
