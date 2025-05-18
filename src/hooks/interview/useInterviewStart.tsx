@@ -60,7 +60,10 @@ export const useInterviewStart = (
       setActiveInterview(optimisticInterview);
       
       // Defer getting location to improve performance - get it in background
-      const currentLocationPromise = getCurrentLocation();
+      const currentLocationPromise = getCurrentLocation({
+        timeout: 3000,
+        highAccuracy: false // Get a fast location first, then improve
+      });
       
       // Check if we're offline or have an offline session
       if (!isOnline() || offlineSessionId !== null) {
@@ -116,12 +119,64 @@ export const useInterviewStart = (
               priority: 2 // High priority
             }
           );
+          
+          console.log('[InterviewStart] Queued INTERVIEW_START operation with session ID:', sessionId);
         }
         
         toast({
           title: "Interview Started",
           description: isOnline() ? "" : "Interview has been saved locally",
         });
+        
+        // Try to get a better location in background and update if available
+        getCurrentLocation({ highAccuracy: true, timeout: 10000 })
+          .then(async betterLocation => {
+            if (betterLocation && id) {
+              // Update the offline interview with better location data
+              try {
+                await saveOfflineInterview(
+                  offlineSessionId || -1,
+                  candidateName,
+                  projectId || null,
+                  now,
+                  betterLocation,
+                  id // Pass existing ID to update
+                );
+                
+                // Update the interview state with better location
+                setActiveInterview(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    start_latitude: betterLocation.latitude,
+                    start_longitude: betterLocation.longitude,
+                    start_address: betterLocation.address
+                  };
+                });
+                
+                // If we have a session ID, update the sync operation with better location
+                if (sessionId) {
+                  await syncQueue.queueOperation(
+                    'INTERVIEW_UPDATE',
+                    {
+                      start_latitude: betterLocation.latitude,
+                      start_longitude: betterLocation.longitude,
+                      start_address: betterLocation.address
+                    },
+                    {
+                      offlineId: id,
+                      onlineId: null, // Will be set once first operation completes
+                      entityType: 'interview',
+                      priority: 1 // Lower priority
+                    }
+                  );
+                }
+              } catch (err) {
+                console.error('[InterviewStart] Error updating location in background:', err);
+              }
+            }
+          })
+          .catch(err => console.error('[InterviewStart] Error getting better location:', err));
         
         setIsInterviewLoading(false);
         operationInProgressRef.current = false;
@@ -155,35 +210,122 @@ export const useInterviewStart = (
         interviewProjectIdPromise
       ]);
       
-      const { data, error } = await supabase
-        .from('interviews')
-        .insert([
+      try {
+        const { data, error } = await supabase
+          .from('interviews')
+          .insert([
+            {
+              session_id: sessionId,
+              project_id: interviewProjectId,
+              start_latitude: currentLocation?.latitude || null,
+              start_longitude: currentLocation?.longitude || null,
+              start_address: currentLocation?.address || null,
+              is_active: true,
+              candidate_name: "New interview"
+            }
+          ])
+          .select()
+          .single();
+          
+        if (error) throw error;
+        
+        // With the DB update, candidate_name should now be present in the data
+        const interview: Interview = {
+          ...data,
+          candidate_name: data.candidate_name
+        };
+        
+        setActiveInterview(interview);
+        
+        toast({
+          title: "Interview Started",
+        });
+        
+        // Get better location in background - fire and forget
+        getCurrentLocation({ highAccuracy: true, timeout: 10000 })
+          .then(async betterLocation => {
+            if (betterLocation && data.id) {
+              try {
+                await supabase
+                  .from('interviews')
+                  .update({
+                    start_latitude: betterLocation.latitude,
+                    start_longitude: betterLocation.longitude,
+                    start_address: betterLocation.address
+                  })
+                  .eq('id', data.id);
+                
+                // Update the interview state with better location
+                setActiveInterview(prev => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    start_latitude: betterLocation.latitude,
+                    start_longitude: betterLocation.longitude,
+                    start_address: betterLocation.address
+                  };
+                });
+              } catch (err) {
+                console.error('[InterviewStart] Error updating location in background:', err);
+              }
+            }
+          })
+          .catch(err => console.error('[InterviewStart] Error getting better location:', err));
+      } catch (error) {
+        // If online insert fails, fallback to offline mode + sync queue
+        console.error('[InterviewStart] Error during online interview creation, falling back to offline:', error);
+        
+        // Save locally
+        const id = await saveOfflineInterview(
+          -1, // Temporary offline ID
+          candidateName,
+          projectId || null,
+          now,
+          currentLocation
+        );
+        
+        if (setActiveOfflineInterviewId) {
+          setActiveOfflineInterviewId(id);
+        }
+        
+        // Queue for syncing
+        await syncQueue.queueOperation(
+          'INTERVIEW_START',
           {
             session_id: sessionId,
-            project_id: interviewProjectId,
-            start_latitude: currentLocation?.latitude || null,
-            start_longitude: currentLocation?.longitude || null,
-            start_address: currentLocation?.address || null,
-            is_active: true,
-            candidate_name: "New interview"
+            project_id: projectId || interviewProjectId,
+            candidate_name: candidateName,
+            start_time: now,
+            start_latitude: currentLocation?.latitude,
+            start_longitude: currentLocation?.longitude,
+            start_address: currentLocation?.address
+          },
+          {
+            offlineId: id,
+            entityType: 'interview',
+            priority: 2
           }
-        ])
-        .select()
-        .single();
+        );
         
-      if (error) throw error;
-      
-      // With the DB update, candidate_name should now be present in the data
-      const interview: Interview = {
-        ...data,
-        candidate_name: data.candidate_name
-      };
-      
-      setActiveInterview(interview);
-      
-      toast({
-        title: "Interview Started",
-      });
+        // Update UI with offline interview
+        const offlineInterview: Interview = {
+          id: `offline-${id}`,
+          session_id: sessionId,
+          candidate_name: candidateName,
+          start_time: now,
+          is_active: true,
+          start_latitude: currentLocation?.latitude,
+          start_longitude: currentLocation?.longitude,
+          start_address: currentLocation?.address
+        };
+        
+        setActiveInterview(offlineInterview);
+        
+        toast({
+          title: "Interview Started (Offline Mode)",
+          description: "Will sync when connection improves"
+        });
+      }
     } catch (error) {
       console.error("Error starting interview:", error);
       toast({
@@ -191,6 +333,9 @@ export const useInterviewStart = (
         description: "Could not start interview",
         variant: "destructive",
       });
+      
+      // Clear optimistic UI update
+      setActiveInterview(null);
     } finally {
       setIsInterviewLoading(false);
       operationInProgressRef.current = false;

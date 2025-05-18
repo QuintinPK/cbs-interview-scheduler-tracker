@@ -29,6 +29,7 @@ class SyncQueueDatabase extends Dexie {
   }
   
   async getOperationsByStatus(status: SyncOperationStatus | SyncOperationStatus[]): Promise<SyncOperation[]> {
+    // This is where the error was fixed
     const statusArray = Array.isArray(status) ? status : [status];
     return await this.syncOperations
       .where('status')

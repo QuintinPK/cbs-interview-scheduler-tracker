@@ -239,3 +239,44 @@ export function toASTTime(date: Date | string): Date {
   // The date-fns-tz package will handle this conversion internally
   return d;
 }
+
+// Validate data before syncing
+export function validateSyncData(type: string, data: any): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  switch (type) {
+    case 'SESSION_START':
+      if (!data.interviewer_id) errors.push('Missing interviewer_id');
+      if (!data.project_id) errors.push('Missing project_id');
+      break;
+      
+    case 'SESSION_END':
+      if (!data.end_time) errors.push('Missing end_time');
+      break;
+      
+    case 'INTERVIEW_START':
+      if (!data.session_id) errors.push('Missing session_id');
+      break;
+      
+    case 'INTERVIEW_END':
+      if (!data.end_time) errors.push('Missing end_time');
+      break;
+      
+    case 'INTERVIEW_RESULT':
+      if (!data.result) errors.push('Missing result');
+      if (data.result !== 'response' && data.result !== 'non-response') {
+        errors.push('Result must be either "response" or "non-response"');
+      }
+      break;
+  }
+  
+  return { 
+    valid: errors.length === 0,
+    errors 
+  };
+}
+
+// Function to generate a unique sync operation ID
+export function generateSyncId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+}
