@@ -1,3 +1,4 @@
+
 import Dexie from 'dexie';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
@@ -125,7 +126,7 @@ export class SyncQueueManager {
       // Get operations that need processing, ordered by priority and creation time
       const pendingOperations = await syncQueueDB.syncOperations
         .where('status')
-        .anyOf(['PENDING', 'FAILED']) // Fixed: Pass array directly
+        .anyOf(...['PENDING', 'FAILED']) // Fixed: Use spread operator with array
         .sortBy(['priority', 'createdAt']);
       
       if (pendingOperations.length === 0) {
@@ -159,7 +160,7 @@ export class SyncQueueManager {
       // Schedule next sync attempt if there are still pending items
       const pendingCount = await syncQueueDB.syncOperations
         .where('status')
-        .anyOf(['PENDING', 'FAILED']) // Fixed: Pass array directly
+        .anyOf(...['PENDING', 'FAILED']) // Fixed: Use spread operator with array
         .count();
         
       if (pendingCount > 0) {
@@ -460,7 +461,7 @@ export class SyncQueueManager {
   async getPendingCount(): Promise<number> {
     return await syncQueueDB.syncOperations
       .where('status')
-      .anyOf(['PENDING', 'IN_PROGRESS', 'FAILED']) // Fixed: Pass array directly
+      .anyOf(...['PENDING', 'IN_PROGRESS', 'FAILED']) // Fixed: Use spread operator with array
       .count();
   }
   
@@ -469,7 +470,7 @@ export class SyncQueueManager {
     const statusArray = Array.isArray(status) ? status : [status];
     return await syncQueueDB.syncOperations
       .where('status')
-      .anyOf(statusArray) // Fixed: Pass array directly
+      .anyOf(...statusArray) // Fixed: Use spread operator with array
       .toArray();
   }
   
