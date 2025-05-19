@@ -70,13 +70,13 @@ export const useInterviewStart = (
         // Save interview to offline storage with low-precision location first
         const initialLocation = await currentLocationPromise;
         
-        const id = await saveOfflineInterview(
-          offlineSessionId || -1, // Use -1 as temporary ID if offlineSessionId is null
+        const id = await saveOfflineInterview({
+          sessionId: offlineSessionId || -1, // Use -1 as temporary ID if offlineSessionId is null
           candidateName,
-          projectId || null,
-          now,
-          initialLocation
-        );
+          projectId: projectId || null,
+          startTime: now,
+          location: initialLocation
+        });
         
         if (setActiveOfflineInterviewId) {
           setActiveOfflineInterviewId(id);
@@ -134,18 +134,18 @@ export const useInterviewStart = (
             if (betterLocation && id) {
               // Update the offline interview with better location data
               try {
-                await saveOfflineInterview(
-                  offlineSessionId || -1,
+                await saveOfflineInterview({
+                  sessionId: offlineSessionId || -1,
                   candidateName,
-                  projectId || null,
-                  now,
-                  betterLocation,
+                  projectId: projectId || null,
+                  startTime: now,
+                  location: betterLocation,
                   id // Pass existing ID to update
-                );
+                });
                 
                 // Update the interview state with better location
-                setActiveInterview(prev => {
-                  if (!prev) return prev;
+                setActiveInterview((prev: Interview | null): Interview => {
+                  if (!prev) return prev as unknown as Interview;
                   return {
                     ...prev,
                     start_latitude: betterLocation.latitude,
@@ -256,8 +256,8 @@ export const useInterviewStart = (
                   .eq('id', data.id);
                 
                 // Update the interview state with better location
-                setActiveInterview(prev => {
-                  if (!prev) return prev;
+                setActiveInterview((prev: Interview | null): Interview => {
+                  if (!prev) return prev as unknown as Interview;
                   return {
                     ...prev,
                     start_latitude: betterLocation.latitude,
@@ -276,13 +276,13 @@ export const useInterviewStart = (
         console.error('[InterviewStart] Error during online interview creation, falling back to offline:', error);
         
         // Save locally
-        const id = await saveOfflineInterview(
-          -1, // Temporary offline ID
+        const id = await saveOfflineInterview({
+          sessionId: -1, // Temporary offline ID
           candidateName,
-          projectId || null,
-          now,
-          currentLocation
-        );
+          projectId: projectId || null,
+          startTime: now,
+          location: currentLocation
+        });
         
         if (setActiveOfflineInterviewId) {
           setActiveOfflineInterviewId(id);

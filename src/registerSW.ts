@@ -1,4 +1,3 @@
-
 import { Workbox } from 'workbox-window';
 import { syncQueue, initializeSyncQueue } from './lib/syncQueue';
 import { isOnline } from './lib/offlineDB';
@@ -17,6 +16,32 @@ export const initializeSync = async () => {
     console.error("[App] Error initializing sync system:", error);
     return false;
   }
+};
+
+// Request a sync operation from the app
+export const requestSync = (): string | null => {
+  const syncId = `app-req-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  
+  if (isServiceWorkerSupported && navigator.serviceWorker.controller) {
+    // Request sync via service worker
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SYNC_REQUEST',
+      syncId,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`[App] Requested sync via service worker (${syncId})`);
+    return syncId;
+  } else if (isOnline()) {
+    // Directly trigger sync if no service worker but online
+    console.log(`[App] Directly triggering sync (${syncId})`);
+    setTimeout(() => {
+      syncQueue.attemptSync();
+    }, 100);
+    return syncId;
+  }
+  
+  console.log('[App] Cannot request sync - offline and no service worker');
+  return null;
 };
 
 // Register the service worker
