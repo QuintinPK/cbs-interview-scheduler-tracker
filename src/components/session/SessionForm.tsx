@@ -31,7 +31,7 @@ import {
   logSync
 } from "@/lib/offlineDB";
 import { syncQueue } from "@/lib/syncQueue";
-import { initializeSync } from "@/registerSW";
+import { initializeSync, requestSync } from "@/registerSW";
 
 interface SessionFormProps {
   interviewerCode: string;

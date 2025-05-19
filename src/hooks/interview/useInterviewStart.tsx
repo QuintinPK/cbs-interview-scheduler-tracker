@@ -144,8 +144,8 @@ export const useInterviewStart = (
                 });
                 
                 // Update the interview state with better location
-                setActiveInterview((prev: Interview | null): Interview => {
-                  if (!prev) return prev as unknown as Interview;
+                setActiveInterview(prev => {
+                  if (!prev) return prev;
                   return {
                     ...prev,
                     start_latitude: betterLocation.latitude,
@@ -256,8 +256,8 @@ export const useInterviewStart = (
                   .eq('id', data.id);
                 
                 // Update the interview state with better location
-                setActiveInterview((prev: Interview | null): Interview => {
-                  if (!prev) return prev as unknown as Interview;
+                setActiveInterview(prev => {
+                  if (!prev) return prev;
                   return {
                     ...prev,
                     start_latitude: betterLocation.latitude,

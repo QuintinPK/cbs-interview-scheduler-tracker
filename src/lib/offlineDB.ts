@@ -1,3 +1,4 @@
+
 import Dexie from 'dexie';
 
 export function isOnline(): boolean {
@@ -9,6 +10,22 @@ interface LocationData {
   latitude: number;
   longitude: number;
   address?: string;
+}
+
+// Interface for interviewers
+interface Interviewer {
+  id: string;
+  code: string;
+  name?: string;
+}
+
+// Interface for projects
+interface Project {
+  id: string;
+  name: string;
+  start_date?: string;
+  end_date?: string;
+  excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
 }
 
 // Define the structure for interview save options
@@ -24,7 +41,7 @@ interface SaveInterviewOptions {
 // Define the structure for session save options
 interface SaveSessionOptions {
   interviewerId: string;
-  projectId: string;
+  projectId: string | null;
   startTime: string;
   location: LocationData | null;
   id?: number; // Optional ID for updates
@@ -32,22 +49,22 @@ interface SaveSessionOptions {
 
 // Define the structure for session update options
 interface UpdateSessionOptions {
-  endTime: string;
-  location: LocationData | null;
   id: number;
+  endTime: string;
+  location?: LocationData | null;
 }
 
 // Define the structure for interview update options
 interface UpdateInterviewOptions {
-  endTime: string;
-  location: LocationData | null;
   id: number;
+  endTime: string;
+  location?: LocationData | null;
 }
 
 // Define the structure for interview result options
 interface UpdateInterviewResultOptions {
-  result: 'response' | 'non-response';
   id: number;
+  result: 'response' | 'non-response';
 }
 
 // Define the structure for sync log options
@@ -63,32 +80,43 @@ class OfflineDB extends Dexie {
   sessions: Dexie.Table<any, number>;
   interviews: Dexie.Table<any, number>;
   syncLog: Dexie.Table<any, number>;
+  interviewers: Dexie.Table<any, string>;
+  projects: Dexie.Table<any, string>;
 
   constructor() {
     super('OfflineDB');
     this.version(1).stores({
       sessions: '++id, interviewerId, projectId, startTime, endTime, startLatitude, startLongitude, startAddress, endLatitude, endLongitude, endAddress, is_active',
       interviews: '++id, sessionId, candidateName, projectId, startTime, endTime, startLatitude, startLongitude, startAddress, endLatitude, endLongitude, endAddress, result',
-      syncLog: '++id, syncType, status, message, timestamp'
+      syncLog: '++id, syncType, status, message, timestamp',
+      interviewers: 'id, code, name',
+      projects: 'id, name, start_date, end_date'
     });
     this.sessions = this.table('sessions');
     this.interviews = this.table('interviews');
     this.syncLog = this.table('syncLog');
+    this.interviewers = this.table('interviewers');
+    this.projects = this.table('projects');
   }
 }
 
 const db = new OfflineDB();
 
 // Function to save a session offline
-export async function saveOfflineSession(options: SaveSessionOptions): Promise<number> {
+export async function saveOfflineSession(
+  interviewerId: string,
+  projectId: string | null,
+  startTime: string,
+  location?: LocationData | null
+): Promise<number> {
   try {
     const id = await db.sessions.add({
-      interviewerId: options.interviewerId,
-      projectId: options.projectId,
-      startTime: options.startTime,
-      startLatitude: options.location?.latitude || null,
-      startLongitude: options.location?.longitude || null,
-      startAddress: options.location?.address || null,
+      interviewerId,
+      projectId,
+      startTime,
+      startLatitude: location?.latitude || null,
+      startLongitude: location?.longitude || null,
+      startAddress: location?.address || null,
       endTime: null,
       endLatitude: null,
       endLongitude: null,
@@ -104,16 +132,20 @@ export async function saveOfflineSession(options: SaveSessionOptions): Promise<n
 }
 
 // Function to update a session offline
-export async function updateOfflineSession(options: UpdateSessionOptions): Promise<void> {
+export async function updateOfflineSession(
+  id: number,
+  endTime: string,
+  location?: LocationData | null
+): Promise<void> {
   try {
-    await db.sessions.update(options.id, {
-      endTime: options.endTime,
-      endLatitude: options.location?.latitude || null,
-      endLongitude: options.location?.longitude || null,
-      endAddress: options.location?.address || null,
+    await db.sessions.update(id, {
+      endTime,
+      endLatitude: location?.latitude || null,
+      endLongitude: location?.longitude || null,
+      endAddress: location?.address || null,
       is_active: false
     });
-    console.log('[OfflineDB] Updated session offline with ID:', options.id);
+    console.log('[OfflineDB] Updated session offline with ID:', id);
   } catch (error) {
     console.error('[OfflineDB] Error updating session offline:', error);
     throw error;
@@ -146,15 +178,19 @@ export async function saveOfflineInterview(options: SaveInterviewOptions): Promi
 }
 
 // Function to update an interview offline
-export async function updateOfflineInterview(options: UpdateInterviewOptions): Promise<void> {
+export async function updateOfflineInterview(
+  id: number,
+  endTime: string,
+  location?: LocationData | null
+): Promise<void> {
   try {
-    await db.interviews.update(options.id, {
-      endTime: options.endTime,
-      endLatitude: options.location?.latitude || null,
-      endLongitude: options.location?.longitude || null,
-      endAddress: options.location?.address || null
+    await db.interviews.update(id, {
+      endTime,
+      endLatitude: location?.latitude || null,
+      endLongitude: location?.longitude || null,
+      endAddress: location?.address || null
     });
-    console.log('[OfflineDB] Updated interview offline with ID:', options.id);
+    console.log('[OfflineDB] Updated interview offline with ID:', id);
   } catch (error) {
     console.error('[OfflineDB] Error updating interview offline:', error);
     throw error;
@@ -246,26 +282,131 @@ export async function getOfflineInterview(id: number): Promise<any> {
   }
 }
 
+// Function to get unsynced sessions count
+export async function getUnsyncedSessionsCount(): Promise<number> {
+  try {
+    const count = await db.sessions.where('is_active').equals(true).count();
+    return count;
+  } catch (error) {
+    console.error('[OfflineDB] Error getting unsynced sessions count:', error);
+    return 0;
+  }
+}
+
+// Function to get unsynced interviews count
+export async function getUnsyncedInterviewsCount(): Promise<number> {
+  try {
+    const count = await db.interviews.where('result').equals(null).count();
+    return count;
+  } catch (error) {
+    console.error('[OfflineDB] Error getting unsynced interviews count:', error);
+    return 0;
+  }
+}
+
+// Function to cache an interviewer for offline use
+export async function cacheInterviewer(code: string): Promise<boolean> {
+  try {
+    // Check if we're online to fetch from Supabase
+    if (isOnline()) {
+      // Here you would normally fetch from Supabase
+      // For now, just create a mock interviewer
+      const interviewer = {
+        id: `offline-${code}`,
+        code: code,
+        name: `Interviewer ${code}`
+      };
+      
+      // Save to IndexedDB
+      await db.interviewers.put(interviewer);
+      console.log(`[OfflineDB] Cached interviewer with code ${code}`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error(`[OfflineDB] Error caching interviewer with code ${code}:`, error);
+    return false;
+  }
+}
+
+// Function to get an interviewer by code
+export async function getInterviewerByCode(code: string): Promise<Interviewer | null> {
+  try {
+    // First try to get from local cache
+    const interviewer = await db.interviewers.where('code').equals(code).first();
+    
+    if (interviewer) {
+      console.log(`[OfflineDB] Found interviewer with code ${code} in cache`);
+      return interviewer;
+    }
+    
+    // If not found in cache and online, would normally fetch from Supabase
+    if (isOnline()) {
+      // Mock response for now
+      const mockInterviewer = {
+        id: `online-${code}`,
+        code: code,
+        name: `Interviewer ${code}`
+      };
+      
+      // Cache for future offline use
+      await cacheInterviewer(code);
+      
+      return mockInterviewer;
+    }
+    
+    console.log(`[OfflineDB] No interviewer found with code ${code}`);
+    return null;
+  } catch (error) {
+    console.error(`[OfflineDB] Error getting interviewer with code ${code}:`, error);
+    return null;
+  }
+}
+
+// Function to cache projects for offline use
+export async function cacheProjects(projects: Project[]): Promise<boolean> {
+  try {
+    // Add all projects to IndexedDB
+    for (const project of projects) {
+      await db.projects.put(project);
+    }
+    console.log(`[OfflineDB] Cached ${projects.length} projects`);
+    return true;
+  } catch (error) {
+    console.error('[OfflineDB] Error caching projects:', error);
+    return false;
+  }
+}
+
+// Function to get cached projects
+export async function getCachedProjects(): Promise<Project[]> {
+  try {
+    const projects = await db.projects.toArray();
+    console.log(`[OfflineDB] Retrieved ${projects.length} cached projects`);
+    return projects;
+  } catch (error) {
+    console.error('[OfflineDB] Error getting cached projects:', error);
+    return [];
+  }
+}
+
 // Function to synchronize offline sessions
-export async function syncOfflineSessions(): Promise<void> {
+export async function syncOfflineSessions(): Promise<boolean> {
   try {
     const allSessions = await getAllOfflineSessions();
     console.log(`[OfflineDB] Found ${allSessions.length} offline sessions to sync`);
 
-    for (const session of allSessions) {
-      // TODO: Implement synchronization logic with Supabase
-      console.log('[OfflineDB] TODO: Sync session:', session);
-    }
-
+    // In a real implementation, you would sync with Supabase here
+    // For now, just log that we're syncing
+    
     const allInterviews = await getAllOfflineInterviews();
     console.log(`[OfflineDB] Found ${allInterviews.length} offline interviews to sync`);
 
-    for (const interview of allInterviews) {
-      // TODO: Implement synchronization logic with Supabase
-      console.log('[OfflineDB] TODO: Sync interview:', interview);
-    }
+    // Mock successful sync
+    return true;
   } catch (error) {
     console.error('[OfflineDB] Error during offline session synchronization:', error);
+    return false;
   }
 }
 
@@ -357,12 +498,12 @@ export async function getActiveSyncLock(): Promise<any | null> {
 }
 
 // Function to log sync operations
-export async function logSync(syncType: string, status: string, syncStatus: string, message: string): Promise<number> {
+export async function logSync(syncType: string, status: string, message: string, syncStatus?: string): Promise<number> {
   try {
     const id = await db.syncLog.add({
       syncType: syncType,
       status: status,
-      syncStatus: syncStatus,
+      syncStatus: syncStatus || "unknown",
       message: message,
       timestamp: new Date().toISOString()
     });
@@ -379,13 +520,17 @@ export async function getSyncStatus(): Promise<any> {
   try {
     // Get counts for sessions
     const sessionsTotal = await db.sessions.count();
-    const sessionsUnsynced = await db.sessions.filter(session => session.endTime === null).count();
-    const sessionsInProgress = await db.sessions.filter(session => session.endTime !== null && session.endLatitude === null).count();
+    const sessionsUnsynced = await db.sessions.where('is_active').equals(true).count();
+    const sessionsInProgress = await db.sessions
+      .filter(session => session.endTime !== null && !session.is_active)
+      .count();
 
     // Get counts for interviews
     const interviewsTotal = await db.interviews.count();
-    const interviewsUnsynced = await db.interviews.filter(interview => interview.endTime === null).count();
-    const interviewsInProgress = await db.interviews.filter(interview => interview.endTime !== null && interview.endLatitude === null).count();
+    const interviewsUnsynced = await db.interviews.where('result').equals(null).count();
+    const interviewsInProgress = await db.interviews
+      .filter(interview => interview.endTime !== null && interview.result === null)
+      .count();
 
     // Get last sync time
     const lastSyncEntry = await db.syncLog

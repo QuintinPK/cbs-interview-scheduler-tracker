@@ -1,3 +1,4 @@
+
 import Dexie from 'dexie';
 import { SyncOperation, SyncOperationStatus } from './types';
 
@@ -16,14 +17,14 @@ class SyncQueueDatabase extends Dexie {
   async getPendingOperations(): Promise<SyncOperation[]> {
     return await this.syncOperations
       .where('status')
-      .anyOf('PENDING', 'FAILED')
+      .anyOf(['PENDING', 'FAILED'])
       .sortBy(['priority', 'createdAt']);
   }
   
   async getPendingCount(): Promise<number> {
     return await this.syncOperations
       .where('status')
-      .anyOf('PENDING', 'IN_PROGRESS', 'FAILED')
+      .anyOf(['PENDING', 'IN_PROGRESS', 'FAILED'])
       .count();
   }
   

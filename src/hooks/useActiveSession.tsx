@@ -296,17 +296,16 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           return;
         }
         
-        await updateOfflineSession(
-          offlineSessionId,
-          new Date().toISOString(),
-          // Include end location if available
-          undefined
-        );
+        await updateOfflineSession({
+          id: offlineSessionId,
+          endTime: new Date().toISOString(),
+          location: undefined
+        });
         
         // Try to sync if we're online
         if (isOnline()) {
           syncOfflineSessions().catch(err => {
-            console.error("Error syncing during session end:", err);
+            console.error("Error syncing sessions during session end:", err);
           });
         }
         
@@ -338,7 +337,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       try {
         const now = new Date().toISOString();
         const id = await saveOfflineSession(
-          interviewerCode,
+          interviewerId,
           projectId,
           now,
           locationData
