@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +69,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         setIsPrimaryUser(true); // Explicitly set as primary user when loading from localStorage
         setLastValidatedCode(savedCode);
         
-        // Cache the interviewer for offline use
+        // Cache the interviewer for offline use with the required name parameter
         await cacheInterviewer(savedCode, `Interviewer ${savedCode}`);
       }
     };
@@ -82,7 +83,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       if (interviewerCode && isPrimaryUser) {
         localStorage.setItem("interviewerCode", interviewerCode);
         
-        // Cache the interviewer for offline use - pass the required arguments
+        // Fix: Pass the required name parameter and optional ID
         await cacheInterviewer(interviewerCode, `Interviewer ${interviewerCode}`);
         setLastValidatedCode(interviewerCode);
       } else if (!interviewerCode && isPrimaryUser) {
