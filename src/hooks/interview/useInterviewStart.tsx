@@ -1,4 +1,3 @@
-
 import { useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -144,15 +143,18 @@ export const useInterviewStart = (
                 });
                 
                 // Update the interview state with better location
-                setActiveInterview(prev => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    start_latitude: betterLocation.latitude,
-                    start_longitude: betterLocation.longitude,
-                    start_address: betterLocation.address
-                  };
-                });
+                const currentInterview = { 
+                  id: `offline-${id}`,
+                  session_id: `offline-${offlineSessionId}`,
+                  candidate_name: candidateName,
+                  start_time: now,
+                  is_active: true,
+                  start_latitude: betterLocation.latitude,
+                  start_longitude: betterLocation.longitude,
+                  start_address: betterLocation.address
+                };
+                
+                setActiveInterview(currentInterview);
                 
                 // If we have a session ID, update the sync operation with better location
                 if (sessionId) {
@@ -256,15 +258,15 @@ export const useInterviewStart = (
                   .eq('id', data.id);
                 
                 // Update the interview state with better location
-                setActiveInterview(prev => {
-                  if (!prev) return prev;
-                  return {
-                    ...prev,
-                    start_latitude: betterLocation.latitude,
-                    start_longitude: betterLocation.longitude,
-                    start_address: betterLocation.address
-                  };
-                });
+                const updatedInterview: Interview = {
+                  ...data,
+                  start_latitude: betterLocation.latitude,
+                  start_longitude: betterLocation.longitude,
+                  start_address: betterLocation.address,
+                  candidate_name: data.candidate_name
+                };
+                
+                setActiveInterview(updatedInterview);
               } catch (err) {
                 console.error('[InterviewStart] Error updating location in background:', err);
               }

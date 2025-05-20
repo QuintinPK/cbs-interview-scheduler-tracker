@@ -82,8 +82,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       if (interviewerCode && isPrimaryUser) {
         localStorage.setItem("interviewerCode", interviewerCode);
         
-        // Cache the interviewer for offline use
-        await cacheInterviewer(interviewerCode);
+        // Cache the interviewer for offline use - pass the required arguments
+        await cacheInterviewer(interviewerCode, 
+          // Default name as a fallback
+          `Interviewer ${interviewerCode}`, 
+          `id-${interviewerCode}`
+        );
         setLastValidatedCode(interviewerCode);
       } else if (!interviewerCode && isPrimaryUser) {
         // If code is cleared but user was primary, remove from storage

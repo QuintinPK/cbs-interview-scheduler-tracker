@@ -1,4 +1,3 @@
-
 import Dexie from 'dexie';
 
 export function isOnline(): boolean {
@@ -285,7 +284,8 @@ export async function getOfflineInterview(id: number): Promise<any> {
 // Function to get unsynced sessions count
 export async function getUnsyncedSessionsCount(): Promise<number> {
   try {
-    const count = await db.sessions.where('is_active').equals(true).count();
+    // Using 1 as a truthy value instead of a boolean
+    const count = await db.sessions.where('is_active').equals(1).count();
     return count;
   } catch (error) {
     console.error('[OfflineDB] Error getting unsynced sessions count:', error);
@@ -305,16 +305,16 @@ export async function getUnsyncedInterviewsCount(): Promise<number> {
 }
 
 // Function to cache an interviewer for offline use
-export async function cacheInterviewer(code: string): Promise<boolean> {
+export async function cacheInterviewer(code: string, name?: string, id?: string): Promise<boolean> {
   try {
     // Check if we're online to fetch from Supabase
     if (isOnline()) {
       // Here you would normally fetch from Supabase
       // For now, just create a mock interviewer
       const interviewer = {
-        id: `offline-${code}`,
+        id: id || `offline-${code}`,
         code: code,
-        name: `Interviewer ${code}`
+        name: name || `Interviewer ${code}`
       };
       
       // Save to IndexedDB
@@ -520,9 +520,10 @@ export async function getSyncStatus(): Promise<any> {
   try {
     // Get counts for sessions
     const sessionsTotal = await db.sessions.count();
-    const sessionsUnsynced = await db.sessions.where('is_active').equals(true).count();
+    // Using 1 as a truthy value instead of a boolean
+    const sessionsUnsynced = await db.sessions.where('is_active').equals(1).count();
     const sessionsInProgress = await db.sessions
-      .filter(session => session.endTime !== null && !session.is_active)
+      .filter(session => session.endTime !== null && session.is_active !== 1)
       .count();
 
     // Get counts for interviews
