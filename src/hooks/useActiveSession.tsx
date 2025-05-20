@@ -371,7 +371,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         
         return offlineSession;
       } catch (error) {
-        console.error("Error starting offline session:", error);
+        console.log("Error starting offline session:", error);
         throw error;
       }
     }
