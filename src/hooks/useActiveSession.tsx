@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,7 +82,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
       if (interviewerCode && isPrimaryUser) {
         localStorage.setItem("interviewerCode", interviewerCode);
         
-        // Fix: Pass the required name parameter and optional ID
+        // Fix: Pass the required name parameter
         await cacheInterviewer(interviewerCode, `Interviewer ${interviewerCode}`);
         setLastValidatedCode(interviewerCode);
       } else if (!interviewerCode && isPrimaryUser) {
@@ -109,7 +108,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
     }
   }, [activeSession, offlineSessionId]);
   
-  // Validate the interviewer code explicitly when requested (instead of on every change)
+  // Validate the interviewer code explicitly when requested
   const validateInterviewerCode = useCallback(async () => {
     // Prevent multiple simultaneous validations
     if (validationInProgressRef.current) {
