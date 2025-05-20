@@ -69,7 +69,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         setLastValidatedCode(savedCode);
         
         // Cache the interviewer for offline use
-        await cacheInterviewer(savedCode);
+        await cacheInterviewer(savedCode, `Interviewer ${savedCode}`);
       }
     };
     
@@ -83,11 +83,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         localStorage.setItem("interviewerCode", interviewerCode);
         
         // Cache the interviewer for offline use - pass the required arguments
-        await cacheInterviewer(interviewerCode, 
-          // Default name as a fallback
-          `Interviewer ${interviewerCode}`, 
-          `id-${interviewerCode}`
-        );
+        await cacheInterviewer(interviewerCode, `Interviewer ${interviewerCode}`);
         setLastValidatedCode(interviewerCode);
       } else if (!interviewerCode && isPrimaryUser) {
         // If code is cleared but user was primary, remove from storage
