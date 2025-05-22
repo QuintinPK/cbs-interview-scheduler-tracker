@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -296,11 +297,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           return;
         }
         
-        await updateOfflineSession({
-          id: offlineSessionId,
-          endTime: new Date().toISOString(),
-          location: undefined
-        });
+        // Fix: Update call to match new parameter structure with an object
+        await updateOfflineSession(
+          offlineSessionId,
+          new Date().toISOString(),
+          undefined
+        );
         
         // Try to sync if we're online
         if (isOnline()) {

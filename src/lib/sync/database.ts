@@ -29,7 +29,10 @@ class SyncQueueDatabase extends Dexie {
   }
   
   async getOperationsByStatus(status: SyncOperationStatus | SyncOperationStatus[]): Promise<SyncOperation[]> {
+    // Fix: When status is an array, use it directly with anyOf
+    // When it's a single status, convert it to an array
     const statusArray = Array.isArray(status) ? status : [status];
+    
     return await this.syncOperations
       .where('status')
       .anyOf(statusArray)
