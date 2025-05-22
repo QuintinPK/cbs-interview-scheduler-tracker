@@ -18,7 +18,9 @@ class SyncQueueDatabase extends Dexie {
     return await this.syncOperations
       .where('status')
       .anyOf(['PENDING', 'FAILED'] as SyncOperationStatus[])
-      .sortBy(['priority', 'createdAt']);
+      .orderBy('priority')
+      .thenBy('createdAt')
+      .toArray();
   }
   
   async getPendingCount(): Promise<number> {
