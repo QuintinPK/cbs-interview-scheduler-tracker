@@ -17,25 +17,25 @@ class SyncQueueDatabase extends Dexie {
   async getPendingOperations(): Promise<SyncOperation[]> {
     return await this.syncOperations
       .where('status')
-      .anyOf(['PENDING', 'FAILED'])
+      .anyOf(['PENDING', 'FAILED'] as SyncOperationStatus[])
       .sortBy(['priority', 'createdAt']);
   }
   
   async getPendingCount(): Promise<number> {
     return await this.syncOperations
       .where('status')
-      .anyOf(['PENDING', 'IN_PROGRESS', 'FAILED'])
+      .anyOf(['PENDING', 'IN_PROGRESS', 'FAILED'] as SyncOperationStatus[])
       .count();
   }
   
   async getOperationsByStatus(status: SyncOperationStatus | SyncOperationStatus[]): Promise<SyncOperation[]> {
-    // Fix: When status is an array, use it directly with anyOf
+    // When status is an array, use it directly with anyOf
     // When it's a single status, convert it to an array
     const statusArray = Array.isArray(status) ? status : [status];
     
     return await this.syncOperations
       .where('status')
-      .anyOf(statusArray)
+      .anyOf(statusArray as SyncOperationStatus[])
       .toArray();
   }
   
