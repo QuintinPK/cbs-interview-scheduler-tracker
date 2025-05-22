@@ -215,25 +215,52 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Check online status changes
   useEffect(() => {
-    const handleOnline = async () => {
-      toast({
-        title: "You are back online",
-        description: "Syncing offline data...",
-      });
+  const handleOnline = async () => {
+    toast({
+      title: "You are back online",
+      description: "Syncing offline data...",
+    });
+    
+    try {
+      // First, ensure we have a valid sync manager instance
+      const syncManager = new SyncQueueManager(); // Or however you get your sync manager instance
       
-      try {
-        await syncOfflineSessions();
-      } catch (error) {
-        console.error("Error syncing sessions on reconnect:", error);
+      // Reset any failed operations to pending
+      await syncManager.resetFailedOperations();
+      
+      // Then attempt a sync with force=true to bypass in-progress checks
+      const syncResult = await syncManager.attemptSync(true);
+      
+      if (syncResult) {
+        toast({
+          title: "Sync Complete",
+          description: "Your offline data has been synchronized",
+        });
+      } else {
+        // If sync failed, schedule a retry
+        setTimeout(() => syncManager.attemptSync(true), 30000);
+        toast({
+          title: "Sync Incomplete",
+          description: "Some items couldn't be synced. Will retry automatically.",
+          variant: "warning",
+        });
       }
-    };
-    
-    window.addEventListener('online', handleOnline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-    };
-  }, [toast]);
+    } catch (error) {
+      console.error("Error syncing sessions on reconnect:", error);
+      toast({
+        title: "Sync Error",
+        description: "Could not sync offline data. Please try again later.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  window.addEventListener('online', handleOnline);
+  
+  return () => {
+    window.removeEventListener('online', handleOnline);
+  };
+}, [toast]);
 
   // Helper function to update session state
   const updateSessionState = (session: Session) => {
