@@ -1,172 +1,55 @@
-import { Workbox } from 'workbox-window';
-import { syncQueue, initializeSyncQueue } from './lib/syncQueue';
-import { isOnline } from './lib/offlineDB';
 
-// Check if the browser supports service workers
-const isServiceWorkerSupported = 'serviceWorker' in navigator;
+import { getSyncManager } from '@/lib/sync';
 
-// Initialize the sync system
-export const initializeSync = async () => {
-  try {
-    console.log("[App] Initializing sync system");
-    await initializeSyncQueue();
-    console.log("[App] Sync system initialized");
-    return true;
-  } catch (error) {
-    console.error("[App] Error initializing sync system:", error);
-    return false;
-  }
-};
-
-// Request a sync operation from the app
-export const requestSync = (): string | null => {
-  const syncId = `app-req-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
-  
-  if (isServiceWorkerSupported && navigator.serviceWorker.controller) {
-    // Request sync via service worker
-    navigator.serviceWorker.controller.postMessage({
-      type: 'SYNC_REQUEST',
-      syncId,
-      timestamp: new Date().toISOString()
-    });
-    console.log(`[App] Requested sync via service worker (${syncId})`);
-    return syncId;
-  } else if (isOnline()) {
-    // Directly trigger sync if no service worker but online
-    console.log(`[App] Directly triggering sync (${syncId})`);
-    setTimeout(() => {
-      syncQueue.attemptSync();
-    }, 100);
-    return syncId;
-  }
-  
-  console.log('[App] Cannot request sync - offline and no service worker');
-  return null;
-};
-
-// Register the service worker
-export const registerSW = () => {
-  if (isServiceWorkerSupported) {
-    const wb = new Workbox('/sw.js');
-
-    // Add event listeners
-    wb.addEventListener('installed', event => {
-      console.log('[ServiceWorker] Installed');
-      if (!event.isUpdate) {
-        console.log('[ServiceWorker] First-time install');
-      }
-    });
-
-    wb.addEventListener('activated', event => {
-      console.log('[ServiceWorker] Activated');
-      if (event.isUpdate) {
-        // When the service worker is updated, reload the page to ensure the new version is used
-        window.location.reload();
-      }
-    });
-
-    wb.addEventListener('waiting', event => {
-      console.log('[ServiceWorker] New version waiting to activate');
-      // You could show a notification here that a new version is available
-    });
-
-    // Listen for messages from the service worker
-    navigator.serviceWorker.addEventListener('message', async (event) => {
-      const { data } = event;
-      console.log('[ServiceWorker] Message received:', data);
-
-      if (data.type === 'SYNC_REQUEST') {
-        console.log('[ServiceWorker] Sync request received');
-        
-        if (isOnline()) {
-          try {
-            await syncQueue.attemptSync();
-            
-            // Notify the service worker that sync is complete
-            if (navigator.serviceWorker.controller) {
-              navigator.serviceWorker.controller.postMessage({
-                type: 'SYNC_COMPLETE',
-                timestamp: new Date().toISOString()
-              });
-            }
-          } catch (error) {
-            console.error('[ServiceWorker] Error syncing data:', error);
-          }
-        }
-      }
-      
-      if (data.type === 'ONLINE_STATUS') {
-        console.log('[ServiceWorker] Online status updated:', data.isOnline);
-        
-        // If we just came online, try to sync
-        if (data.isOnline && isOnline()) {
-          console.log('[ServiceWorker] Now online, attempting sync');
-          try {
-            await syncQueue.attemptSync();
-          } catch (error) {
-            console.error('[ServiceWorker] Error syncing data after coming online:', error);
-          }
-        }
-      }
-    });
-
-    // Register the service worker
-    wb.register()
-      .then(registration => {
-        console.log('[ServiceWorker] Registration successful');
-        
-        // Initialize sync system after service worker is registered
-        initializeSync().then(syncInitialized => {
-          console.log('[ServiceWorker] Sync system initialized:', syncInitialized);
-          
-          // Notify the service worker that the app is ready
-          if (registration.active) {
-            registration.active.postMessage({
-              type: 'APP_READY',
-              timestamp: new Date().toISOString()
-            });
-          }
-        });
-      })
-      .catch(error => {
-        console.error('[ServiceWorker] Registration failed:', error);
-      });
-
-    return wb;
-  } else {
-    console.warn('[ServiceWorker] Service workers are not supported in this browser');
-    
-    // Still initialize sync system even without service worker
-    initializeSync().catch(error => {
-      console.error('[App] Error initializing sync without service worker:', error);
-    });
-    
-    return null;
-  }
-};
-
-// Export a function to check for updates manually
-export const checkForUpdates = async () => {
-  if (isServiceWorkerSupported) {
+// Initialize sync system
+export async function initializeSync(): Promise<void> {
+  if ('serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.update();
-      return true;
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('SW registered: ', registration);
+      
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SYNC_SESSIONS') {
+          console.log('Received sync request from service worker');
+          const syncManager = getSyncManager();
+          syncManager.attemptSync(true);
+        }
+      });
     } catch (error) {
-      console.error('[ServiceWorker] Update check failed:', error);
-      return false;
+      console.log('SW registration failed: ', error);
     }
   }
-  return false;
-};
+}
 
-// Call registerSW to start the service worker
-if (import.meta.env.PROD) {
-  registerSW();
-} else {
-  console.log('[ServiceWorker] Not registering in development mode');
-  // Still initialize sync system in dev mode
-  initializeSync().catch(error => {
-    console.error('[App] Error initializing sync in dev mode:', error);
+// Request sync from service worker
+export function requestSync(): void {
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type: 'SYNC_REQUEST',
+      timestamp: new Date().toISOString()
+    });
+  } else {
+    // Fallback to direct sync if service worker is not available
+    const syncManager = getSyncManager();
+    syncManager.attemptSync(true);
+  }
+}
+
+// Handle online event
+window.addEventListener('online', () => {
+  console.log('Browser went online, attempting sync');
+  const syncManager = getSyncManager();
+  syncManager.attemptSync(true);
+});
+
+// Handle background sync requests
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'BACKGROUND_SYNC') {
+      console.log('Background sync requested');
+      const syncManager = getSyncManager();
+      syncManager.attemptSync(true);
+    }
   });
 }

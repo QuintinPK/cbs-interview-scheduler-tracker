@@ -35,7 +35,7 @@ export async function initializeSyncManager(): Promise<void> {
   }
 }
 
-// Helper function to get the singleton instance
+// Helper function to get the singleton instance - returns the actual instance
 export function getSyncManager(): SyncQueueManager {
   return syncQueueManager;
 }

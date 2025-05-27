@@ -1,9 +1,15 @@
+
 // In src/components/session/SyncStatus.tsx
 // Replace with this enhanced version:
 
 import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip } from '@/components/ui/tooltip';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { WifiOff, Info as InfoIcon, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getSyncManager, SyncStatusSummary } from '@/lib/sync';
@@ -110,45 +116,57 @@ export const SyncStatus: React.FC = () => {
   };
   
   return (
-    <div className="flex items-center space-x-2 text-sm">
-      <div className={`w-2 h-2 rounded-full ${statusColor}`}></div>
-      <span>{statusText}</span>
-      
-      {pendingCount > 0 && (
-        <Badge variant="outline" className="ml-2">
-          {pendingCount} pending
-        </Badge>
-      )}
-      
-      {failedCount > 0 && (
-        <Badge variant="destructive" className="ml-2">
-          {failedCount} failed
-        </Badge>
-      )}
-      
-      {syncInProgress && <Spinner size="sm" className="ml-2" />}
-      
-      {!online && (
-        <Tooltip content="You're offline. Changes will sync when you reconnect.">
-          <WifiOff className="w-4 h-4 text-muted-foreground ml-2" />
-        </Tooltip>
-      )}
-      
-      {lastSyncAttempt && (
-        <Tooltip content={`Last sync: ${formatDistanceToNow(new Date(lastSyncAttempt))} ago`}>
-          <InfoIcon className="w-4 h-4 text-muted-foreground ml-2" />
-        </Tooltip>
-      )}
-      
-      {online && !syncInProgress && (pendingCount > 0 || failedCount > 0) && (
-        <button 
-          onClick={handleManualSync}
-          className="ml-2 text-xs text-blue-500 hover:text-blue-700 flex items-center"
-        >
-          <RefreshCw className="w-3 h-3 mr-1" /> Retry
-        </button>
-      )}
-    </div>
+    <TooltipProvider>
+      <div className="flex items-center space-x-2 text-sm">
+        <div className={`w-2 h-2 rounded-full ${statusColor}`}></div>
+        <span>{statusText}</span>
+        
+        {pendingCount > 0 && (
+          <Badge variant="outline" className="ml-2">
+            {pendingCount} pending
+          </Badge>
+        )}
+        
+        {failedCount > 0 && (
+          <Badge variant="destructive" className="ml-2">
+            {failedCount} failed
+          </Badge>
+        )}
+        
+        {syncInProgress && <Spinner size="sm" className="ml-2" />}
+        
+        {!online && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <WifiOff className="w-4 h-4 text-muted-foreground ml-2" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>You're offline. Changes will sync when you reconnect.</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        
+        {lastSyncAttempt && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <InfoIcon className="w-4 h-4 text-muted-foreground ml-2" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Last sync: {formatDistanceToNow(new Date(lastSyncAttempt))} ago</p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+        
+        {online && !syncInProgress && (pendingCount > 0 || failedCount > 0) && (
+          <button 
+            onClick={handleManualSync}
+            className="ml-2 text-xs text-blue-500 hover:text-blue-700 flex items-center"
+          >
+            <RefreshCw className="w-3 h-3 mr-1" /> Retry
+          </button>
+        )}
+      </div>
+    </TooltipProvider>
   );
 };
 

@@ -1,41 +1,37 @@
 
-import { v4 as uuidv4 } from 'uuid';
-
-// Define sync operation types
 export type SyncOperationType = 
   | 'SESSION_START'
   | 'SESSION_END'
+  | 'SESSION_UPDATE'
+  | 'SESSION_DELETE'
   | 'INTERVIEW_START'
   | 'INTERVIEW_END'
-  | 'INTERVIEW_RESULT'
-  | 'SESSION_UPDATE'
-  | 'INTERVIEW_UPDATE';
+  | 'INTERVIEW_UPDATE'
+  | 'INTERVIEW_DELETE'
+  | 'INTERVIEW_RESULT';
 
-// Define sync operation status
 export type SyncOperationStatus = 
-  | 'PENDING' // Not yet attempted
-  | 'IN_PROGRESS' // Currently being processed
-  | 'FAILED' // Failed but will be retried
-  | 'COMPLETE' // Successfully completed
-  | 'ERROR'; // Terminal error, won't be retried
+  | 'PENDING'
+  | 'IN_PROGRESS'
+  | 'COMPLETE'
+  | 'FAILED'
+  | 'ERROR';
 
-// Define sync operation
 export interface SyncOperation {
   id: string;
   type: SyncOperationType;
   data: any;
-  offlineId: number | string | null;
-  onlineId: string | null;
   status: SyncOperationStatus;
   priority: number;
+  entityType: 'session' | 'interview';
+  offlineId?: number | string | null;
+  onlineId?: string | null;
   createdAt: string;
   updatedAt: string;
   attemptCount: number;
-  lastError: string | null;
-  entityType: 'session' | 'interview';
+  lastError?: string | null;
 }
 
-// Create a function to generate a new sync operation
 export function createSyncOperation(
   type: SyncOperationType,
   data: any,
@@ -47,18 +43,19 @@ export function createSyncOperation(
   }
 ): SyncOperation {
   const now = new Date().toISOString();
+  
   return {
-    id: uuidv4(),
+    id: `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     type,
     data,
+    status: 'PENDING',
+    priority: options.priority || 1,
+    entityType: options.entityType,
     offlineId: options.offlineId || null,
     onlineId: options.onlineId || null,
-    status: 'PENDING',
-    priority: options.priority || 1, // Default priority
     createdAt: now,
     updatedAt: now,
     attemptCount: 0,
-    lastError: null,
-    entityType: options.entityType
+    lastError: null
   };
 }
