@@ -17,7 +17,7 @@ class SyncQueueDatabase extends Dexie {
   async getPendingOperations(): Promise<SyncOperation[]> {
     return await this.syncOperations
       .where('status')
-      .anyOf(['PENDING', 'FAILED'] as SyncOperationStatus[])
+      .anyOf('PENDING', 'FAILED')
       .orderBy('priority')
       .thenBy('createdAt')
       .toArray();
@@ -26,19 +26,22 @@ class SyncQueueDatabase extends Dexie {
   async getPendingCount(): Promise<number> {
     return await this.syncOperations
       .where('status')
-      .anyOf(['PENDING', 'IN_PROGRESS', 'FAILED'] as SyncOperationStatus[])
+      .anyOf('PENDING', 'IN_PROGRESS', 'FAILED')
       .count();
   }
   
   async getOperationsByStatus(status: SyncOperationStatus | SyncOperationStatus[]): Promise<SyncOperation[]> {
-    // When status is an array, use it directly with anyOf
-    // When it's a single status, convert it to an array
-    const statusArray = Array.isArray(status) ? status : [status];
-    
-    return await this.syncOperations
-      .where('status')
-      .anyOf(statusArray as SyncOperationStatus[])
-      .toArray();
+    if (Array.isArray(status)) {
+      return await this.syncOperations
+        .where('status')
+        .anyOf(...status)
+        .toArray();
+    } else {
+      return await this.syncOperations
+        .where('status')
+        .equals(status)
+        .toArray();
+    }
   }
   
   async clearCompletedOperations(olderThanDays: number = 7): Promise<number> {

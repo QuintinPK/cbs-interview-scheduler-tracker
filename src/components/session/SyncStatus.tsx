@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip } from '@/components/ui/tooltip';
 import { WifiOff, Info as InfoIcon, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { getSyncManager, SyncStatusSummary } from '@/lib/sync/syncManager';
+import { getSyncManager, SyncStatusSummary } from '@/lib/sync';
 import { isOnline } from '@/lib/offlineDB';
 
 // Simple spinner component

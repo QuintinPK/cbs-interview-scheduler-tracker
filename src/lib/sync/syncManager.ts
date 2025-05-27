@@ -1,4 +1,3 @@
-
 import { isOnline } from '../offlineDB';
 import { syncQueueDB } from './database';
 import { processSessionOperation } from './sessionProcessor';
@@ -365,6 +364,17 @@ export class SyncQueueManager {
     
     return count;
   }
+}
+
+// Singleton instance
+let syncManagerInstance: SyncQueueManager | null = null;
+
+// Get the singleton instance
+export function getSyncManager(): SyncQueueManager {
+  if (!syncManagerInstance) {
+    syncManagerInstance = new SyncQueueManager();
+  }
+  return syncManagerInstance;
 }
 
 // Types for sync status updates

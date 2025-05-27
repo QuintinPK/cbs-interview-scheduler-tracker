@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Session, Location, Project } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +12,7 @@ import {
   getInterviewerByCode,
   cacheProjects
 } from "@/lib/offlineDB";
+import { getSyncManager } from "@/lib/sync";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
   const { toast } = useToast();
@@ -69,8 +69,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         setIsPrimaryUser(true); // Explicitly set as primary user when loading from localStorage
         setLastValidatedCode(savedCode);
         
-        // Cache the interviewer for offline use with the required name parameter
-        await cacheInterviewer(savedCode, `Interviewer ${savedCode}`);
+        // Cache the interviewer for offline use - fix the function call
+        try {
+          await cacheInterviewer(savedCode, `Interviewer ${savedCode}`);
+        } catch (error) {
+          console.error("Error caching interviewer:", error);
+        }
       }
     };
     
@@ -84,8 +88,12 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         localStorage.setItem("interviewerCode", interviewerCode);
         
         // Fix: Pass the required name parameter
-        await cacheInterviewer(interviewerCode, `Interviewer ${interviewerCode}`);
-        setLastValidatedCode(interviewerCode);
+        try {
+          await cacheInterviewer(interviewerCode, `Interviewer ${interviewerCode}`);
+          setLastValidatedCode(interviewerCode);
+        } catch (error) {
+          console.error("Error caching interviewer:", error);
+        }
       } else if (!interviewerCode && isPrimaryUser) {
         // If code is cleared but user was primary, remove from storage
         localStorage.removeItem("interviewerCode");
@@ -215,52 +223,52 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Check online status changes
   useEffect(() => {
-  const handleOnline = async () => {
-    toast({
-      title: "You are back online",
-      description: "Syncing offline data...",
-    });
-    
-    try {
-      // First, ensure we have a valid sync manager instance
-      const syncManager = new SyncQueueManager(); // Or however you get your sync manager instance
+    const handleOnline = async () => {
+      toast({
+        title: "You are back online",
+        description: "Syncing offline data...",
+      });
       
-      // Reset any failed operations to pending
-      await syncManager.resetFailedOperations();
-      
-      // Then attempt a sync with force=true to bypass in-progress checks
-      const syncResult = await syncManager.attemptSync(true);
-      
-      if (syncResult) {
+      try {
+        // Get the sync manager instance
+        const syncManager = getSyncManager();
+        
+        // Reset any failed operations to pending
+        await syncManager.resetFailedOperations();
+        
+        // Then attempt a sync with force=true to bypass in-progress checks
+        const syncResult = await syncManager.attemptSync(true);
+        
+        if (syncResult) {
+          toast({
+            title: "Sync Complete",
+            description: "Your offline data has been synchronized",
+          });
+        } else {
+          // If sync failed, schedule a retry
+          setTimeout(() => syncManager.attemptSync(true), 30000);
+          toast({
+            title: "Sync Incomplete",
+            description: "Some items couldn't be synced. Will retry automatically.",
+            variant: "warning",
+          });
+        }
+      } catch (error) {
+        console.error("Error syncing sessions on reconnect:", error);
         toast({
-          title: "Sync Complete",
-          description: "Your offline data has been synchronized",
-        });
-      } else {
-        // If sync failed, schedule a retry
-        setTimeout(() => syncManager.attemptSync(true), 30000);
-        toast({
-          title: "Sync Incomplete",
-          description: "Some items couldn't be synced. Will retry automatically.",
-          variant: "warning",
+          title: "Sync Error",
+          description: "Could not sync offline data. Please try again later.",
+          variant: "destructive",
         });
       }
-    } catch (error) {
-      console.error("Error syncing sessions on reconnect:", error);
-      toast({
-        title: "Sync Error",
-        description: "Could not sync offline data. Please try again later.",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  window.addEventListener('online', handleOnline);
-  
-  return () => {
-    window.removeEventListener('online', handleOnline);
-  };
-}, [toast]);
+    };
+    
+    window.addEventListener('online', handleOnline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [toast]);
 
   // Helper function to update session state
   const updateSessionState = (session: Session) => {
