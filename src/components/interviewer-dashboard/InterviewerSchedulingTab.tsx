@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfWeek, addWeeks, subWeeks } from "date-fns";
 import { WeekNavigator } from "@/components/scheduling/WeekNavigator";
-import { InteractiveScheduleGrid } from "@/components/scheduling/InteractiveScheduleGrid";
+import InteractiveScheduleGrid from "@/components/scheduling/InteractiveScheduleGrid";
 import { ScheduleStats } from "@/components/scheduling/ScheduleStats";
 import { useSchedules } from "@/hooks/useSchedules";
 import { useSessions } from "@/hooks/useSessions";

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useInterviewers } from "@/hooks/useInterviewers";
@@ -253,7 +252,29 @@ export const useInterviewerDashboard = () => {
                   .in('session_id', sessionIds);
                   
                 if (interviewsError) throw interviewsError;
-                setCompareInterviews(interviewsData || []);
+                
+                // Transform the data to match our Interview interface
+                const typedCompareInterviews: Interview[] = (interviewsData || []).map(interview => ({
+                  id: interview.id,
+                  session_id: interview.session_id,
+                  project_id: interview.project_id,
+                  start_time: interview.start_time,
+                  end_time: interview.end_time,
+                  start_latitude: interview.start_latitude,
+                  start_longitude: interview.start_longitude,
+                  start_address: interview.start_address,
+                  end_latitude: interview.end_latitude,
+                  end_longitude: interview.end_longitude,
+                  end_address: interview.end_address,
+                  result: (interview.result === 'response' || interview.result === 'non-response') 
+                    ? interview.result as 'response' | 'non-response' 
+                    : undefined,
+                  is_active: interview.is_active,
+                  created_at: interview.created_at,
+                  candidate_name: interview.candidate_name
+                }));
+                
+                setCompareInterviews(typedCompareInterviews);
               }
               
               return;
@@ -308,7 +329,29 @@ export const useInterviewerDashboard = () => {
               .in('session_id', sessionIds);
               
             if (interviewsError) throw interviewsError;
-            setCompareInterviews(interviewsData || []);
+            
+            // Transform the data to match our Interview interface
+            const typedCompareInterviews: Interview[] = (interviewsData || []).map(interview => ({
+              id: interview.id,
+              session_id: interview.session_id,
+              project_id: interview.project_id,
+              start_time: interview.start_time,
+              end_time: interview.end_time,
+              start_latitude: interview.start_latitude,
+              start_longitude: interview.start_longitude,
+              start_address: interview.start_address,
+              end_latitude: interview.end_latitude,
+              end_longitude: interview.end_longitude,
+              end_address: interview.end_address,
+              result: (interview.result === 'response' || interview.result === 'non-response') 
+                ? interview.result as 'response' | 'non-response' 
+                : undefined,
+              is_active: interview.is_active,
+              created_at: interview.created_at,
+              candidate_name: interview.candidate_name
+            }));
+            
+            setCompareInterviews(typedCompareInterviews);
           }
         } else {
           console.log("Primary interviewer not loaded yet, deferring comparison");
@@ -341,7 +384,29 @@ export const useInterviewerDashboard = () => {
           .in('session_id', sessionIds as string[]);
           
         if (error) throw error;
-        setInterviews(interviewsData || []);
+        
+        // Transform the data to match our Interview interface
+        const typedInterviews: Interview[] = (interviewsData || []).map(interview => ({
+          id: interview.id,
+          session_id: interview.session_id,
+          project_id: interview.project_id,
+          start_time: interview.start_time,
+          end_time: interview.end_time,
+          start_latitude: interview.start_latitude,
+          start_longitude: interview.start_longitude,
+          start_address: interview.start_address,
+          end_latitude: interview.end_latitude,
+          end_longitude: interview.end_longitude,
+          end_address: interview.end_address,
+          result: (interview.result === 'response' || interview.result === 'non-response') 
+            ? interview.result as 'response' | 'non-response' 
+            : undefined,
+          is_active: interview.is_active,
+          created_at: interview.created_at,
+          candidate_name: interview.candidate_name
+        }));
+        
+        setInterviews(typedInterviews);
       } catch (error) {
         console.error("Error fetching interviews:", error);
         setInterviews([]);

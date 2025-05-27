@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Schedule } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,7 +28,8 @@ export const useScheduleData = (interviewerId?: string) => {
           // Convert "cancelled" to "canceled" for consistency
           status: schedule.status === "cancelled" ? "canceled" as const : schedule.status as 'scheduled' | 'completed' | 'canceled',
           notes: schedule.notes || undefined,
-          project_id: schedule.project_id
+          project_id: schedule.project_id,
+          created_at: schedule.created_at
         }));
         
         setSchedules(formattedSchedules);

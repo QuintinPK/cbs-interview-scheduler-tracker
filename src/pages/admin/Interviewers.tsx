@@ -85,7 +85,7 @@ const Interviewers = () => {
   const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => {
     setFormData({
       ...formData,
-      island,
+      island: island as "Bonaire" | "Saba" | "Sint Eustatius" | undefined,
     });
   };
   

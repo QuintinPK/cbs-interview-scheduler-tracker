@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,9 +113,7 @@ export const useSessions = (
   } = useSessionActions(
     sessions, 
     setSessions,
-    filterResults,
-    setLoading,
-    toast
+    filteredSessions
   );
   
   // Helper function to get interviewer code from ID

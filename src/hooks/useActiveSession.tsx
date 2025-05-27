@@ -162,7 +162,7 @@ export const useActiveSession = (interviewerCode: string | null) => {
         });
       } else {
         // If offline, create session in local storage
-        const offlineId = await saveOfflineSession(sessionData);
+        const offlineId = await saveOfflineSession(sessionData, cachedInterviewer, projectId || '', currentLocation);
         
         // Create a temporary session object
         const tempSession: Session = {
@@ -182,7 +182,7 @@ export const useActiveSession = (interviewerCode: string | null) => {
         
         // Queue sync operation
         const syncManager = getSyncManager();
-        syncManager.queueOperation(
+        await syncManager.queueOperation(
           'SESSION_START',
           sessionData,
           {
