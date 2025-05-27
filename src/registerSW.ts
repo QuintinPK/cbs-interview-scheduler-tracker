@@ -22,6 +22,11 @@ export async function initializeSync(): Promise<void> {
   }
 }
 
+// Register service worker function
+export async function registerSW(): Promise<void> {
+  await initializeSync();
+}
+
 // Request sync from service worker
 export function requestSync(): void {
   if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {

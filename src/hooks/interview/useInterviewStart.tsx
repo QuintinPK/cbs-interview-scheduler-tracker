@@ -1,10 +1,11 @@
+
 import { useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
 import { isOnline, saveOfflineInterview } from "@/lib/offlineDB";
-import { syncQueue } from "@/lib/syncQueue";
+import { getSyncManager } from "@/lib/sync";
 
 /**
  * Hook for starting interviews - optimized for mobile performance
@@ -101,7 +102,8 @@ export const useInterviewStart = (
         // Queue the interview start for sync when online
         if (sessionId) {
           // If we have a valid online session ID, queue the sync operation
-          await syncQueue.queueOperation(
+          const syncManager = getSyncManager();
+          await syncManager.queueOperation(
             'INTERVIEW_START',
             {
               session_id: sessionId,
@@ -158,7 +160,8 @@ export const useInterviewStart = (
                 
                 // If we have a session ID, update the sync operation with better location
                 if (sessionId) {
-                  await syncQueue.queueOperation(
+                  const syncManager = getSyncManager();
+                  await syncManager.queueOperation(
                     'INTERVIEW_UPDATE',
                     {
                       start_latitude: betterLocation.latitude,
@@ -231,9 +234,22 @@ export const useInterviewStart = (
           
         if (error) throw error;
         
-        // With the DB update, candidate_name should now be present in the data
+        // Transform the data to match our Interview interface
         const interview: Interview = {
-          ...data,
+          id: data.id,
+          session_id: data.session_id,
+          project_id: data.project_id,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          start_latitude: data.start_latitude,
+          start_longitude: data.start_longitude,
+          start_address: data.start_address,
+          end_latitude: data.end_latitude,
+          end_longitude: data.end_longitude,
+          end_address: data.end_address,
+          result: data.result as 'response' | 'non-response' | undefined,
+          is_active: data.is_active,
+          created_at: data.created_at,
           candidate_name: data.candidate_name
         };
         
@@ -259,11 +275,10 @@ export const useInterviewStart = (
                 
                 // Update the interview state with better location
                 const updatedInterview: Interview = {
-                  ...data,
+                  ...interview,
                   start_latitude: betterLocation.latitude,
                   start_longitude: betterLocation.longitude,
-                  start_address: betterLocation.address,
-                  candidate_name: data.candidate_name
+                  start_address: betterLocation.address
                 };
                 
                 setActiveInterview(updatedInterview);
@@ -291,7 +306,8 @@ export const useInterviewStart = (
         }
         
         // Queue for syncing
-        await syncQueue.queueOperation(
+        const syncManager = getSyncManager();
+        await syncManager.queueOperation(
           'INTERVIEW_START',
           {
             session_id: sessionId,

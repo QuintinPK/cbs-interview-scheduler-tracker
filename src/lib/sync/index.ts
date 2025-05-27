@@ -4,13 +4,23 @@ import { SyncQueueManager } from './syncManager';
 import { syncQueueDB } from './database';
 
 // Create singleton instance
-export const syncQueueManager = new SyncQueueManager();
+let syncManagerInstance: SyncQueueManager | null = null;
+
+// Get singleton instance
+export function getSyncManager(): SyncQueueManager {
+  if (!syncManagerInstance) {
+    syncManagerInstance = new SyncQueueManager();
+  }
+  return syncManagerInstance;
+}
 
 // Initialize function to set up sync system
 export async function initializeSyncManager(): Promise<void> {
   console.log('[Sync] Initializing sync system');
   
   try {
+    const manager = getSyncManager();
+    
     // Clean up any stuck operations from previous sessions
     const stuckOperations = await syncQueueDB.getOperationsByStatus('IN_PROGRESS');
     
@@ -23,7 +33,7 @@ export async function initializeSyncManager(): Promise<void> {
     }
     
     // Clean up old completed operations
-    const deletedCount = await syncQueueManager.clearCompletedOperations();
+    const deletedCount = await manager.clearCompletedOperations();
     if (deletedCount > 0) {
       console.log(`[Sync] Cleaned up ${deletedCount} old completed operations`);
     }
@@ -33,11 +43,6 @@ export async function initializeSyncManager(): Promise<void> {
     console.error('[Sync] Error initializing sync system:', error);
     throw error;
   }
-}
-
-// Helper function to get the singleton instance - returns the actual instance
-export function getSyncManager(): SyncQueueManager {
-  return syncQueueManager;
 }
 
 // Re-export types and database

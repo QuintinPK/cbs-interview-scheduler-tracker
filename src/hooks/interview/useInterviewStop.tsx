@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
 import { isOnline, updateOfflineInterview } from "@/lib/offlineDB";
-import { syncQueue } from "@/lib/syncQueue";
+import { getSyncManager } from "@/lib/sync";
 
 /**
  * Hook for stopping interviews - optimized for mobile performance
@@ -59,8 +59,9 @@ export const useInterviewStop = (
             console.log(`[InterviewStop] Updated offline interview ${activeOfflineInterviewId}`);
             
             // Queue the sync operation if we have an online interview ID
+            const syncManager = getSyncManager();
             if (activeInterview.id && !activeInterview.id.startsWith('offline-') && !activeInterview.id.startsWith('temp-')) {
-              await syncQueue.queueOperation(
+              await syncManager.queueOperation(
                 'INTERVIEW_END',
                 {
                   end_time: now,
@@ -79,7 +80,7 @@ export const useInterviewStop = (
               console.log(`[InterviewStop] Queued sync for interview ${activeInterview.id} with location`);
             } else {
               // Just queue it with the offline ID
-              await syncQueue.queueOperation(
+              await syncManager.queueOperation(
                 'INTERVIEW_END',
                 {
                   end_time: now,
@@ -101,6 +102,7 @@ export const useInterviewStop = (
           
           // For online interviews with a valid ID
           if (activeInterview.id && !activeInterview.id.startsWith('temp-')) {
+            const syncManager = getSyncManager();
             if (isOnline()) {
               try {
                 // For online mode, update in background
@@ -118,7 +120,7 @@ export const useInterviewStop = (
                 console.error("[InterviewStop] Error updating interview:", err);
                 
                 // If online update fails, queue it for later
-                await syncQueue.queueOperation(
+                await syncManager.queueOperation(
                   'INTERVIEW_END',
                   {
                     end_time: now,
@@ -136,7 +138,7 @@ export const useInterviewStop = (
               }
             } else {
               // If offline, queue the update
-              await syncQueue.queueOperation(
+              await syncManager.queueOperation(
                 'INTERVIEW_END',
                 {
                   end_time: now,
@@ -159,12 +161,13 @@ export const useInterviewStop = (
           console.error("[InterviewStop] Location processing error:", locationError);
           
           // Even if location fails, still try to update with just the end time
+          const syncManager = getSyncManager();
           if (activeOfflineInterviewId !== null) {
             await updateOfflineInterview(activeOfflineInterviewId, now);
             
             // Queue sync with just end time
             if (activeInterview.id && !activeInterview.id.startsWith('offline-') && !activeInterview.id.startsWith('temp-')) {
-              await syncQueue.queueOperation(
+              await syncManager.queueOperation(
                 'INTERVIEW_END',
                 { end_time: now },
                 {
@@ -174,7 +177,7 @@ export const useInterviewStop = (
                 }
               );
             } else {
-              await syncQueue.queueOperation(
+              await syncManager.queueOperation(
                 'INTERVIEW_END',
                 { end_time: now },
                 {
@@ -185,7 +188,7 @@ export const useInterviewStop = (
             }
           } else if (activeInterview.id && !activeInterview.id.startsWith('temp-')) {
             // For online interviews, queue with just end time if location fails
-            await syncQueue.queueOperation(
+            await syncManager.queueOperation(
               'INTERVIEW_END',
               { end_time: now },
               {

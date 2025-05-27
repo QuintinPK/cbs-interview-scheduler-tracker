@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -123,7 +124,7 @@ export const useActiveSession = (interviewerCode: string | null) => {
         toast({
           title: "Location Access Denied",
           description: "Please enable location access to start a session. You can continue without location data.",
-          variant: "destructive", // Changed from "warning"
+          variant: "destructive",
         });
       }
       

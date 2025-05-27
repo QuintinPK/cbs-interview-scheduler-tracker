@@ -14,44 +14,25 @@ const Index = () => {
   const pageLoadTime = performance.now();
   console.log("Index page initial render started at:", pageLoadTime);
   
-  // Load the active session hook with all authentication and session state
+  // Session state
+  const [interviewerCode, setInterviewerCode] = useState<string>("");
+  
+  // Load the active session hook
   const {
-    interviewerCode,
-    setInterviewerCode,
-    isRunning,
-    setIsRunning,
-    startTime,
-    setStartTime,
-    startLocation,
-    setStartLocation,
     activeSession,
-    setActiveSession,
-    isPrimaryUser,
-    setIsPrimaryUser,
-    switchUser,
-    endSession,
+    isLoading,
+    isStartingSession,
+    isStoppingSession,
     startSession,
-    offlineSessionId,
-    validateInterviewerCode
-  } = useActiveSession();
+    stopSession
+  } = useActiveSession(interviewerCode || null);
   
   useEffect(() => {
     const renderTime = performance.now() - pageLoadTime;
     console.log("Index - Initial render completed in:", renderTime + "ms");
   }, []);
 
-  // Debug logging to track state
-  useEffect(() => {
-    console.log("Index - isPrimaryUser:", isPrimaryUser);
-    console.log("Index - interviewerCode:", interviewerCode);
-    console.log("Index - validateInterviewerCode available:", !!validateInterviewerCode);
-  }, [isPrimaryUser, interviewerCode, validateInterviewerCode]);
-
-  // Additional debug logging for the login function
-  useEffect(() => {
-    console.log("Index - validateInterviewerCode function exists:", typeof validateInterviewerCode === 'function');
-  }, [validateInterviewerCode]);
-
+  // Additional state for the Index page
   const [totalHours, setTotalHours] = useState<number>(0);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,20 +199,11 @@ const Index = () => {
         <SessionForm
           interviewerCode={interviewerCode}
           setInterviewerCode={setInterviewerCode}
-          isRunning={isRunning}
-          setIsRunning={setIsRunning}
-          startTime={startTime}
-          setStartTime={setStartTime}
-          startLocation={startLocation}
-          setStartLocation={setStartLocation}
           activeSession={activeSession}
-          setActiveSession={setActiveSession}
-          isPrimaryUser={isPrimaryUser}
-          switchUser={switchUser}
-          endSession={endSession}
+          isStartingSession={isStartingSession}
+          isStoppingSession={isStoppingSession}
           startSession={startSession}
-          offlineSessionId={offlineSessionId}
-          validateInterviewerCode={validateInterviewerCode}
+          stopSession={stopSession}
         />
         
         {interviewerCode && (
@@ -253,7 +225,7 @@ const Index = () => {
         )}
         
         <p className="mt-6 text-sm text-gray-500">
-          {isRunning ? "Press the button to end your session" : "Press the button to start your session"}
+          {activeSession ? "Press the button to end your session" : "Press the button to start your session"}
         </p>
       </div>
     </MainLayout>

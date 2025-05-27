@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { syncQueue } from '@/lib/syncQueue';
+import { getSyncManager } from '@/lib/sync';
 import { SyncStatusSummary } from '@/lib/sync/syncManager';
 import { isOnline } from '@/lib/offlineDB';
 
@@ -23,7 +23,8 @@ export const useSyncStatus = () => {
   // Update status initially and periodically
   useEffect(() => {
     const updateStatus = async () => {
-      const status = await syncQueue.getSyncStatus();
+      const syncManager = getSyncManager();
+      const status = await syncManager.getSyncStatus();
       setSyncStatus(status);
     };
     
@@ -31,7 +32,8 @@ export const useSyncStatus = () => {
     updateStatus();
     
     // Subscribe to sync updates
-    const unsubscribe = syncQueue.subscribe(update => {
+    const syncManager = getSyncManager();
+    const unsubscribe = syncManager.subscribe(update => {
       // When we get an update, refresh the full status
       updateStatus();
     });
@@ -55,7 +57,8 @@ export const useSyncStatus = () => {
       
       // If we just came online, try to sync
       if (isOnline()) {
-        syncQueue.attemptSync();
+        const syncManager = getSyncManager();
+        syncManager.attemptSync();
       }
     };
     
@@ -71,12 +74,14 @@ export const useSyncStatus = () => {
   // Retry sync manually
   const retrySync = useCallback(async () => {
     if (!isOnline()) return false;
-    return await syncQueue.attemptSync(true);
+    const syncManager = getSyncManager();
+    return await syncManager.attemptSync(true);
   }, []);
   
   // Reset failed operations
   const resetFailedOperations = useCallback(async () => {
-    return await syncQueue.resetFailedOperations();
+    const syncManager = getSyncManager();
+    return await syncManager.resetFailedOperations();
   }, []);
   
   return {

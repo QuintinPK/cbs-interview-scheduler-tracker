@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Session, Interviewer } from "@/types";
@@ -21,8 +22,7 @@ import {
   AlertDialogDescription, 
   AlertDialogFooter, 
   AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,8 +56,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
     sessions, 
     () => {}, // We'll handle state updates manually
     unusualSessions,
-    () => {},
-    toast
+    () => {}
   );
 
   const isUnusualStartTime = (startTime: string): boolean => {

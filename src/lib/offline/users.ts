@@ -1,88 +1,67 @@
 
-import { db, Interviewer, Project, isOnline } from './db';
+import { offlineDB } from './db';
 
-// Function to cache an interviewer for offline use
-export async function cacheInterviewer(code: string, name?: string, id?: string): Promise<boolean> {
+export interface Interviewer {
+  id: string;
+  code: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  island?: string;
+  created_at?: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  excluded_islands?: ('Bonaire' | 'Saba' | 'Sint Eustatius')[];
+  hourly_rate?: number;
+  response_rate?: number;
+  non_response_rate?: number;
+  show_response_rates?: boolean;
+}
+
+// Cache interviewer data
+export async function cacheInterviewer(interviewer: Interviewer): Promise<void> {
   try {
-    // Check if we're online to fetch from Supabase
-    if (isOnline()) {
-      // Here you would normally fetch from Supabase
-      // For now, just create a mock interviewer
-      const interviewer = {
-        id: id || `offline-${code}`,
-        code: code,
-        name: name || `Interviewer ${code}`
-      };
-      
-      // Save to IndexedDB
-      await db.interviewers.put(interviewer);
-      console.log(`[OfflineDB] Cached interviewer with code ${code}`);
-      return true;
-    }
-    return false;
+    await offlineDB.interviewers.put(interviewer);
+    console.log(`[OfflineDB] Cached interviewer: ${interviewer.code}`);
   } catch (error) {
-    console.error(`[OfflineDB] Error caching interviewer with code ${code}:`, error);
-    return false;
+    console.error('[OfflineDB] Error caching interviewer:', error);
+    throw error;
   }
 }
 
-// Function to get an interviewer by code
-export async function getInterviewerByCode(code: string): Promise<Interviewer | null> {
+// Get interviewer by code
+export async function getInterviewerByCode(code: string): Promise<Interviewer | undefined> {
   try {
-    // First try to get from local cache
-    const interviewer = await db.interviewers.where('code').equals(code).first();
-    
-    if (interviewer) {
-      console.log(`[OfflineDB] Found interviewer with code ${code} in cache`);
-      return interviewer;
-    }
-    
-    // If not found in cache and online, would normally fetch from Supabase
-    if (isOnline()) {
-      // Mock response for now
-      const mockInterviewer = {
-        id: `online-${code}`,
-        code: code,
-        name: `Interviewer ${code}`
-      };
-      
-      // Cache for future offline use
-      await cacheInterviewer(code, `Interviewer ${code}`);
-      
-      return mockInterviewer;
-    }
-    
-    console.log(`[OfflineDB] No interviewer found with code ${code}`);
-    return null;
+    return await offlineDB.interviewers.where('code').equals(code).first();
   } catch (error) {
-    console.error(`[OfflineDB] Error getting interviewer with code ${code}:`, error);
-    return null;
+    console.error('[OfflineDB] Error getting interviewer by code:', error);
+    throw error;
   }
 }
 
-// Function to cache projects for offline use
-export async function cacheProjects(projects: Project[]): Promise<boolean> {
+// Cache multiple projects
+export async function cacheProjects(projects: Project[]): Promise<void> {
   try {
-    // Add all projects to IndexedDB
-    for (const project of projects) {
-      await db.projects.put(project);
-    }
+    await offlineDB.projects.bulkPut(projects);
     console.log(`[OfflineDB] Cached ${projects.length} projects`);
-    return true;
   } catch (error) {
     console.error('[OfflineDB] Error caching projects:', error);
-    return false;
+    throw error;
   }
 }
 
-// Function to get cached projects
+// Get all cached projects
 export async function getCachedProjects(): Promise<Project[]> {
   try {
-    const projects = await db.projects.toArray();
-    console.log(`[OfflineDB] Retrieved ${projects.length} cached projects`);
-    return projects;
+    return await offlineDB.projects.toArray();
   } catch (error) {
     console.error('[OfflineDB] Error getting cached projects:', error);
-    return [];
+    throw error;
   }
 }
