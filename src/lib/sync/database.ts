@@ -15,20 +15,19 @@ class SyncQueueDatabase extends Dexie {
   }
   
   async getPendingOperations(): Promise<SyncOperation[]> {
-    return await this.syncOperations
+    const operations = await this.syncOperations
       .where('status')
       .anyOf('PENDING', 'FAILED')
-      .toArray()
-      .then(operations => 
-        operations.sort((a, b) => {
-          // First sort by priority (higher priority first)
-          if (a.priority !== b.priority) {
-            return (b.priority || 0) - (a.priority || 0);
-          }
-          // Then by creation time (older first)
-          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-        })
-      );
+      .toArray();
+      
+    return operations.sort((a, b) => {
+      // First sort by priority (higher priority first)
+      if (a.priority !== b.priority) {
+        return (b.priority || 0) - (a.priority || 0);
+      }
+      // Then by creation time (older first)
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
   }
   
   async getPendingCount(): Promise<number> {
