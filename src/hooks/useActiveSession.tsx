@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -103,10 +104,13 @@ export const useActiveSession = (interviewerCode: string | null) => {
   
   // Start a new session
   const startSession = useCallback(async (projectId?: string) => {
+    console.log("Starting session with:", { interviewerCode, cachedInterviewer, projectId });
+    
     if (!cachedInterviewer?.id) {
+      console.error("No cached interviewer found:", { interviewerCode, cachedInterviewer });
       toast({
         title: "Error",
-        description: "Interviewer data not loaded yet",
+        description: "Please wait for interviewer data to load before starting a session",
         variant: "destructive",
       });
       return;
@@ -185,7 +189,7 @@ export const useActiveSession = (interviewerCode: string | null) => {
         setActiveSession(tempSession);
         localStorage.setItem('activeSession', JSON.stringify(tempSession));
         
-        // Queue sync operation
+        // Queue sync operation - Fix: Pass sessionData as an object, not a string
         const syncManager = getSyncManager();
         await syncManager.queueOperation(
           'SESSION_START',

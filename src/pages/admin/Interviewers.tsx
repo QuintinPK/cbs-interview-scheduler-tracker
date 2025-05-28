@@ -116,8 +116,10 @@ const Interviewers = () => {
       last_name: interviewer.last_name,
       phone: interviewer.phone || "",
       email: interviewer.email || "",
-      // Fix: Cast the island to the correct type
-      island: interviewer.island as IslandType,
+      // Fix: Cast the island to the correct type with explicit check
+      island: interviewer.island && ['Bonaire', 'Saba', 'Sint Eustatius'].includes(interviewer.island) 
+        ? interviewer.island as IslandType 
+        : undefined,
     });
     setShowAddEditDialog(true);
   };
