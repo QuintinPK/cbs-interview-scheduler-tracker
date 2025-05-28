@@ -162,7 +162,12 @@ export const useActiveSession = (interviewerCode: string | null) => {
         });
       } else {
         // If offline, create session in local storage
-        const offlineId = await saveOfflineSession(sessionData, cachedInterviewer, projectId || '', currentLocation);
+        const offlineId = await saveOfflineSession(
+          sessionData, 
+          cachedInterviewer.id, 
+          projectId || '', 
+          currentLocation || undefined
+        );
         
         // Create a temporary session object
         const tempSession: Session = {

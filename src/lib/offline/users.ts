@@ -1,5 +1,5 @@
 
-import { offlineDatabase } from './db';
+import { db } from './db';
 
 export interface Interviewer {
   id: string;
@@ -27,7 +27,7 @@ export interface Project {
 // Cache interviewer data
 export async function cacheInterviewer(interviewer: Interviewer): Promise<void> {
   try {
-    await offlineDatabase.interviewers.put(interviewer);
+    await db.interviewers.put(interviewer);
     console.log(`[OfflineDB] Cached interviewer: ${interviewer.code}`);
   } catch (error) {
     console.error('[OfflineDB] Error caching interviewer:', error);
@@ -38,7 +38,7 @@ export async function cacheInterviewer(interviewer: Interviewer): Promise<void> 
 // Get interviewer by code
 export async function getInterviewerByCode(code: string): Promise<Interviewer | undefined> {
   try {
-    return await offlineDatabase.interviewers.where('code').equals(code).first();
+    return await db.interviewers.where('code').equals(code).first();
   } catch (error) {
     console.error('[OfflineDB] Error getting interviewer by code:', error);
     throw error;
@@ -48,7 +48,7 @@ export async function getInterviewerByCode(code: string): Promise<Interviewer | 
 // Cache multiple projects
 export async function cacheProjects(projects: Project[]): Promise<void> {
   try {
-    await offlineDatabase.projects.bulkPut(projects);
+    await db.projects.bulkPut(projects);
     console.log(`[OfflineDB] Cached ${projects.length} projects`);
   } catch (error) {
     console.error('[OfflineDB] Error caching projects:', error);
@@ -59,7 +59,7 @@ export async function cacheProjects(projects: Project[]): Promise<void> {
 // Get all cached projects
 export async function getCachedProjects(): Promise<Project[]> {
   try {
-    return await offlineDatabase.projects.toArray();
+    return await db.projects.toArray();
   } catch (error) {
     console.error('[OfflineDB] Error getting cached projects:', error);
     throw error;

@@ -53,7 +53,7 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   const { toast } = useToast();
   const { updateSession, deleteSession } = useSessionActions(
     sessions, 
-    () => {}, // We'll handle state updates manually
+    (newSessions: Session[]) => setUnusualSessions(newSessions), // Fix: use function syntax
     unusualSessions
   );
 

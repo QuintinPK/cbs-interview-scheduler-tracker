@@ -102,11 +102,12 @@ export const InterviewerSchedulingTab = ({ interviewer }: InterviewerSchedulingT
         ) : (
           <div className="p-4">
             <InteractiveScheduleGrid
-              weekDates={weekDates}
-              interviewerId={interviewer.id}
               schedules={schedules}
-              sessions={sessions}
-              onSchedulesChanged={handleSchedulesChanged}
+              interviewers={interviewer ? [interviewer] : []}
+              onSaveSchedules={async () => {}}
+              onCancelSchedules={() => {}}
+              selectedTimeSlots={{}}
+              onTimeSlotToggle={() => {}}
             />
           </div>
         )}

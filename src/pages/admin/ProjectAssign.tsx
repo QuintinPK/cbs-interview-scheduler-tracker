@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -11,13 +12,13 @@ const ProjectAssign: React.FC = () => {
   const { interviewers } = useInterviewers();
   const { projects, loading: projectsLoading } = useProjects();
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
-  const [excludedInterviewers, setExcludedInterviewers] = useState<Interviewer[]>([]);
+  const [excludedIslands, setExcludedIslands] = useState<('Bonaire' | 'Saba' | 'Sint Eustatius')[]>([]);
 
   useEffect(() => {
     if (selectedProject) {
       const project = projects.find(p => p.id === selectedProject);
       if (project) {
-        setExcludedInterviewers(project.excluded_islands || []);
+        setExcludedIslands(project.excluded_islands || []);
       }
     }
   }, [selectedProject, projects]);
@@ -30,7 +31,10 @@ const ProjectAssign: React.FC = () => {
         .from('project_interviewers')
         .insert(
           interviewers
-            .filter(interviewer => !excludedInterviewers.includes(interviewer.island as "Bonaire" | "Saba" | "Sint Eustatius"))
+            .filter(interviewer => {
+              const interviewerIsland = interviewer.island as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined;
+              return !interviewerIsland || !excludedIslands.includes(interviewerIsland);
+            })
             .map(interviewer => ({
               project_id: selectedProject,
               interviewer_id: interviewer.id,

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ const InteractiveScheduling = () => {
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string | null>(null);
+  const [selectedInterviewerCode, setSelectedInterviewerCode] = useState<string>("");
 
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const date = new Date(currentWeekStart);
@@ -68,6 +70,14 @@ const InteractiveScheduling = () => {
     setSelectedInterviewerId(interviewerId);
   };
 
+  const handleInterviewerChange = (code: string) => {
+    setSelectedInterviewerCode(code);
+    const interviewer = interviewers.find(i => i.code === code);
+    if (interviewer) {
+      setSelectedInterviewerId(interviewer.id);
+    }
+  };
+
   const handleSchedulesChanged = () => {
     refreshSchedules();
   };
@@ -86,7 +96,11 @@ const InteractiveScheduling = () => {
               <InterviewerSelector
                 interviewers={interviewers}
                 loading={interviewersLoading}
+                selectedInterviewerCode={selectedInterviewerCode}
+                onInterviewerChange={handleInterviewerChange}
                 onSelect={handleInterviewerSelect}
+                scheduledHours={scheduledHours}
+                workedHours={workedHours}
               />
             </div>
 
@@ -112,11 +126,12 @@ const InteractiveScheduling = () => {
               ) : (
                 <div className="p-4">
                   <InteractiveScheduleGrid
-                    weekDates={weekDates}
-                    interviewerId={selectedInterviewerId ?? ""}
                     schedules={schedules}
-                    sessions={sessions}
-                    onSchedulesChanged={handleSchedulesChanged}
+                    interviewers={interviewers}
+                    onSaveSchedules={async () => {}}
+                    onCancelSchedules={() => {}}
+                    selectedTimeSlots={{}}
+                    onTimeSlotToggle={() => {}}
                   />
                 </div>
               )}

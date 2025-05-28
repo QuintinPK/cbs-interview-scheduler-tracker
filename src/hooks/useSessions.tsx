@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,7 +114,7 @@ export const useSessions = (
   } = useSessionActions(
     sessions, 
     setSessions,
-    filteredSessions
+    sessions // Fix: use sessions instead of filteredSessions
   );
   
   // Helper function to get interviewer code from ID
@@ -155,7 +156,7 @@ export const useSessions = (
   }, [interviewerCodeFilter, selectedProject, selectedIsland]);
   
   return { 
-    sessions: filteredSessions, // Changed from 'filteredSessions' to match what's used in Sessions.tsx
+    sessions: filteredSessions,
     loading, 
     interviewerCodeFilter,
     setInterviewerCodeFilter,

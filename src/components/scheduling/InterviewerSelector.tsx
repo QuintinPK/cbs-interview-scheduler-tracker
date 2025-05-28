@@ -13,23 +13,37 @@ import { Card, CardContent } from "@/components/ui/card";
 
 interface InterviewerSelectorProps {
   interviewers: Interviewer[];
+  loading?: boolean;
   selectedInterviewerCode: string;
   onInterviewerChange: (code: string) => void;
   scheduledHours?: number;
   workedHours?: number;
+  onSelect?: (interviewerId: string) => void;
 }
 
 export const InterviewerSelector = ({
   interviewers,
+  loading = false,
   selectedInterviewerCode,
   onInterviewerChange,
   scheduledHours = 0,
   workedHours = 0,
+  onSelect,
 }: InterviewerSelectorProps) => {
   // Calculate efficiency percentage
   const efficiency = scheduledHours > 0 
     ? Math.round((workedHours / scheduledHours) * 100) 
     : 0;
+
+  const handleValueChange = (code: string) => {
+    onInterviewerChange(code);
+    if (onSelect) {
+      const interviewer = interviewers.find(i => i.code === code);
+      if (interviewer) {
+        onSelect(interviewer.id);
+      }
+    }
+  };
 
   return (
     <Card className="bg-white">
@@ -39,7 +53,8 @@ export const InterviewerSelector = ({
             <Label htmlFor="interviewer-select">Select Interviewer</Label>
             <Select
               value={selectedInterviewerCode}
-              onValueChange={onInterviewerChange}
+              onValueChange={handleValueChange}
+              disabled={loading}
             >
               <SelectTrigger id="interviewer-select" className="mt-1">
                 <SelectValue placeholder="Select an interviewer" />
