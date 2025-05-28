@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,14 +106,15 @@ export const useSessions = (
   } = useSessionFilters(sessions);
   
   // Initialize session actions
+  // Fix: Pass setSessions as the state updater function instead of sessions array
   const { 
     stopSession, 
     updateSession, 
     deleteSession 
   } = useSessionActions(
-    sessions, 
     setSessions,
-    sessions // Fix: use sessions instead of filteredSessions
+    setLoading,
+    toast
   );
   
   // Helper function to get interviewer code from ID
