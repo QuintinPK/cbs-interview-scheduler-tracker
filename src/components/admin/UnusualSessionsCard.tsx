@@ -51,10 +51,16 @@ const UnusualSessionsCard: React.FC<UnusualSessionsCardProps> = ({
   const [endTime, setEndTime] = useState("");
   const [sessionToMarkAsSeen, setSessionToMarkAsSeen] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Fix: Create a proper setState function that updates unusualSessions
+  const updateUnusualSessions = (newSessions: React.SetStateAction<Session[]>) => {
+    setUnusualSessions(newSessions);
+  };
+  
   const { updateSession, deleteSession } = useSessionActions(
-    sessions, 
-    (newSessions: Session[]) => setUnusualSessions(newSessions), // Fix: use function syntax
-    unusualSessions
+    updateUnusualSessions, // Fix: Pass the setState function instead of the array
+    setLoading,
+    toast
   );
 
   const isUnusualStartTime = (startTime: string): boolean => {
