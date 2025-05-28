@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -162,10 +161,11 @@ export const useActiveSession = (interviewerCode: string | null) => {
         });
       } else {
         // If offline, create session in local storage
+        // Fix: Pass the correct parameters to saveOfflineSession
         const offlineId = await saveOfflineSession(
-          sessionData, 
           cachedInterviewer.id, 
-          projectId || '', 
+          projectId || null, 
+          startTime, 
           currentLocation || undefined
         );
         
