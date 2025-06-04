@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { getCurrentLocation } from "@/lib/utils";
 import { isOnline, updateOfflineInterview } from "@/lib/offlineDB";
-import { getSyncManager } from "@/lib/sync";
 
 /**
  * Hook for stopping interviews - optimized for mobile performance
@@ -33,174 +32,58 @@ export const useInterviewStop = (
       // Update UI immediately for better perceived performance
       setIsInterviewLoading(true);
       
-      const now = new Date().toISOString();
-      console.log(`[InterviewStop] Stopping interview ${activeInterview.id} at ${now}`);
-      
-      // Get location in background - fire and forget, don't wait
-      const locationPromise = getCurrentLocation({ 
-        timeout: 3000, 
-        highAccuracy: false // Get a fast location first, can improve later
-      });
+      // Get location in background - fire and forget
+      const locationPromise = getCurrentLocation({ timeout: 2000 }); // Short timeout for speed
       
       // Process location asynchronously - don't block UI
       locationPromise.then(async (currentLocation) => {
-        try {
-          console.log(`[InterviewStop] Got location:`, currentLocation);
-          
-          // Check if this is an offline interview
-          if (activeOfflineInterviewId !== null) {
+        // Check if this is an offline interview
+        if (activeOfflineInterviewId !== null) {
+          try {
             // Update the offline interview with end details
             await updateOfflineInterview(
               activeOfflineInterviewId,
-              now,
+              new Date().toISOString(),
               currentLocation
             );
-            
-            console.log(`[InterviewStop] Updated offline interview ${activeOfflineInterviewId}`);
-            
-            // Queue the sync operation if we have an online interview ID
-            const syncManager = getSyncManager();
-            if (activeInterview.id && !activeInterview.id.startsWith('offline-') && !activeInterview.id.startsWith('temp-')) {
-              await syncManager.queueOperation(
-                'INTERVIEW_END',
-                {
-                  end_time: now,
-                  end_latitude: currentLocation?.latitude,
-                  end_longitude: currentLocation?.longitude,
-                  end_address: currentLocation?.address
-                },
-                {
-                  offlineId: activeOfflineInterviewId,
-                  onlineId: activeInterview.id,
-                  entityType: 'interview',
-                  priority: 2 // High priority
-                }
-              );
-              
-              console.log(`[InterviewStop] Queued sync for interview ${activeInterview.id} with location`);
-            } else {
-              // Just queue it with the offline ID
-              await syncManager.queueOperation(
-                'INTERVIEW_END',
-                {
-                  end_time: now,
-                  end_latitude: currentLocation?.latitude,
-                  end_longitude: currentLocation?.longitude,
-                  end_address: currentLocation?.address
-                },
-                {
-                  offlineId: activeOfflineInterviewId,
-                  entityType: 'interview',
-                  priority: 2
-                }
-              );
-              
-              console.log(`[InterviewStop] Queued sync for offline interview ${activeOfflineInterviewId} with location`);
-            }
-            return;
+          } catch (err) {
+            console.error("Background error updating offline interview:", err);
           }
-          
-          // For online interviews with a valid ID
-          if (activeInterview.id && !activeInterview.id.startsWith('temp-')) {
-            const syncManager = getSyncManager();
-            if (isOnline()) {
-              try {
-                // For online mode, update in background
-                console.log(`[InterviewStop] Updating online interview ${activeInterview.id} with location`);
-                await supabase
-                  .from('interviews')
-                  .update({
-                    end_time: now,
-                    end_latitude: currentLocation?.latitude || null,
-                    end_longitude: currentLocation?.longitude || null,
-                    end_address: currentLocation?.address || null,
-                  })
-                  .eq('id', activeInterview.id);
-              } catch (err) {
-                console.error("[InterviewStop] Error updating interview:", err);
-                
-                // If online update fails, queue it for later
-                await syncManager.queueOperation(
-                  'INTERVIEW_END',
-                  {
-                    end_time: now,
-                    end_latitude: currentLocation?.latitude,
-                    end_longitude: currentLocation?.longitude,
-                    end_address: currentLocation?.address
-                  },
-                  {
-                    onlineId: activeInterview.id,
-                    entityType: 'interview'
-                  }
-                );
-                
-                console.log(`[InterviewStop] Online update failed, queued sync for interview ${activeInterview.id}`);
-              }
-            } else {
-              // If offline, queue the update
-              await syncManager.queueOperation(
-                'INTERVIEW_END',
-                {
-                  end_time: now,
-                  end_latitude: currentLocation?.latitude,
-                  end_longitude: currentLocation?.longitude,
-                  end_address: currentLocation?.address
-                },
-                {
-                  onlineId: activeInterview.id,
-                  entityType: 'interview'
-                }
-              );
-              
-              console.log(`[InterviewStop] Offline mode, queued sync for interview ${activeInterview.id}`);
-            }
-          } else {
-            console.log(`[InterviewStop] Interview has temporary ID ${activeInterview.id}, not syncing yet`);
-          }
-        } catch (locationError) {
-          console.error("[InterviewStop] Location processing error:", locationError);
-          
-          // Even if location fails, still try to update with just the end time
-          const syncManager = getSyncManager();
-          if (activeOfflineInterviewId !== null) {
-            await updateOfflineInterview(activeOfflineInterviewId, now);
-            
-            // Queue sync with just end time
-            if (activeInterview.id && !activeInterview.id.startsWith('offline-') && !activeInterview.id.startsWith('temp-')) {
-              await syncManager.queueOperation(
-                'INTERVIEW_END',
-                { end_time: now },
-                {
-                  offlineId: activeOfflineInterviewId,
-                  onlineId: activeInterview.id,
-                  entityType: 'interview'
-                }
-              );
-            } else {
-              await syncManager.queueOperation(
-                'INTERVIEW_END',
-                { end_time: now },
-                {
-                  offlineId: activeOfflineInterviewId,
-                  entityType: 'interview'
-                }
-              );
-            }
-          } else if (activeInterview.id && !activeInterview.id.startsWith('temp-')) {
-            // For online interviews, queue with just end time if location fails
-            await syncManager.queueOperation(
-              'INTERVIEW_END',
-              { end_time: now },
-              {
-                onlineId: activeInterview.id,
-                entityType: 'interview'
-              }
-            );
-          }
+          return;
+        }
+        
+        // For online interviews, proceed as usual
+        if (!activeInterview.id || !isOnline()) {
+          return;
+        }
+        
+        // For online mode, update in background
+        try {
+          await supabase
+            .from('interviews')
+            .update({
+              end_time: new Date().toISOString(),
+              end_latitude: currentLocation?.latitude || null,
+              end_longitude: currentLocation?.longitude || null,
+              end_address: currentLocation?.address || null,
+            })
+            .eq('id', activeInterview.id);
+        } catch (err) {
+          console.error("Background error updating interview:", err);
         }
       }).catch(error => {
-        console.error("[InterviewStop] Background location error:", error);
+        console.error("Error in background location processing:", error);
       });
+      
+      // If offline, store the stop intent in localStorage
+      if (!isOnline() && activeInterview.id && !activeOfflineInterviewId) {
+        const pendingStops = JSON.parse(localStorage.getItem("pending_interview_stops") || "[]");
+        pendingStops.push({
+          id: activeInterview.id,
+          end_time: new Date().toISOString(),
+        });
+        localStorage.setItem("pending_interview_stops", JSON.stringify(pendingStops));
+      }
       
       // Show dialog - IMPORTANT: Set loading to false before showing the dialog
       // This fix allows the buttons in the dialog to be clickable
@@ -215,9 +98,10 @@ export const useInterviewStop = (
         variant: "destructive",
       });
       setIsInterviewLoading(false);
-    } finally {
       operationInProgressRef.current = false;
     }
+    
+    operationInProgressRef.current = false;
   }, [activeInterview, activeOfflineInterviewId, setShowResultDialog, setIsInterviewLoading, toast]);
 
   return { stopInterview };

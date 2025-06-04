@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from "react";
 import MainLayout from "@/components/layout/MainLayout";
 import SessionForm from "@/components/session/SessionForm";
@@ -13,25 +14,44 @@ const Index = () => {
   const pageLoadTime = performance.now();
   console.log("Index page initial render started at:", pageLoadTime);
   
-  // Session state
-  const [interviewerCode, setInterviewerCode] = useState<string>("");
-  
-  // Load the active session hook
+  // Load the active session hook with all authentication and session state
   const {
+    interviewerCode,
+    setInterviewerCode,
+    isRunning,
+    setIsRunning,
+    startTime,
+    setStartTime,
+    startLocation,
+    setStartLocation,
     activeSession,
-    isLoading,
-    isStartingSession,
-    isStoppingSession,
+    setActiveSession,
+    isPrimaryUser,
+    setIsPrimaryUser,
+    switchUser,
+    endSession,
     startSession,
-    stopSession
-  } = useActiveSession(interviewerCode || null);
+    offlineSessionId,
+    validateInterviewerCode
+  } = useActiveSession();
   
   useEffect(() => {
     const renderTime = performance.now() - pageLoadTime;
     console.log("Index - Initial render completed in:", renderTime + "ms");
   }, []);
 
-  // Additional state for the Index page
+  // Debug logging to track state
+  useEffect(() => {
+    console.log("Index - isPrimaryUser:", isPrimaryUser);
+    console.log("Index - interviewerCode:", interviewerCode);
+    console.log("Index - validateInterviewerCode available:", !!validateInterviewerCode);
+  }, [isPrimaryUser, interviewerCode, validateInterviewerCode]);
+
+  // Additional debug logging for the login function
+  useEffect(() => {
+    console.log("Index - validateInterviewerCode function exists:", typeof validateInterviewerCode === 'function');
+  }, [validateInterviewerCode]);
+
   const [totalHours, setTotalHours] = useState<number>(0);
   const [isLoadingHours, setIsLoadingHours] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,11 +218,20 @@ const Index = () => {
         <SessionForm
           interviewerCode={interviewerCode}
           setInterviewerCode={setInterviewerCode}
+          isRunning={isRunning}
+          setIsRunning={setIsRunning}
+          startTime={startTime}
+          setStartTime={setStartTime}
+          startLocation={startLocation}
+          setStartLocation={setStartLocation}
           activeSession={activeSession}
-          isStartingSession={isStartingSession}
-          isStoppingSession={isStoppingSession}
+          setActiveSession={setActiveSession}
+          isPrimaryUser={isPrimaryUser}
+          switchUser={switchUser}
+          endSession={endSession}
           startSession={startSession}
-          stopSession={stopSession}
+          offlineSessionId={offlineSessionId}
+          validateInterviewerCode={validateInterviewerCode}
         />
         
         {interviewerCode && (
@@ -224,7 +253,7 @@ const Index = () => {
         )}
         
         <p className="mt-6 text-sm text-gray-500">
-          {activeSession ? "Press the button to end your session" : "Press the button to start your session"}
+          {isRunning ? "Press the button to end your session" : "Press the button to start your session"}
         </p>
       </div>
     </MainLayout>

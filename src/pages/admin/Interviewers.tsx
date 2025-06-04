@@ -20,9 +20,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-// Define the valid island types
-type IslandType = 'Bonaire' | 'Saba' | 'Sint Eustatius';
-
 const Interviewers = () => {
   const navigate = useNavigate();
   const { interviewers, loading: interviewersLoading, addInterviewer, updateInterviewer, deleteInterviewer } = useInterviewers();
@@ -43,7 +40,7 @@ const Interviewers = () => {
     last_name: "",
     phone: "",
     email: "",
-    island: undefined as IslandType | undefined,
+    island: undefined as 'Bonaire' | 'Saba' | 'Sint Eustatius' | undefined,
   });
   
   useEffect(() => {
@@ -85,11 +82,10 @@ const Interviewers = () => {
     });
   };
   
-  // Fix: Ensure island is properly typed
-  const handleIslandChange = (island: IslandType) => {
+  const handleIslandChange = (island: 'Bonaire' | 'Saba' | 'Sint Eustatius') => {
     setFormData({
       ...formData,
-      island: island,
+      island,
     });
   };
   
@@ -116,10 +112,7 @@ const Interviewers = () => {
       last_name: interviewer.last_name,
       phone: interviewer.phone || "",
       email: interviewer.email || "",
-      // Fix: Cast the island to the correct type with explicit check
-      island: interviewer.island && ['Bonaire', 'Saba', 'Sint Eustatius'].includes(interviewer.island) 
-        ? interviewer.island as IslandType 
-        : undefined,
+      island: interviewer.island,
     });
     setShowAddEditDialog(true);
   };
@@ -185,8 +178,7 @@ const Interviewers = () => {
           last_name: interviewer.last_name,
           phone: interviewer.phone || "",
           email: interviewer.email || "",
-          // Fix: Ensure island is properly typed
-          island: interviewer.island as IslandType,
+          island: interviewer.island,
         };
         await addInterviewer(newInterviewer);
       }

@@ -46,8 +46,7 @@ export const useSchedules = (
         // Convert "cancelled" to "canceled" for consistency
         status: schedule.status === "cancelled" ? "canceled" as const : schedule.status as 'scheduled' | 'completed' | 'canceled',
         notes: schedule.notes || undefined,
-        project_id: schedule.project_id,
-        created_at: schedule.created_at
+        project_id: schedule.project_id
       }));
       
       setSchedules(formattedSchedules);
@@ -139,8 +138,7 @@ export const useSchedules = (
     // Convert "cancelled" to "canceled" for consistency
     status: data.status === "cancelled" ? "canceled" as const : data.status as 'scheduled' | 'completed' | 'canceled',
     notes: data.notes || undefined,
-    project_id: data.project_id,
-    created_at: data.created_at
+    project_id: data.project_id
   });
 
   const addSchedule = async (schedule: Omit<Schedule, 'id'>) => {

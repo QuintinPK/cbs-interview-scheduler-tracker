@@ -107,13 +107,14 @@ export const useSessions = (
   } = useSessionFilters(sessions);
   
   // Initialize session actions
-  // Fix: Pass setSessions as the state updater function instead of sessions array
   const { 
     stopSession, 
     updateSession, 
     deleteSession 
   } = useSessionActions(
+    sessions, 
     setSessions,
+    filterResults,
     setLoading,
     toast
   );
@@ -157,7 +158,7 @@ export const useSessions = (
   }, [interviewerCodeFilter, selectedProject, selectedIsland]);
   
   return { 
-    sessions: filteredSessions,
+    sessions: filteredSessions, // Changed from 'filteredSessions' to match what's used in Sessions.tsx
     loading, 
     interviewerCodeFilter,
     setInterviewerCodeFilter,

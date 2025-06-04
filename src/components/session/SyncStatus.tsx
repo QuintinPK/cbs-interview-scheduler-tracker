@@ -1,172 +1,272 @@
-
-// In src/components/session/SyncStatus.tsx
-// Replace with this enhanced version:
-
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { LoaderCircle, Wifi, WifiOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
 import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { WifiOff, Info as InfoIcon, RefreshCw } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { getSyncManager, SyncStatusSummary } from '@/lib/sync';
-import { isOnline } from '@/lib/offlineDB';
+  isOnline, 
+  getSyncStatus, 
+  syncOfflineSessions,
+  acquireSyncLock,
+  releaseSyncLock,
+  logSync
+} from '@/lib/offlineDB';
+import { requestSync } from '@/registerSW';
+import { Progress } from '@/components/ui/progress';
 
-// Simple spinner component
-const Spinner = ({ size = 'md', className = '' }) => {
-  const sizeClass = size === 'sm' ? 'w-3 h-3' : 'w-4 h-4';
-  return (
-    <RefreshCw className={`${sizeClass} animate-spin ${className}`} />
-  );
-};
-
-export const SyncStatus: React.FC = () => {
-  const [status, setStatus] = useState<SyncStatusSummary>({
-    isOnline: isOnline(),
-    pendingCount: 0,
-    failedCount: 0,
-    errorCount: 0,
-    lastSyncAttempt: null,
-    syncInProgress: false,
-    syncLockId: null
+const SyncStatus = () => {
+  const [isOffline, setIsOffline] = useState(!isOnline());
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [status, setStatus] = useState<any>({
+    sessionsTotal: 0,
+    sessionsUnsynced: 0,
+    sessionsInProgress: 0,
+    interviewsTotal: 0,
+    interviewsUnsynced: 0,
+    interviewsInProgress: 0,
+    lastSync: null,
+    currentLock: null
   });
-  
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Update status when network connection changes
   useEffect(() => {
-    const syncManager = getSyncManager();
-    
-    // Initial status fetch
-    const fetchStatus = async () => {
-      const currentStatus = await syncManager.getSyncStatus();
-      setStatus(currentStatus);
+    const checkOnlineStatus = () => {
+      setIsOffline(!isOnline());
     };
     
-    fetchStatus();
-    
-    // Subscribe to status updates
-    const unsubscribe = syncManager.subscribe(async (update) => {
-      // Refresh full status on important events
-      if (
-        update.type === 'SYNC_COMPLETED' || 
-        update.type === 'SYNC_STARTED' || 
-        update.type === 'OPERATIONS_RESET'
-      ) {
-        fetchStatus();
-      }
-    });
-    
-    // Set up periodic refresh
-    const intervalId = setInterval(fetchStatus, 10000);
-    
-    // Set up online/offline listener
-    const handleOnlineStatusChange = () => {
-      setStatus(prev => ({ ...prev, isOnline: isOnline() }));
-    };
-    
-    window.addEventListener('online', handleOnlineStatusChange);
-    window.addEventListener('offline', handleOnlineStatusChange);
+    window.addEventListener('online', checkOnlineStatus);
+    window.addEventListener('offline', checkOnlineStatus);
     
     return () => {
-      unsubscribe();
-      clearInterval(intervalId);
-      window.removeEventListener('online', handleOnlineStatusChange);
-      window.removeEventListener('offline', handleOnlineStatusChange);
+      window.removeEventListener('online', checkOnlineStatus);
+      window.removeEventListener('offline', checkOnlineStatus);
     };
   }, []);
+
+  // Periodically refresh sync status
+  const refreshStatus = useCallback(async () => {
+    try {
+      const currentStatus = await getSyncStatus();
+      setStatus(currentStatus);
+      
+      // Auto-detect if sync is in progress
+      if (currentStatus.currentLock?.isLocked === 1) {
+        setIsSyncing(true);
+      } else if (isSyncing) {
+        setIsSyncing(false);
+      }
+    } catch (error) {
+      console.error('Error refreshing sync status:', error);
+    }
+  }, [isSyncing]);
   
-  // Determine status text and color
-  let statusText = 'Unknown';
-  let statusColor = 'bg-gray-400';
+  useEffect(() => {
+    refreshStatus();
+    
+    const intervalId = setInterval(refreshStatus, 5000);
+    return () => clearInterval(intervalId);
+  }, [refreshStatus]);
   
-  const { isOnline: online, pendingCount, failedCount, errorCount, syncInProgress, lastSyncAttempt } = status;
+  // Calculate total items requiring sync
+  const totalUnsynced = status.sessionsUnsynced + status.interviewsUnsynced;
+  const totalItems = status.sessionsTotal + status.interviewsTotal;
+  const syncProgress = totalItems ? Math.round(((totalItems - totalUnsynced) / totalItems) * 100) : 100;
   
-  if (!online) {
-    statusText = 'Offline';
-    statusColor = 'bg-amber-500';
-  } else if (syncInProgress) {
-    statusText = 'Syncing...';
-    statusColor = 'bg-blue-500 animate-pulse';
-  } else if (errorCount > 0) {
-    statusText = 'Sync Error';
-    statusColor = 'bg-red-500';
-  } else if (failedCount > 0) {
-    statusText = 'Sync Pending';
-    statusColor = 'bg-amber-500';
-  } else if (pendingCount > 0) {
-    statusText = 'Sync Pending';
-    statusColor = 'bg-amber-500';
-  } else {
-    statusText = 'Synced';
-    statusColor = 'bg-green-500';
-  }
-  
-  // Handle manual sync trigger
-  const handleManualSync = async () => {
-    if (!online || syncInProgress) return;
+  // Handle manual sync
+  const handleSync = async () => {
+    if (isOffline) {
+      toast.error('Cannot sync while offline');
+      return;
+    }
+    
+    if (isSyncing) {
+      toast.warning('Sync already in progress');
+      return;
+    }
     
     try {
-      const syncManager = getSyncManager();
-      await syncManager.resetFailedOperations();
-      syncManager.attemptSync(true);
+      setIsSyncing(true);
+      
+      const syncId = `manual-ui-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      
+      // Try to acquire sync lock
+      const lockAcquired = await acquireSyncLock(syncId);
+      
+      if (!lockAcquired) {
+        toast.warning('Sync already in progress');
+        setIsSyncing(false);
+        return;
+      }
+      
+      // Log sync start
+      await logSync('ManualSync', 'Started', 'success', 'Manual sync initiated from UI');
+      
+      toast.success('Synchronization started');
+      
+      try {
+        // Use Service Worker sync if available
+        const swSyncId = requestSync();
+        
+        if (!swSyncId) {
+          // Fall back to direct sync
+          await syncOfflineSessions();
+        }
+        
+        // Wait for sync to complete (poll status)
+        let attempts = 0;
+        const maxAttempts = 30; // 30 attempts * 2 seconds = 1 minute max wait time
+        
+        const checkSyncComplete = async () => {
+          attempts++;
+          const currentStatus = await getSyncStatus();
+          
+          if (currentStatus.sessionsUnsynced === 0 && currentStatus.interviewsUnsynced === 0) {
+            // Sync complete
+            toast.success('Synchronization completed successfully');
+            await logSync('ManualSync', 'Completed', 'success', 'Manual sync completed');
+            setIsSyncing(false);
+            await releaseSyncLock(syncId);
+            return;
+          }
+          
+          if (attempts >= maxAttempts) {
+            // Timeout
+            toast.info('Sync is taking longer than expected and will continue in the background');
+            setIsSyncing(false);
+            return;
+          }
+          
+          // Check again after delay
+          setTimeout(checkSyncComplete, 2000);
+        };
+        
+        // Start checking for completion
+        setTimeout(checkSyncComplete, 3000);
+        
+      } catch (error) {
+        console.error('Error during manual sync:', error);
+        toast.error('Sync failed. Please try again later.');
+        await logSync('ManualSync', 'Error', 'error', `Manual sync error: ${error}`);
+        setIsSyncing(false);
+        await releaseSyncLock(syncId);
+      }
     } catch (error) {
-      console.error("Error triggering manual sync:", error);
+      console.error('Error initiating manual sync:', error);
+      toast.error('Could not start synchronization');
+      setIsSyncing(false);
     }
   };
-  
-  return (
-    <TooltipProvider>
-      <div className="flex items-center space-x-2 text-sm">
-        <div className={`w-2 h-2 rounded-full ${statusColor}`}></div>
-        <span>{statusText}</span>
+
+  // Show empty state when nothing to sync
+  if (totalUnsynced === 0 && !isSyncing && totalItems > 0) {
+    return (
+      <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md text-green-800 text-sm">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4" />
+          <span>All data synchronized</span>
+        </div>
         
-        {pendingCount > 0 && (
-          <Badge variant="outline" className="ml-2">
-            {pendingCount} pending
-          </Badge>
-        )}
-        
-        {failedCount > 0 && (
-          <Badge variant="destructive" className="ml-2">
-            {failedCount} failed
-          </Badge>
-        )}
-        
-        {syncInProgress && <Spinner size="sm" className="ml-2" />}
-        
-        {!online && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <WifiOff className="w-4 h-4 text-muted-foreground ml-2" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>You're offline. Changes will sync when you reconnect.</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        
-        {lastSyncAttempt && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <InfoIcon className="w-4 h-4 text-muted-foreground ml-2" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Last sync: {formatDistanceToNow(new Date(lastSyncAttempt))} ago</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-        
-        {online && !syncInProgress && (pendingCount > 0 || failedCount > 0) && (
-          <button 
-            onClick={handleManualSync}
-            className="ml-2 text-xs text-blue-500 hover:text-blue-700 flex items-center"
-          >
-            <RefreshCw className="w-3 h-3 mr-1" /> Retry
-          </button>
-        )}
+        <Badge variant="outline" className="bg-green-100 text-green-800">
+          {totalItems} items
+        </Badge>
       </div>
-    </TooltipProvider>
+    );
+  }
+  
+  // Show nothing if there's no offline data at all
+  if (totalItems === 0 && !isSyncing) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-md">Synchronization Status</CardTitle>
+          <Badge variant={isOffline ? "destructive" : "outline"} className="flex gap-1 items-center">
+            {isOffline ? <WifiOff className="h-3 w-3" /> : <Wifi className="h-3 w-3" />}
+            {isOffline ? "Offline" : "Online"}
+          </Badge>
+        </div>
+        <CardDescription className="text-xs">
+          {status.lastSync ? `Last sync: ${new Date(status.lastSync).toLocaleString()}` : 'No previous sync detected'}
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="pb-2">
+        <Progress value={syncProgress} className="h-2 mb-2" />
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">
+              {totalUnsynced > 0 ? (
+                <>
+                  <span className="text-amber-600">{totalUnsynced}</span> {totalUnsynced === 1 ? 'item' : 'items'} need to sync
+                </>
+              ) : isSyncing ? (
+                <span className="text-blue-600">Syncing in progress...</span>
+              ) : (
+                <span className="text-green-600">All data synced</span>
+              )}
+            </p>
+          </div>
+          
+          <Button
+            size="sm"
+            onClick={() => setShowDetails(!showDetails)}
+            variant="ghost"
+            className="text-xs h-7"
+          >
+            {showDetails ? 'Hide Details' : 'Show Details'}
+          </Button>
+        </div>
+        
+        {showDetails && (
+          <div className="mt-3 pt-3 border-t text-xs space-y-2">
+            <div className="grid grid-cols-2 gap-1">
+              <div>Sessions pending:</div>
+              <div className="text-right">{status.sessionsUnsynced} / {status.sessionsTotal}</div>
+              
+              <div>Interviews pending:</div>
+              <div className="text-right">{status.interviewsUnsynced} / {status.interviewsTotal}</div>
+              
+              <div>Operations in progress:</div>
+              <div className="text-right">{status.sessionsInProgress + status.interviewsInProgress}</div>
+            </div>
+            
+            {status.currentLock?.isLocked === 1 && (
+              <div className="text-xs text-amber-600 mt-2">
+                <p>Lock active: {status.currentLock.lockedBy}</p>
+                <p>Expires: {new Date(status.currentLock.expiresAt).toLocaleTimeString()}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+      
+      <CardFooter className="pt-2">
+        <Button
+          onClick={handleSync} 
+          disabled={isOffline || isSyncing || totalUnsynced === 0}
+          size="sm"
+          className="w-full"
+          variant={totalUnsynced > 0 ? "default" : "outline"}
+        >
+          {isSyncing ? (
+            <>
+              <LoaderCircle className="mr-2 h-3 w-3 animate-spin" />
+              Syncing...
+            </>
+          ) : totalUnsynced > 0 ? (
+            `Synchronize ${totalUnsynced} ${totalUnsynced === 1 ? 'item' : 'items'}`
+          ) : (
+            'Nothing to sync'
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 

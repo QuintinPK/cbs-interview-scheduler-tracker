@@ -4,7 +4,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Interview } from "@/types";
 import { isOnline, updateOfflineInterviewResult } from "@/lib/offlineDB";
-import { getSyncManager } from "@/lib/sync";
 
 /**
  * Hook for handling interview results
@@ -24,41 +23,11 @@ export const useInterviewResult = (
     
     try {
       setIsInterviewLoading(true);
-      console.log(`[InterviewResult] Setting result ${result} for interview ${activeInterview.id}`);
       
       // Check if this is an offline interview
       if (activeOfflineInterviewId !== null) {
         // Update the offline interview with the result
         await updateOfflineInterviewResult(activeOfflineInterviewId, result);
-        console.log(`[InterviewResult] Updated offline interview ${activeOfflineInterviewId} with result ${result}`);
-        
-        // Queue the sync operation if we have an online interview ID
-        const syncManager = getSyncManager();
-        if (activeInterview.id && !activeInterview.id.startsWith('offline-') && !activeInterview.id.startsWith('temp-')) {
-          await syncManager.queueOperation(
-            'INTERVIEW_RESULT',
-            { result },
-            {
-              offlineId: activeOfflineInterviewId,
-              onlineId: activeInterview.id,
-              entityType: 'interview',
-              priority: 3 // Highest priority
-            }
-          );
-          console.log(`[InterviewResult] Queued result sync for interview ${activeInterview.id}`);
-        } else {
-          // Just queue it with the offline ID
-          await syncManager.queueOperation(
-            'INTERVIEW_RESULT',
-            { result },
-            {
-              offlineId: activeOfflineInterviewId,
-              entityType: 'interview',
-              priority: 3
-            }
-          );
-          console.log(`[InterviewResult] Queued result sync for offline interview ${activeOfflineInterviewId}`);
-        }
         
         setActiveInterview(null);
         if (setActiveOfflineInterviewId) {
@@ -68,87 +37,50 @@ export const useInterviewResult = (
         
         toast({
           title: "Interview Completed",
-          description: `Interview marked as ${result}. Will sync when online.`,
+          description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}. ${!isOnline() ? 'Will sync when online.' : ''}`,
         });
         
+        setIsInterviewLoading(false);
         return;
       }
       
-      // Online mode - direct update to Supabase
-      if (isOnline()) {
-        const { error } = await supabase
-          .from('interviews')
-          .update({
-            result,
-            is_active: false
-          })
-          .eq('id', activeInterview.id);
-          
-        if (error) {
-          console.error('[InterviewResult] Error updating interview:', error);
-          
-          // If online but update failed, queue for sync
-          const syncManager = getSyncManager();
-          await syncManager.queueOperation(
-            'INTERVIEW_RESULT',
-            { result },
-            {
-              onlineId: activeInterview.id,
-              entityType: 'interview',
-              priority: 3
-            }
-          );
-          
-          toast({
-            title: "Interview Completed",
-            description: `Interview marked as ${result}. Queued for sync.`,
-          });
-        } else {
-          toast({
-            title: "Interview Completed",
-            description: `Interview marked as ${result}.`,
-          });
-        }
-      } else {
-        // Offline mode - queue for sync
-        const syncManager = getSyncManager();
-        await syncManager.queueOperation(
-          'INTERVIEW_RESULT',
-          { result },
-          {
-            onlineId: activeInterview.id,
-            entityType: 'interview',
-            priority: 3
-          }
-        );
-        
-        toast({
-          title: "Interview Completed",
-          description: `Interview marked as ${result}. Will sync when online.`,
-        });
+      // For online interviews, proceed as usual
+      if (!activeInterview.id) {
+        throw new Error("Invalid interview ID");
       }
+      
+      const { error } = await supabase
+        .from('interviews')
+        .update({
+          result,
+          is_active: false
+        })
+        .eq('id', activeInterview.id);
+        
+      if (error) throw error;
       
       setActiveInterview(null);
       setShowResultDialog(false);
       
+      toast({
+        title: "Interview Completed",
+        description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}`,
+      });
     } catch (error) {
-      console.error('[InterviewResult] Error setting interview result:', error);
+      console.error("Error setting interview result:", error);
       toast({
         title: "Error",
-        description: "Could not set interview result",
+        description: "Could not complete interview",
         variant: "destructive",
       });
     } finally {
       setIsInterviewLoading(false);
     }
-  }, [activeInterview, activeOfflineInterviewId, setActiveInterview, setShowResultDialog, setIsInterviewLoading, setActiveOfflineInterviewId, toast]);
+  }, [activeInterview, activeOfflineInterviewId, setActiveInterview, setShowResultDialog, setIsInterviewLoading, toast, setActiveOfflineInterviewId]);
 
   const cancelResultDialog = useCallback(() => {
     setShowResultDialog(false);
   }, [setShowResultDialog]);
 
-  return {
-    setInterviewResult,
-    cancelResultDialog
-  };
+  return { setInterviewResult, cancelResultDialog };
 };

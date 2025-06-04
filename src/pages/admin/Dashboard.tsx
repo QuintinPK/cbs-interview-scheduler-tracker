@@ -1,4 +1,3 @@
-
 import React, { useMemo } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
 import ActiveInterviewersCard from "@/components/admin/ActiveInterviewersCard";
@@ -21,11 +20,6 @@ const Dashboard = () => {
     // Only show interviewers assigned to the selected project AND filtered by island if set
     return interviewers.length;
   }, [selectedProject, interviewers, selectedIsland]);
-
-  const refreshData = () => {
-    // This function will be passed to components that need to refresh data
-    // The useDataFetching hook handles the actual data fetching
-  };
 
   return (
     <AdminLayout>
@@ -73,7 +67,8 @@ const Dashboard = () => {
           />
           <UnusualSessionsCard 
             sessions={sessions} 
-            onSessionsChange={refreshData}
+            interviewers={interviewers} 
+            loading={loading} 
           />
         </div>
         
