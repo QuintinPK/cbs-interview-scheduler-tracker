@@ -4,8 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import GlobalFilter from '@/components/GlobalFilter';
 import { 
   BarChart, Users, Calendar, ClipboardList, 
-  LogOut, Home, Menu, X, DollarSign, Settings, Folder,
-  LayoutDashboard, FileSpreadsheet
+  LogOut, Home, Menu, X, DollarSign, Settings, Folder
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,12 +27,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, showFilters = true 
   };
   
   const navItems = [
-    { path: "/admin/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+    { path: "/admin/dashboard", label: "Dashboard", icon: <BarChart className="h-5 w-5" /> },
     { path: "/admin/sessions", label: "Session Logs", icon: <ClipboardList className="h-5 w-5" /> },
     { path: "/admin/interviewers", label: "Interviewers", icon: <Users className="h-5 w-5" /> },
     { path: "/admin/projects", label: "Projects", icon: <Folder className="h-5 w-5" /> },
     { path: "/admin/scheduling", label: "Scheduling", icon: <Calendar className="h-5 w-5" /> },
-    { path: "/admin/data-explorer", label: "Data Explorer", icon: <FileSpreadsheet className="h-5 w-5" /> },
     { path: "/admin/costs", label: "Costs", icon: <DollarSign className="h-5 w-5" /> },
   ];
   
