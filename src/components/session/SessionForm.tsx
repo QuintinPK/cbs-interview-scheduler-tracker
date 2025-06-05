@@ -108,7 +108,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   // Fetch active interview when session changes
   useEffect(() => {
     if (activeSession?.id) {
-      fetchActiveInterview(activeSession.id);
+      fetchActiveInterview();
     }
   }, [activeSession, fetchActiveInterview]);
 
