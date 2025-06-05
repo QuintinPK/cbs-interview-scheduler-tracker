@@ -18,9 +18,15 @@ export const useInterviewActions = (sessionId: string | null, offlineSessionId: 
   
   // Fetch active interview for online sessions
   const fetchActiveInterview = async () => {
-    if (!sessionId || offlineSessionId !== null) return;
+    // Don't fetch if we don't have a valid session ID or if we're in offline mode
+    if (!sessionId || offlineSessionId !== null || !isOnline()) {
+      console.log("Skipping fetchActiveInterview - sessionId:", sessionId, "offlineSessionId:", offlineSessionId, "isOnline:", isOnline());
+      setIsInterviewLoading(false);
+      return;
+    }
     
     try {
+      console.log("Fetching active interview for session:", sessionId);
       setIsInterviewLoading(true);
       
       const { data, error } = await supabase
@@ -35,6 +41,7 @@ export const useInterviewActions = (sessionId: string | null, offlineSessionId: 
         return;
       }
       
+      console.log("Fetched active interview:", data);
       setActiveInterview(data);
     } catch (error) {
       console.error('Error fetching active interview:', error);
@@ -140,10 +147,15 @@ export const useInterviewActions = (sessionId: string | null, offlineSessionId: 
     }
   }, [offlineSessionId]);
 
-  // Fetch active interview on mount for online sessions
+  // Fetch active interview on mount for online sessions - with proper dependency tracking
   useEffect(() => {
-    if (sessionId && offlineSessionId === null) {
+    console.log("useInterviewActions effect triggered - sessionId:", sessionId, "offlineSessionId:", offlineSessionId);
+    
+    if (sessionId && offlineSessionId === null && isOnline()) {
       fetchActiveInterview();
+    } else {
+      // Reset loading state if we're not fetching
+      setIsInterviewLoading(false);
     }
   }, [sessionId, offlineSessionId]);
   
