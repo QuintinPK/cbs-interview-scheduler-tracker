@@ -1,28 +1,85 @@
 
-import { useInterviewState } from "./interview/useInterviewState";
+import { useState, useEffect } from "react";
 import { useInterviewStart } from "./interview/useInterviewStart";
 import { useInterviewStop } from "./interview/useInterviewStop";
-import { useInterviewResult } from "./interview/useInterviewResult";
-import { useState, useEffect } from "react";
 import { isOnline, getOfflineInterview, getInterviewsForOfflineSession } from "@/lib/offlineDB";
 import { Interview } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Main hook that combines all interview-related hooks
  */
 export const useInterviewActions = (sessionId: string | null, offlineSessionId: number | null = null) => {
+  const [activeInterview, setActiveInterview] = useState<Interview | null>(null);
   const [activeOfflineInterviewId, setActiveOfflineInterviewId] = useState<number | null>(null);
   const [offlineInterviews, setOfflineInterviews] = useState<any[]>([]);
+  const [isInterviewLoading, setIsInterviewLoading] = useState(false);
+  const [showResultDialog, setShowResultDialog] = useState(false);
   
-  const {
-    activeInterview,
-    setActiveInterview,
-    isInterviewLoading,
-    setIsInterviewLoading,
-    showResultDialog,
-    setShowResultDialog,
-    fetchActiveInterview
-  } = useInterviewState(sessionId);
+  // Fetch active interview for online sessions
+  const fetchActiveInterview = async () => {
+    if (!sessionId || offlineSessionId !== null) return;
+    
+    try {
+      setIsInterviewLoading(true);
+      
+      const { data, error } = await supabase
+        .from('interviews')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('is_active', true)
+        .maybeSingle();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching active interview:', error);
+        return;
+      }
+      
+      setActiveInterview(data);
+    } catch (error) {
+      console.error('Error fetching active interview:', error);
+    } finally {
+      setIsInterviewLoading(false);
+    }
+  };
+
+  // Interview result handlers
+  const setInterviewResult = async (result: string) => {
+    if (!activeInterview) return;
+    
+    try {
+      setIsInterviewLoading(true);
+      
+      if (activeOfflineInterviewId !== null) {
+        // Handle offline interview result
+        // This would need offline DB implementation
+        console.log('Setting offline interview result:', result);
+      } else {
+        // Handle online interview result
+        const { error } = await supabase
+          .from('interviews')
+          .update({ result, is_active: false })
+          .eq('id', activeInterview.id);
+          
+        if (error) {
+          console.error('Error setting interview result:', error);
+          return;
+        }
+      }
+      
+      setActiveInterview(null);
+      setShowResultDialog(false);
+      setActiveOfflineInterviewId(null);
+    } catch (error) {
+      console.error('Error setting interview result:', error);
+    } finally {
+      setIsInterviewLoading(false);
+    }
+  };
+
+  const cancelResultDialog = () => {
+    setShowResultDialog(false);
+  };
   
   const { startInterview } = useInterviewStart(
     sessionId,
@@ -37,15 +94,6 @@ export const useInterviewActions = (sessionId: string | null, offlineSessionId: 
     setShowResultDialog,
     setIsInterviewLoading,
     activeOfflineInterviewId
-  );
-  
-  const { setInterviewResult, cancelResultDialog } = useInterviewResult(
-    activeInterview,
-    setActiveInterview,
-    setShowResultDialog,
-    setIsInterviewLoading,
-    activeOfflineInterviewId,
-    setActiveOfflineInterviewId
   );
   
   // Fetch offline interviews for this session if we're offline
@@ -90,7 +138,14 @@ export const useInterviewActions = (sessionId: string | null, offlineSessionId: 
     if (!isOnline() && offlineSessionId !== null) {
       fetchOfflineInterviews();
     }
-  }, [offlineSessionId, setActiveInterview]);
+  }, [offlineSessionId]);
+
+  // Fetch active interview on mount for online sessions
+  useEffect(() => {
+    if (sessionId && offlineSessionId === null) {
+      fetchActiveInterview();
+    }
+  }, [sessionId, offlineSessionId]);
   
   return {
     activeInterview,
