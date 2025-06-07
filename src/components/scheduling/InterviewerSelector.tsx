@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { Interviewer } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
+import { sanitizeInput } from "@/lib/security";
 
 interface InterviewerSelectorProps {
   interviewers: Interviewer[];
@@ -31,6 +32,12 @@ export const InterviewerSelector = ({
     ? Math.round((workedHours / scheduledHours) * 100) 
     : 0;
 
+  // Handle selection with input sanitization
+  const handleInterviewerChange = (code: string) => {
+    const sanitizedCode = sanitizeInput(code);
+    onInterviewerChange(sanitizedCode);
+  };
+
   return (
     <Card className="bg-white">
       <CardContent className="pt-4">
@@ -39,7 +46,7 @@ export const InterviewerSelector = ({
             <Label htmlFor="interviewer-select">Select Interviewer</Label>
             <Select
               value={selectedInterviewerCode}
-              onValueChange={onInterviewerChange}
+              onValueChange={handleInterviewerChange}
             >
               <SelectTrigger id="interviewer-select" className="mt-1">
                 <SelectValue placeholder="Select an interviewer" />
@@ -47,7 +54,7 @@ export const InterviewerSelector = ({
               <SelectContent>
                 {interviewers.map((interviewer) => (
                   <SelectItem key={interviewer.id} value={interviewer.code}>
-                    {interviewer.code} - {interviewer.first_name} {interviewer.last_name}
+                    {sanitizeInput(interviewer.code)} - {sanitizeInput(interviewer.first_name)} {sanitizeInput(interviewer.last_name)}
                   </SelectItem>
                 ))}
               </SelectContent>

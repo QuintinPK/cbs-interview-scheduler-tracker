@@ -3,13 +3,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { SecureAuthProvider } from "./context/SecureAuthContext";
 import { FilterProvider } from "./contexts/FilterContext";
+import SecureProtectedRoute from "./components/auth/SecureProtectedRoute";
 
 // Pages
 import Index from "./pages/Index";
-import Login from "./pages/admin/Login";
+import SecureLogin from "./pages/admin/SecureLogin";
 import Dashboard from "./pages/admin/Dashboard";
 import Sessions from "./pages/admin/Sessions";
 import Interviewers from "./pages/admin/Interviewers";
@@ -21,31 +22,22 @@ import Projects from "./pages/admin/Projects";
 import ProjectAssign from "./pages/admin/ProjectAssign";
 import NotFound from "./pages/NotFound";
 
-// Protected route component needs to be inside the AuthProvider context
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
-  const location = useLocation();
-  
-  if (!isAuthenticated) {
-    // Redirect to login page and remember where they were trying to go
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-// AppRoutes component needs to be inside the AuthProvider
+// AppRoutes component with secure authentication
 const AppRoutes = () => {
   return (
     <Routes>
+      {/* Public routes */}
       <Route path="/" element={<Index />} />
-      <Route path="/admin/login" element={<Login />} />
+      <Route path="/admin/secure-login" element={<SecureLogin />} />
       
-      {/* Protected Admin Routes */}
+      {/* Redirect old login route to new secure login */}
+      <Route path="/admin/login" element={<Navigate to="/admin/secure-login" replace />} />
+      
+      {/* Protected Admin Routes - all require admin role */}
       <Route 
         path="/admin/*" 
         element={
-          <ProtectedRoute>
+          <SecureProtectedRoute requireAdmin={true}>
             <FilterProvider>
               <Routes>
                 <Route path="dashboard" element={<Dashboard />} />
@@ -61,7 +53,7 @@ const AppRoutes = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </FilterProvider>
-          </ProtectedRoute>
+          </SecureProtectedRoute>
         } 
       />
       
@@ -74,18 +66,18 @@ const AppRoutes = () => {
 // Create a new QueryClient instance outside of component rendering
 const queryClient = new QueryClient();
 
-// App component with correct provider nesting order
+// App component with secure authentication
 const App = () => {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
+        <SecureAuthProvider>
           <TooltipProvider>
             <AppRoutes />
             <Toaster />
             <Sonner />
           </TooltipProvider>
-        </AuthProvider>
+        </SecureAuthProvider>
       </QueryClientProvider>
     </BrowserRouter>
   );

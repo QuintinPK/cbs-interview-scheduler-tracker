@@ -33,6 +33,78 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          id: string
+          ip_address: unknown | null
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          id?: string
+          ip_address?: unknown | null
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      data_explorer_reports: {
+        Row: {
+          chart_type: string
+          created_at: string | null
+          data_source: string
+          favorite: boolean | null
+          id: string
+          name: string
+          query_config: Json
+          updated_at: string | null
+        }
+        Insert: {
+          chart_type: string
+          created_at?: string | null
+          data_source: string
+          favorite?: boolean | null
+          id?: string
+          name: string
+          query_config: Json
+          updated_at?: string | null
+        }
+        Update: {
+          chart_type?: string
+          created_at?: string | null
+          data_source?: string
+          favorite?: boolean | null
+          id?: string
+          name?: string
+          query_config?: Json
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       evaluation_tags: {
         Row: {
           category: string
@@ -481,14 +553,89 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_interviewers_sessions_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_interviews_results_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_projects_interviewers_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_sessions_duration_data: {
+        Args: {
+          p_rows: string[]
+          p_columns: string[]
+          p_values: string[]
+          p_filters: Json
+        }
+        Returns: Json
+      }
+      get_user_role: {
+        Args: { user_uuid: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          user_uuid: string
+          required_role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: { user_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "interviewer"
       island: "Bonaire" | "Saba" | "Sint Eustatius"
     }
     CompositeTypes: {
@@ -605,6 +752,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "interviewer"],
       island: ["Bonaire", "Saba", "Sint Eustatius"],
     },
   },
