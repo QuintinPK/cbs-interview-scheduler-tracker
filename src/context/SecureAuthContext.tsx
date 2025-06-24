@@ -25,21 +25,22 @@ export const SecureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { toast } = useToast();
 
-  // Check if user has admin role
+  // Check if user has admin role using the security definer function
   const checkAdminRole = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .single();
+      console.log('Checking admin role for user:', userId);
       
-      if (error && error.code !== 'PGRST116') {
+      // Use the is_admin security definer function via RPC
+      const { data, error } = await supabase.rpc('is_admin', { 
+        user_uuid: userId 
+      });
+      
+      if (error) {
         console.error('Error checking admin role:', error);
         return false;
       }
       
+      console.log('Admin check result:', data);
       return !!data;
     } catch (error) {
       console.error('Error checking admin role:', error);
@@ -52,6 +53,7 @@ export const SecureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -59,6 +61,7 @@ export const SecureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           // Check admin role asynchronously
           setTimeout(async () => {
             const adminStatus = await checkAdminRole(session.user.id);
+            console.log('Setting admin status:', adminStatus);
             setIsAdmin(adminStatus);
             setIsLoading(false);
           }, 0);
@@ -71,11 +74,13 @@ export const SecureAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
         checkAdminRole(session.user.id).then(adminStatus => {
+          console.log('Initial admin status:', adminStatus);
           setIsAdmin(adminStatus);
           setIsLoading(false);
         });

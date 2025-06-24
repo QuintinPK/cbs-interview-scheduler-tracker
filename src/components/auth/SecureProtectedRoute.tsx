@@ -12,8 +12,10 @@ const SecureProtectedRoute: React.FC<SecureProtectedRouteProps> = ({
   children, 
   requireAdmin = false 
 }) => {
-  const { isAuthenticated, isAdmin, isLoading } = useSecureAuth();
+  const { isAuthenticated, isAdmin, isLoading, user } = useSecureAuth();
   const location = useLocation();
+  
+  console.log('SecureProtectedRoute - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin, 'isLoading:', isLoading, 'user:', user?.email);
   
   // Show loading state while checking authentication
   if (isLoading) {
@@ -34,11 +36,14 @@ const SecureProtectedRoute: React.FC<SecureProtectedRouteProps> = ({
   
   // Redirect to unauthorized page if admin access required but user is not admin
   if (requireAdmin && !isAdmin) {
+    console.log('Access denied - requireAdmin:', requireAdmin, 'isAdmin:', isAdmin);
     return (
       <div className="flex justify-center items-center min-h-[80vh]">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
           <p className="text-gray-600">You don't have admin privileges to access this page.</p>
+          <p className="text-sm text-gray-500 mt-2">User: {user?.email}</p>
+          <p className="text-sm text-gray-500">Admin status: {isAdmin ? 'Yes' : 'No'}</p>
         </div>
       </div>
     );
