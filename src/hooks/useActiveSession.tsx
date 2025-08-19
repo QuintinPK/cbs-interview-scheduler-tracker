@@ -280,6 +280,9 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
 
   // Function to end session while preserving the primary user status
   const endSession = async () => {
+    // Check if this is an offline session that went online (pseudo-ID in activeSession)
+    const isOfflineSessionId = activeSession && typeof activeSession.id === 'string' && activeSession.id.startsWith('offline-');
+    
     // If we have an offline session ID, update the offline session
     if (offlineSessionId !== null) {
       try {
@@ -296,6 +299,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           return;
         }
         
+        console.log("Ending offline session:", offlineSessionId);
         await updateOfflineSession(
           offlineSessionId,
           new Date().toISOString(),
@@ -305,6 +309,7 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
         
         // Try to sync if we're online
         if (isOnline()) {
+          console.log("Triggering sync for offline session");
           syncOfflineSessions().catch(err => {
             console.error("Error syncing during session end:", err);
           });
@@ -319,8 +324,56 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           description: "Could not end session",
           variant: "destructive",
         });
+        throw error; // Re-throw to let parent handle the error
       }
       return;
+    }
+    
+    // Handle case where session was started offline but we only have activeSession (no offlineSessionId)
+    if (isOfflineSessionId && activeSession) {
+      console.log("Handling offline session that went online via pseudo-ID:", activeSession.id);
+      
+      try {
+        // Extract the offline session number from the pseudo-ID
+        const offlineId = parseInt(activeSession.id.replace('offline-', ''));
+        if (!isNaN(offlineId)) {
+          // Check if all interviews are completed
+          const interviews = await getInterviewsForOfflineSession(offlineId);
+          const hasUnfinishedInterviews = interviews.some(i => i.result === null);
+          
+          if (hasUnfinishedInterviews) {
+            toast({
+              title: "Error", 
+              description: "Please complete all interviews before ending your session",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          // Update the offline session
+          await updateOfflineSession(
+            offlineId,
+            new Date().toISOString(),
+            undefined
+          );
+          
+          // Try to sync if online
+          if (isOnline()) {
+            console.log("Triggering sync for offline session that went online");
+            syncOfflineSessions().catch(err => {
+              console.error("Error syncing offline session that went online:", err);
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error handling offline session that went online:", error);
+        toast({
+          title: "Error",
+          description: "Could not end session",
+          variant: "destructive", 
+        });
+        throw error;
+      }
     }
     
     resetSessionState();

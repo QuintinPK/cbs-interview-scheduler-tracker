@@ -694,8 +694,12 @@ const SessionForm: React.FC<SessionFormProps> = ({
       // Get current location
       const currentLocation = await getCurrentLocation();
       
-      // If online with an active session
-      if (isOnline() && activeSession) {
+      // Check if this is an offline session that went online
+      const isOfflineSessionId = activeSession && typeof activeSession.id === 'string' && activeSession.id.startsWith('offline-');
+      
+      // If online with a real Supabase session (not offline pseudo-ID)
+      if (isOnline() && activeSession && !isOfflineSessionId) {
+        console.log("Ending online session with Supabase ID:", activeSession.id);
         const { error: updateError } = await supabase
           .from('sessions')
           .update({
@@ -710,20 +714,33 @@ const SessionForm: React.FC<SessionFormProps> = ({
         if (updateError) {
           throw updateError;
         }
+      } else if (isOfflineSessionId) {
+        console.log("Detected offline session that went online, handling via offline session logic");
+        // This is an offline session that went online - we need to handle it through offline sync
+        // Don't try to update Supabase directly with the pseudo-ID
       }
       
-      // Call the endSession function which handles offline sessions
+      // Call the endSession function which handles offline sessions and syncing
       await endSession();
+      
+      // If we're online and this was an offline session, trigger immediate sync
+      if (isOnline() && (isOfflineSessionId || offlineSessionId !== null)) {
+        console.log("Triggering immediate sync for offline session");
+        // Trigger sync in background without waiting
+        syncOfflineSessions().catch(err => {
+          console.error("Error syncing after session end:", err);
+        });
+      }
       
       toast({
         title: "Session Ended",
-        description: `Ended at ${new Date().toLocaleTimeString()}`,
+        description: `Ended at ${new Date().toLocaleTimeString()}${!isOnline() ? '. Will sync when online.' : ''}`,
       });
     } catch (error) {
       console.error("Error ending session:", error);
       toast({
         title: "Error",
-        description: "Could not end session",
+        description: `Could not end session${error?.message ? ': ' + error.message : ''}`,
         variant: "destructive",
       });
     } finally {
