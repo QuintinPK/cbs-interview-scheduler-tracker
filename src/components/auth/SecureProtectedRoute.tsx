@@ -15,15 +15,13 @@ const SecureProtectedRoute: React.FC<SecureProtectedRouteProps> = ({
   const { isAuthenticated, isAdmin, isLoading, user } = useSecureAuth();
   const location = useLocation();
   
-  console.log('SecureProtectedRoute - isAuthenticated:', isAuthenticated, 'isAdmin:', isAdmin, 'isLoading:', isLoading, 'user:', user?.email);
-  
   // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[80vh]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cbs mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Checking authentication...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+          <p className="text-sm text-muted-foreground">Checking authentication...</p>
         </div>
       </div>
     );
@@ -36,14 +34,12 @@ const SecureProtectedRoute: React.FC<SecureProtectedRouteProps> = ({
   
   // Redirect to unauthorized page if admin access required but user is not admin
   if (requireAdmin && !isAdmin) {
-    console.log('Access denied - requireAdmin:', requireAdmin, 'isAdmin:', isAdmin);
     return (
       <div className="flex justify-center items-center min-h-[80vh]">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-2">Access Denied</h2>
-          <p className="text-gray-600">You don't have admin privileges to access this page.</p>
-          <p className="text-sm text-gray-500 mt-2">User: {user?.email}</p>
-          <p className="text-sm text-gray-500">Admin status: {isAdmin ? 'Yes' : 'No'}</p>
+          <h2 className="text-2xl font-bold text-destructive mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">You don't have admin privileges to access this page.</p>
+          <p className="text-sm text-muted-foreground mt-2">User: {user?.email}</p>
         </div>
       </div>
     );

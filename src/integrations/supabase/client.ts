@@ -6,42 +6,13 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://jljhtvfrkxehvdvhfktv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impsamh0dmZya3hlaHZkdmhma3R2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNzc0MzgsImV4cCI6MjA1OTY1MzQzOH0.No4bnq7PUvkeNMZliZx8QV-KEEemjcwaw_HfBT0bqrM";
 
-// Create Supabase client with debug logging for development
+// Create Supabase client with optimal configuration
 const supabaseOptions = {
   auth: {
     persistSession: true, // Store session in local storage
     autoRefreshToken: true, // Automatically refresh token if needed
     detectSessionInUrl: false, // We're not using OAuth redirects
   },
-  global: {
-    // Add request/response logging in development to help debug issues
-    fetch: (...args: Parameters<typeof fetch>) => {
-      // Log the request
-      console.log('Supabase request:', args[0]);
-      
-      // Make the actual fetch call
-      return fetch(...args)
-        .then(response => {
-          // Clone the response to read it without consuming it
-          const clone = response.clone();
-          
-          // Try to log the JSON response if possible
-          clone.text().then(text => {
-            try {
-              const json = JSON.parse(text);
-              console.log('Supabase response:', json);
-            } catch (e) {
-              // If not JSON, log the text
-              console.log('Supabase response (not JSON):', text.substring(0, 200) + (text.length > 200 ? '...' : ''));
-            }
-          }).catch(err => {
-            console.log('Could not read Supabase response:', err);
-          });
-          
-          return response;
-        });
-    }
-  }
 };
 
 // Import the supabase client like this:
