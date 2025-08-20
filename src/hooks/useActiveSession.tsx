@@ -10,7 +10,8 @@ import {
   getInterviewsForOfflineSession,
   cacheInterviewer,
   getInterviewerByCode,
-  cacheProjects
+  cacheProjects,
+  type SyncResult
 } from "@/lib/offlineDB";
 
 export const useActiveSession = (initialInterviewerCode: string = "") => {
@@ -307,12 +308,24 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           undefined
         );
         
-        // Try to sync if we're online
+        // Try to sync if we're online and update session state
         if (isOnline()) {
           console.log("Triggering sync for offline session");
-          syncOfflineSessions().catch(err => {
+          try {
+            const syncResult = await syncOfflineSessions();
+            if (syncResult.success) {
+              // Check if our current session was synced
+              const syncedSession = syncResult.syncedSessions.find(s => s.offlineId === offlineSessionId);
+              if (syncedSession && activeSession) {
+                console.log("Session successfully synced, updating state with Supabase ID:", syncedSession.supabaseId);
+                // Update activeSession with real Supabase ID
+                const updatedSession = { ...activeSession, id: syncedSession.supabaseId };
+                updateSessionState(updatedSession);
+              }
+            }
+          } catch (err) {
             console.error("Error syncing during session end:", err);
-          });
+          }
         }
         
         // Reset session state
@@ -357,12 +370,49 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
             undefined
           );
           
-          // Try to sync if online
+          // Try to sync if online and update session state
           if (isOnline()) {
             console.log("Triggering sync for offline session that went online");
-            syncOfflineSessions().catch(err => {
+            try {
+              const syncResult = await syncOfflineSessions();
+              if (syncResult.success) {
+                // Check if our current session was synced
+                const syncedSession = syncResult.syncedSessions.find(s => s.offlineId === offlineId);
+                if (syncedSession) {
+                  console.log("Session successfully synced, updating state with Supabase ID:", syncedSession.supabaseId);
+                  // Update activeSession with real Supabase ID before ending
+                  const updatedSession = { ...activeSession, id: syncedSession.supabaseId };
+                  updateSessionState(updatedSession);
+                  
+                  // Now we can properly end the session in Supabase
+                  const { error } = await supabase
+                    .from('sessions')
+                    .update({ 
+                      is_active: false,
+                      end_time: new Date().toISOString()
+                    })
+                    .eq('id', syncedSession.supabaseId);
+                    
+                  if (error) {
+                    console.error("Error updating session in Supabase:", error);
+                    toast({
+                      title: "Error",
+                      description: "Could not end session in database",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
+              }
+            } catch (err) {
               console.error("Error syncing offline session that went online:", err);
-            });
+              toast({
+                title: "Error",
+                description: "Could not sync session",
+                variant: "destructive",
+              });
+              return;
+            }
           }
         }
       } catch (error) {
@@ -371,6 +421,37 @@ export const useActiveSession = (initialInterviewerCode: string = "") => {
           title: "Error",
           description: "Could not end session",
           variant: "destructive", 
+        });
+        throw error;
+      }
+    }
+    
+    // Handle regular online sessions
+    if (activeSession && !isOfflineSessionId) {
+      try {
+        const { error } = await supabase
+          .from('sessions')
+          .update({ 
+            is_active: false,
+            end_time: new Date().toISOString()
+          })
+          .eq('id', activeSession.id);
+          
+        if (error) {
+          console.error("Error updating session in Supabase:", error);
+          toast({
+            title: "Error",
+            description: "Could not end session",
+            variant: "destructive",
+          });
+          return;
+        }
+      } catch (error) {
+        console.error("Error ending online session:", error);
+        toast({
+          title: "Error",
+          description: "Could not end session",
+          variant: "destructive",
         });
         throw error;
       }

@@ -1227,13 +1227,24 @@ export const syncOfflineInterview = async (interviewId: number, supabaseSessionI
 };
 
 // Improved synchronization of all offline sessions
-export const syncOfflineSessions = async (): Promise<boolean> => {
+export interface SyncResult {
+  success: boolean;
+  syncedSessions: Array<{
+    offlineId: number;
+    supabaseId: string;
+    startTime: string;
+    interviewerCode: string;
+  }>;
+}
+
+export const syncOfflineSessions = async (): Promise<SyncResult> => {
   if (!isOnline()) {
     console.log("Cannot sync sessions while offline");
-    return false;
+    return { success: false, syncedSessions: [] };
   }
   
   const syncId = `sync-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  const syncedSessions: SyncResult['syncedSessions'] = [];
   
   try {
     // First reset any stalled operations
@@ -1244,7 +1255,7 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
     
     if (!lockAcquired) {
       console.log("Could not acquire sync lock, another sync may be in progress");
-      return false;
+      return { success: false, syncedSessions: [] };
     }
     
     console.log(`Starting sync with ID: ${syncId}`);
@@ -1295,6 +1306,17 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
         
         if (success) {
           successCount++;
+          
+          // Get the updated session record to get the Supabase ID
+          const updatedSession = await offlineDB.sessions.get(session.id as number);
+          if (updatedSession && updatedSession.supabaseId) {
+            syncedSessions.push({
+              offlineId: session.id as number,
+              supabaseId: updatedSession.supabaseId,
+              startTime: session.startTime,
+              interviewerCode: session.interviewerCode
+            });
+          }
         }
       } catch (e) {
         console.error(`Error syncing session ${session.id}:`, e);
@@ -1335,11 +1357,11 @@ export const syncOfflineSessions = async (): Promise<boolean> => {
     logSync('SyncAll', 'Sync completed', 'success', 
       `Completed sync operation. Sessions synced: ${successCount}/${unsyncedSessions.length}`);
     
-    return true;
+    return { success: true, syncedSessions };
   } catch (error) {
     console.error("Error during sync operation:", error);
     logSync('SyncAll', 'Sync error', 'error', `Error during sync operation: ${error}`);
-    return false;
+    return { success: false, syncedSessions };
   } finally {
     // Always clean up
     localStorage.removeItem("sync_in_progress");

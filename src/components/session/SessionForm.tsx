@@ -27,7 +27,8 @@ import {
   acquireSyncLock,
   releaseSyncLock,
   getSyncStatus,
-  logSync
+  logSync,
+  type SyncResult
 } from "@/lib/offlineDB";
 
 interface SessionFormProps {
@@ -334,9 +335,9 @@ const SessionForm: React.FC<SessionFormProps> = ({
       
       console.log("Starting manual sync with ID:", syncId);
       
-      const success = await syncOfflineSessions();
+      const result = await syncOfflineSessions();
       
-      if (success) {
+      if (result.success) {
         // Update counts after sync
         const newSessionCount = await getUnsyncedSessionsCount();
         const newInterviewCount = await getUnsyncedInterviewsCount();
@@ -727,7 +728,11 @@ const SessionForm: React.FC<SessionFormProps> = ({
       if (isOnline() && (isOfflineSessionId || offlineSessionId !== null)) {
         console.log("Triggering immediate sync for offline session");
         // Trigger sync in background without waiting
-        syncOfflineSessions().catch(err => {
+        syncOfflineSessions().then(result => {
+          if (result.success && result.syncedSessions.length > 0) {
+            console.log("Sync completed, sessions synced:", result.syncedSessions.length);
+          }
+        }).catch(err => {
           console.error("Error syncing after session end:", err);
         });
       }
