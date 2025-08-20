@@ -33,27 +33,25 @@ const AppRoutes = () => {
       {/* Redirect old login route to new secure login */}
       <Route path="/admin/login" element={<Navigate to="/admin/secure-login" replace />} />
       
-      {/* Protected Admin Routes - all require admin role */}
+      {/* Admin Routes - authentication disabled */}
       <Route 
         path="/admin/*" 
         element={
-          <SecureProtectedRoute requireAdmin={true}>
-            <FilterProvider>
-              <Routes>
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="sessions" element={<Sessions />} />
-                <Route path="interviewers" element={<Interviewers />} />
-                <Route path="interviewer/:interviewerId" element={<InterviewerDashboard />} />
-                <Route path="projects" element={<Projects />} />
-                <Route path="projects/assign/:projectId" element={<ProjectAssign />} />
-                <Route path="costs" element={<Costs />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="scheduling" element={<InteractiveScheduling />} />
-                <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </FilterProvider>
-          </SecureProtectedRoute>
+          <FilterProvider>
+            <Routes>
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="sessions" element={<Sessions />} />
+              <Route path="interviewers" element={<Interviewers />} />
+              <Route path="interviewer/:interviewerId" element={<InterviewerDashboard />} />
+              <Route path="projects" element={<Projects />} />
+              <Route path="projects/assign/:projectId" element={<ProjectAssign />} />
+              <Route path="costs" element={<Costs />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="scheduling" element={<InteractiveScheduling />} />
+              <Route path="interactive-scheduling" element={<InteractiveScheduling />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </FilterProvider>
         } 
       />
       
