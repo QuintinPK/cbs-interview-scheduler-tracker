@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Project, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";

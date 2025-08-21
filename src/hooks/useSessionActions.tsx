@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Session } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentLocation } from "@/lib/utils";

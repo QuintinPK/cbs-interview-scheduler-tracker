@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Session, Interviewer, Project } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useFilter } from '@/contexts/FilterContext';
@@ -10,7 +10,16 @@ export const useDataFetching = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [interviewerProjects, setInterviewerProjects] = useState<Record<string, Project[]>>({});
-  const { selectedProject, selectedIsland, filterSessions, filterInterviewers, filterProjects } = useFilter();
+  
+  // Add null check for filter context
+  const filterContext = useFilter();
+  const { selectedProject, selectedIsland, filterSessions, filterInterviewers, filterProjects } = filterContext || {
+    selectedProject: null,
+    selectedIsland: undefined,
+    filterSessions: (sessions: Session[]) => sessions,
+    filterInterviewers: (interviewers: Interviewer[]) => interviewers,
+    filterProjects: (projects: Project[]) => projects
+  };
 
   // Function to fetch all data
   const fetchData = useCallback(async () => {
@@ -83,6 +92,11 @@ export const useDataFetching = () => {
       
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Set empty arrays on error to prevent crashes
+      setSessions([]);
+      setInterviewers([]);
+      setProjects([]);
+      setInterviewerProjects({});
     } finally {
       setLoading(false);
     }
@@ -93,33 +107,49 @@ export const useDataFetching = () => {
     fetchData();
   }, [fetchData]);
   
-  // Apply filters to the data
+  // Apply filters to the data with better null checks
   const filteredSessions = useMemo(() => {
-    if (!selectedProject && !selectedIsland) return sessions;
+    if (!sessions?.length || (!selectedProject && !selectedIsland)) return sessions;
     
-    let filtered = filterSessions(sessions);
-    
-    // Further filter by island if needed
-    if (selectedIsland) {
-      filtered = filtered.filter(session => {
-        const interviewer = interviewers.find(i => i.id === session.interviewer_id);
-        return interviewer && interviewer.island === selectedIsland;
-      });
+    try {
+      let filtered = filterSessions ? filterSessions(sessions) : sessions;
+      
+      // Further filter by island if needed
+      if (selectedIsland && interviewers?.length > 0) {
+        filtered = filtered.filter(session => {
+          const interviewer = interviewers.find(i => i?.id === session?.interviewer_id);
+          return interviewer?.island === selectedIsland;
+        });
+      }
+      
+      return filtered;
+    } catch (error) {
+      console.error('Error filtering sessions:', error);
+      return sessions;
     }
-    
-    return filtered;
   }, [sessions, interviewers, selectedProject, selectedIsland, filterSessions]);
   
   const filteredInterviewers = useMemo(() => {
-    if (!selectedIsland && !selectedProject) return interviewers;
+    if (!interviewers?.length || (!selectedIsland && !selectedProject)) return interviewers;
     
-    // Now use the interviewerProjects data for filtering by project
-    return filterInterviewers(interviewers, interviewerProjects);
+    try {
+      // Now use the interviewerProjects data for filtering by project
+      return filterInterviewers ? filterInterviewers(interviewers, interviewerProjects) : interviewers;
+    } catch (error) {
+      console.error('Error filtering interviewers:', error);
+      return interviewers;
+    }
   }, [interviewers, selectedIsland, selectedProject, filterInterviewers, interviewerProjects]);
   
   const filteredProjects = useMemo(() => {
-    if (!selectedIsland) return projects;
-    return filterProjects(projects);
+    if (!projects?.length || !selectedIsland) return projects;
+    
+    try {
+      return filterProjects ? filterProjects(projects) : projects;
+    } catch (error) {
+      console.error('Error filtering projects:', error);
+      return projects;
+    }
   }, [projects, selectedIsland, filterProjects]);
 
   return {
