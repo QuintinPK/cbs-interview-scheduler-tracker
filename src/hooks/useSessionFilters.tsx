@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Session, Interviewer } from "@/types";
 import { startOfDay, endOfDay } from "date-fns";
 

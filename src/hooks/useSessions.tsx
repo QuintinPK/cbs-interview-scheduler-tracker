@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Session, Interviewer } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useSessionFilters } from "./useSessionFilters";
@@ -19,10 +19,8 @@ export const useSessions = (
   const { interviewers, projects } = useDataFetching();
   const { selectedProject, selectedIsland } = useFilter();
   
-  const channelRef = useRef<any>(null);
-  
-  // Function to load sessions data with better error handling
-  const loadSessions = useCallback(async () => {
+  // Function to load sessions data
+  const loadSessions = async () => {
     try {
       setLoading(true);
       
@@ -54,65 +52,43 @@ export const useSessions = (
         description: "Could not load sessions",
         variant: "destructive",
       });
-      setSessions([]); // Set empty array on error to prevent crashes
     } finally {
       setLoading(false);
     }
-  }, [interviewerId, startDate, endDate, toast]);
+  };
   
-  // Set up real-time listener for sessions with better cleanup
+  // Set up real-time listener for sessions
   useEffect(() => {
-    // Clean up existing channel first
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-    
     loadSessions();
     
-    // Set up real-time listener for new sessions with unique channel name
-    const channelName = `sessions_${Date.now()}_${Math.random()}`;
-    channelRef.current = supabase
-      .channel(channelName)
+    // Set up real-time listener for new sessions
+    const channel = supabase
+      .channel('public:sessions')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'sessions' 
-      }, (payload) => {
-        console.log('Real-time session update:', payload);
-        try {
-          if (payload.eventType === 'INSERT') {
-            setSessions(current => {
-              // Prevent duplicates
-              const exists = current.some(s => s.id === payload.new.id);
-              return exists ? current : [payload.new as Session, ...current];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setSessions(current => 
-              current.map(session => 
-                session.id === payload.new.id ? { ...session, ...payload.new } as Session : session
-              )
-            );
-          } else if (payload.eventType === 'DELETE') {
-            setSessions(current => 
-              current.filter(session => session.id !== payload.old.id)
-            );
-          }
-        } catch (error) {
-          console.error('Error handling real-time session update:', error);
+      }, payload => {
+        if (payload.eventType === 'INSERT') {
+          setSessions(current => [payload.new as Session, ...current]);
+        } else if (payload.eventType === 'UPDATE') {
+          setSessions(current => 
+            current.map(session => 
+              session.id === payload.new.id ? payload.new as Session : session
+            )
+          );
+        } else if (payload.eventType === 'DELETE') {
+          setSessions(current => 
+            current.filter(session => session.id !== payload.old.id)
+          );
         }
       })
-      .subscribe((status) => {
-        console.log('Session subscription status:', status);
-      });
+      .subscribe();
       
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      supabase.removeChannel(channel);
     };
-  }, [loadSessions]);
+  }, [interviewerId, startDate, endDate, toast]);
   
   // Function to manually refresh sessions
   const refreshSessions = async () => {
@@ -143,45 +119,32 @@ export const useSessions = (
     toast
   );
   
-  // Helper function to get interviewer code from ID with null checks
-  const getInterviewerCode = useCallback((interviewerId: string): string => {
-    if (!interviewerId || !interviewers?.length) return "Unknown";
-    try {
-      const interviewer = interviewers.find(i => i?.id === interviewerId);
-      return interviewer?.code || "Unknown";
-    } catch (error) {
-      console.error('Error getting interviewer code:', error);
-      return "Unknown";
-    }
-  }, [interviewers]);
+  // Helper function to get interviewer code from ID
+  const getInterviewerCode = (interviewerId: string): string => {
+    const interviewer = interviewers.find(i => i.id === interviewerId);
+    return interviewer ? interviewer.code : "Unknown";
+  };
   
-  // Filter sessions based on global filters and session-specific filters with null checks
+  // Filter sessions based on global filters and session-specific filters
   const filteredSessions = filterResults.filter(session => {
-    if (!session) return false;
+    // Apply global project filter if set
+    const matchesProject = !selectedProject || session.project_id === selectedProject.id;
     
-    try {
-      // Apply global project filter if set
-      const matchesProject = !selectedProject || session.project_id === selectedProject?.id;
-      
-      // Apply global island filter if set
-      let matchesIsland = true;
-      if (selectedIsland && interviewers?.length > 0) {
-        const sessionInterviewer = interviewers.find(i => i?.id === session.interviewer_id);
-        matchesIsland = sessionInterviewer?.island === selectedIsland;
-      }
-      
-      // Apply interviewer code filter
-      let matchesInterviewerCode = true;
-      if (interviewerCodeFilter?.trim() && interviewers?.length > 0) {
-        const interviewerCode = getInterviewerCode(session.interviewer_id);
-        matchesInterviewerCode = interviewerCode.toLowerCase().includes(interviewerCodeFilter.toLowerCase());
-      }
-      
-      return matchesProject && matchesIsland && matchesInterviewerCode;
-    } catch (error) {
-      console.error('Error filtering session:', error, session);
-      return false;
+    // Apply global island filter if set
+    let matchesIsland = true;
+    if (selectedIsland) {
+      const sessionInterviewer = interviewers.find(i => i.id === session.interviewer_id);
+      matchesIsland = sessionInterviewer?.island === selectedIsland;
     }
+    
+    // Apply interviewer code filter
+    let matchesInterviewerCode = true;
+    if (interviewerCodeFilter.trim()) {
+      const interviewerCode = getInterviewerCode(session.interviewer_id);
+      matchesInterviewerCode = interviewerCode.toLowerCase().includes(interviewerCodeFilter.toLowerCase());
+    }
+    
+    return matchesProject && matchesIsland && matchesInterviewerCode;
   });
   
   // Apply filters function wrapper

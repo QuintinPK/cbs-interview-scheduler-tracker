@@ -1,7 +1,6 @@
 
-import React, { useState, Suspense } from "react";
+import React, { useState } from "react";
 import AdminLayout from "@/components/layout/AdminLayout";
-import ErrorBoundary from "@/components/ErrorBoundary";
 import { Session, Interview } from "@/types";
 import { exportToCSV, calculateDuration } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,23 +32,6 @@ import { supabase } from "@/integrations/supabase/client";
 const Sessions = () => {
   const { toast } = useToast();
   const { projects } = useProjects();
-  
-  // Wrap useSessions with error handling
-  const sessionsData = useSessions();
-  
-  if (!sessionsData) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <h2 className="text-2xl font-bold mb-2">Loading Sessions...</h2>
-            <p className="text-muted-foreground">Please wait while we load your session data.</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-  
   const { 
     sessions, 
     loading, 
@@ -64,7 +46,7 @@ const Sessions = () => {
     updateSession,
     deleteSession,
     refreshSessions
-  } = sessionsData;
+  } = useSessions();
   
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -234,212 +216,201 @@ const Sessions = () => {
   };
   
   return (
-    <ErrorBoundary>
-      <AdminLayout>
-        <Suspense fallback={
-          <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-2">Loading...</h2>
-              <p className="text-muted-foreground">Please wait while we load your data.</p>
-            </div>
+    <AdminLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h1 className="text-2xl md:text-3xl font-bold">Session Logs</h1>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              disabled={loading || refreshing}
+              className="flex items-center gap-2"
+            >
+              {refreshing ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <RefreshCw size={16} />
+              )}
+              Refresh
+            </Button>
+            <Button
+              onClick={handleExport}
+              className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
+              disabled={loading}
+            >
+              <Download size={16} />
+              Export to CSV
+            </Button>
           </div>
-        }>
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h1 className="text-2xl md:text-3xl font-bold">Session Logs</h1>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  disabled={loading || refreshing}
-                  className="flex items-center gap-2"
-                >
-                  {refreshing ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={16} />
-                  )}
-                  Refresh
-                </Button>
-                <Button
-                  onClick={handleExport}
-                  className="bg-cbs hover:bg-cbs-light flex items-center gap-2"
-                  disabled={loading}
-                >
-                  <Download size={16} />
-                  Export to CSV
-                </Button>
-              </div>
-            </div>
-            
-            <SessionFilters
-              interviewerCodeFilter={interviewerCodeFilter}
-              setInterviewerCodeFilter={setInterviewerCodeFilter}
-              dateFilter={dateFilter}
-              setDateFilter={setDateFilter}
-              applyFilters={applyFilters}
-              resetFilters={resetFilters}
-              loading={loading}
-            />
-            
-            <SessionList
-              sessions={sessions || []}
-              loading={loading}
-              getInterviewerCode={getInterviewerCode}
-              getSessionInterviews={getSessionInterviews}
-              getSessionInterviewsCount={getSessionInterviewsCount}
-              onEdit={handleEdit}
-              onStop={handleStopSession}
-              onDelete={handleDelete}
-              projects={projects || []}
-            />
-          </div>
+        </div>
+        
+        <SessionFilters
+          interviewerCodeFilter={interviewerCodeFilter}
+          setInterviewerCodeFilter={setInterviewerCodeFilter}
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
+          applyFilters={applyFilters}
+          resetFilters={resetFilters}
+          loading={loading}
+        />
+        
+        <SessionList
+          sessions={sessions}
+          loading={loading}
+          getInterviewerCode={getInterviewerCode}
+          getSessionInterviews={getSessionInterviews}
+          getSessionInterviewsCount={getSessionInterviewsCount}
+          onEdit={handleEdit}
+          onStop={handleStopSession}
+          onDelete={handleDelete}
+          projects={projects}
+        />
+      </div>
+      
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+          </DialogHeader>
           
-          <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Edit Session</DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Interviewer Code</Label>
-                  <Input 
-                    value={selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ""} 
-                    disabled 
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Start Date/Time</Label>
-                  <Input 
-                    value={selectedSession ? formatDateTime(selectedSession.start_time) : ""} 
-                    disabled 
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>End Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !editEndDate && "text-muted-foreground"
-                        )}
-                        disabled={submitting}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {editEndDate ? format(editEndDate, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 pointer-events-auto">
-                      <Calendar
-                        mode="single"
-                        selected={editEndDate}
-                        onSelect={setEditEndDate}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>End Time</Label>
-                  <Input
-                    type="time"
-                    value={editEndTime}
-                    onChange={(e) => setEditEndTime(e.target.value)}
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Interviewer Code</Label>
+              <Input 
+                value={selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ""} 
+                disabled 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Start Date/Time</Label>
+              <Input 
+                value={selectedSession ? formatDateTime(selectedSession.start_time) : ""} 
+                disabled 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>End Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !editEndDate && "text-muted-foreground"
+                    )}
                     disabled={submitting}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editEndDate ? format(editEndDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 pointer-events-auto">
+                  <Calendar
+                    mode="single"
+                    selected={editEndDate}
+                    onSelect={setEditEndDate}
+                    initialFocus
+                    className="pointer-events-auto"
                   />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>End Location (Latitude, Longitude)</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      placeholder="Latitude"
-                      value={editLocation.latitude}
-                      onChange={(e) => setEditLocation({ ...editLocation, latitude: e.target.value })}
-                      disabled={submitting}
-                    />
-                    <Input
-                      placeholder="Longitude"
-                      value={editLocation.longitude}
-                      onChange={(e) => setEditLocation({ ...editLocation, longitude: e.target.value })}
-                      disabled={submitting}
-                    />
-                  </div>
-                </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>End Time</Label>
+              <Input
+                type="time"
+                value={editEndTime}
+                onChange={(e) => setEditEndTime(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>End Location (Latitude, Longitude)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="Latitude"
+                  value={editLocation.latitude}
+                  onChange={(e) => setEditLocation({ ...editLocation, latitude: e.target.value })}
+                  disabled={submitting}
+                />
+                <Input
+                  placeholder="Longitude"
+                  value={editLocation.longitude}
+                  onChange={(e) => setEditLocation({ ...editLocation, longitude: e.target.value })}
+                  disabled={submitting}
+                />
               </div>
-              
-              <DialogFooter>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowEditDialog(false)}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={confirmEdit} 
-                  className="bg-cbs hover:bg-cbs-light"
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            </div>
+          </div>
           
-          <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Confirm Deletion</DialogTitle>
-              </DialogHeader>
-              
-              <div className="py-4">
-                <p>Are you sure you want to delete this session for {selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ''}?</p>
-                <p className="text-sm text-muted-foreground mt-2">This action cannot be undone.</p>
-              </div>
-              
-              <DialogFooter>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowDeleteDialog(false)}
-                  disabled={submitting}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={confirmDelete}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    "Delete"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </Suspense>
-      </AdminLayout>
-    </ErrorBoundary>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowEditDialog(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={confirmEdit} 
+              className="bg-cbs hover:bg-cbs-light"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p>Are you sure you want to delete this session for {selectedSession ? getInterviewerCode(selectedSession.interviewer_id) : ''}?</p>
+            <p className="text-sm text-muted-foreground mt-2">This action cannot be undone.</p>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminLayout>
   );
 };
 
