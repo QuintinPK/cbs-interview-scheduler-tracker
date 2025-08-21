@@ -79,8 +79,8 @@ export interface Interview {
   start_address?: string;
   end_address?: string;
   
-  // Add result property
-  result?: string;
+  // Add result property with specific types
+  result?: 'response' | 'non-response' | 'cancel';
   
   // Add active status
   is_active?: boolean;

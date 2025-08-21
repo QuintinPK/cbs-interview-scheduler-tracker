@@ -8,12 +8,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Ban } from "lucide-react";
 
 interface InterviewResultDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelectResult: (result: 'response' | 'non-response') => void;
+  onSelectResult: (result: 'response' | 'non-response' | 'cancel') => void;
   isSubmitting: boolean;
 }
 
@@ -34,7 +34,7 @@ const InterviewResultDialog: React.FC<InterviewResultDialogProps> = ({
         </DialogHeader>
         <div className="py-4">
           <p className="text-center mb-6">What was the result of the interview?</p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Button
               variant="outline"
               size="lg"
@@ -64,19 +64,34 @@ const InterviewResultDialog: React.FC<InterviewResultDialogProps> = ({
               <XCircle className="h-6 w-6 text-red-500" />
               <span className="font-medium">Non-response</span>
             </Button>
+            
+            <Button
+              variant="outline"
+              size="lg"
+              className="flex items-center justify-center gap-2 p-6 hover:bg-orange-50"
+              onClick={() => {
+                console.log("Cancel button clicked");
+                onSelectResult('cancel');
+              }}
+              disabled={isSubmitting}
+              type="button"
+            >
+              <Ban className="h-6 w-6 text-orange-500" />
+              <span className="font-medium">Cancel</span>
+            </Button>
           </div>
         </div>
         <DialogFooter>
           <Button
             variant="outline"
             onClick={() => {
-              console.log("Cancel button clicked");
+              console.log("Close dialog button clicked");
               onClose();
             }}
             disabled={isSubmitting}
             type="button"
           >
-            Cancel
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>

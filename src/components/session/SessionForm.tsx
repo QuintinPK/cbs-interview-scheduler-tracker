@@ -14,6 +14,7 @@ import InterviewResultDialog from "../interview/InterviewResultDialog";
 import { useInterviewActions } from "@/hooks/useInterviewActions";
 import ProjectSelector from "../project/ProjectSelector";
 import ProjectSelectionDialog from "./ProjectSelectionDialog";
+import SyncStatusIndicator from "./SyncStatusIndicator";
 import SyncStatus from "./SyncStatus";
 import { 
   isOnline, 
@@ -860,6 +861,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
       )}
       
       <div className="flex flex-col gap-4">
+        <SyncStatusIndicator />
+        
         {isRunning && (
           <InterviewButton
             isInterviewActive={!!activeInterview}

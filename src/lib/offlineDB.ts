@@ -664,7 +664,7 @@ export const updateOfflineInterview = async (
 // Update interview result
 export const updateOfflineInterviewResult = async (
   id: number,
-  result: string
+  result: 'response' | 'non-response' | 'cancel'
 ): Promise<void> => {
   try {
     await offlineDB.interviews.update(id, { result });

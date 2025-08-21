@@ -18,7 +18,7 @@ export const useInterviewResult = (
 ) => {
   const { toast } = useToast();
 
-  const setInterviewResult = useCallback(async (result: 'response' | 'non-response') => {
+  const setInterviewResult = useCallback(async (result: 'response' | 'non-response' | 'cancel') => {
     if (!activeInterview) return;
     
     try {
@@ -37,7 +37,7 @@ export const useInterviewResult = (
         
         toast({
           title: "Interview Completed",
-          description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}. ${!isOnline() ? 'Will sync when online.' : ''}`,
+          description: `Result: ${result === 'response' ? 'Response' : result === 'non-response' ? 'Non-response' : 'Cancelled'}. ${!isOnline() ? 'Will sync when online.' : ''}`,
         });
         
         setIsInterviewLoading(false);
@@ -64,7 +64,7 @@ export const useInterviewResult = (
       
       toast({
         title: "Interview Completed",
-        description: `Result: ${result === 'response' ? 'Response' : 'Non-response'}`,
+        description: `Result: ${result === 'response' ? 'Response' : result === 'non-response' ? 'Non-response' : 'Cancelled'}`,
       });
     } catch (error) {
       console.error("Error setting interview result:", error);

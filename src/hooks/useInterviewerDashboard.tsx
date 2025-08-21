@@ -253,7 +253,10 @@ export const useInterviewerDashboard = () => {
                   .in('session_id', sessionIds);
                   
                 if (interviewsError) throw interviewsError;
-                setCompareInterviews(interviewsData || []);
+                setCompareInterviews(interviewsData?.map(interview => ({
+                  ...interview,
+                  result: interview.result as 'response' | 'non-response' | 'cancel' | undefined,
+                })) || []);
               }
               
               return;
@@ -308,7 +311,10 @@ export const useInterviewerDashboard = () => {
               .in('session_id', sessionIds);
               
             if (interviewsError) throw interviewsError;
-            setCompareInterviews(interviewsData || []);
+            setCompareInterviews(interviewsData?.map(interview => ({
+              ...interview,
+              result: interview.result as 'response' | 'non-response' | 'cancel' | undefined,
+            })) || []);
           }
         } else {
           console.log("Primary interviewer not loaded yet, deferring comparison");
@@ -341,7 +347,10 @@ export const useInterviewerDashboard = () => {
           .in('session_id', sessionIds as string[]);
           
         if (error) throw error;
-        setInterviews(interviewsData || []);
+        setInterviews(interviewsData?.map(interview => ({
+          ...interview,
+          result: interview.result as 'response' | 'non-response' | 'cancel' | undefined,
+        })) || []);
       } catch (error) {
         console.error("Error fetching interviews:", error);
         setInterviews([]);

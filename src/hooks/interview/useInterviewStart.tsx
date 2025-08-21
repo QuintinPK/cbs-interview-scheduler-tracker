@@ -151,7 +151,8 @@ export const useInterviewStart = (
       // With the DB update, candidate_name should now be present in the data
       const interview: Interview = {
         ...data,
-        candidate_name: data.candidate_name
+        candidate_name: data.candidate_name,
+        result: data.result as 'response' | 'non-response' | 'cancel' | undefined,
       };
       
       setActiveInterview(interview);
