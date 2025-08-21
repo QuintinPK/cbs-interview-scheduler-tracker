@@ -160,7 +160,7 @@ const Index = () => {
   return <MainLayout>
       <div className="flex flex-col items-center justify-center min-h-[80vh] max-w-md mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Portal v1</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-cbs mb-2">CBS Interviewer Portal v2</h1>
           <p className="text-muted-foreground">Track your working hours</p>
           
           {!isOnline() && <div className="mt-2 inline-flex items-center px-3 py-1 bg-amber-100 text-amber-800 text-sm rounded-full">
